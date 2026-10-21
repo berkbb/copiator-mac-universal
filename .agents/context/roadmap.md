@@ -23,6 +23,9 @@
 7. ⬜ **[Low] Bandwidth limit** (`--bwlimit`) and low-priority I/O option.
 8. ⬜ **[Low] Snapshot-style backups** (`--link-dest`) with retention rules.
 
+9a. ⬜ **[Medium] Full rsync capability (decision pending, deferred by the user on 2026-10-21):** choose between localized, tested options for the common flags, a validated per-job "extra rsync arguments" field, or both.
+9b. ⬜ **[Low] "Move" mode (`--remove-source-files`) — decision pending, deferred by the user on 2026-10-21.** It conflicts with the "source is never modified" invariant (`AGENTS.md` §1.1) and needs an explicit user decision before any work.
+
 ### Verification & Distribution
 
 9. 🟡 **[High] Real-app stress round:** `Scripts/stress-test.sh` is written; its accessibility-driven app round has not run yet because the development session lacked the Accessibility permission. Run it from Terminal before 1.0 is published.

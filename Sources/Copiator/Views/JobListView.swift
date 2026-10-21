@@ -20,9 +20,21 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) {
-            EngineStatusView()
-                .font(.caption)
-                .padding(10)
+            // "rsync hazır" yalnızca karşılama ekranında görünür; kenar çubuğu yalnızca bir sorun (bulunamadı, yanıt
+            // vermiyor, kısıtlı kip) olduğunda ve karşılama ekranı görünmüyorken uyarır.
+            if !model.jobs.isEmpty, needsAttention {
+                EngineStatusView()
+                    .font(.caption)
+                    .padding(10)
+            }
+        }
+    }
+
+    private var needsAttention: Bool {
+        switch model.engineStatus {
+        case .ready(_, let limited): limited
+        case .checking: false
+        case .missing, .blocked: true
         }
     }
 }
