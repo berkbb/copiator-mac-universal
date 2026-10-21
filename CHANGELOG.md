@@ -11,7 +11,19 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 - The New Job sheet and the inspector show the exact `rsync …` command (shell-quoted, copyable).
 - Job rows show the file being copied, per-file progress and a counter while the file list is built; statistics and change lines go to the job log.
 - A job stopped by `--stop-at`/`--stop-after` is paused (resumable) and announced instead of failing.
+- **Automatic snapshots** (per job): each run writes a dated folder (`yyyy-MM-dd-HHmmss`) in the destination, hard-links unchanged files to the previous snapshot (`--link-dest`), keeps an interrupted run as `….partial` and resumes it, points `Latest` at the newest snapshot, and applies optional retention rules (keep the last N, one per day, week or month) after a fully successful run only. Retention is confirmed when it is set; only folders whose names match the snapshot format exactly are ever removed.
+- **Start when the destination disk is connected** (per job): the job waits while the disk is missing and runs (again) when it is mounted. A disk that is ejected or unplugged pauses the job using it; mounting it resumes the job.
+- **Verify after copying** (off, quick or checksum; default in Settings › Copying): differences or an incomplete verification end the job as "not verified" and the differences are logged.
+- **Preview** in the New Job sheet: a dry run listing what will be copied, updated and deleted, with deletions highlighted.
+- **Edit and duplicate** existing jobs (Job menu and context menu); **run history** with result, duration, bytes, files and snapshot per run (last 100 runs).
+- **Ready-made exclude lists:** developer, version control, caches and macOS helper files, in Settings › rsync and per job.
+- **Menu bar icon** (progress, pause/resume all, open, quit; Copiator keeps running without a window while it is shown) and **Dock progress** with a badge for pending jobs; both can be turned off in Settings › General.
+- **Shortcuts and Siri:** "Run Copy Job" (choose a job), "Pause All Jobs", "Resume All Jobs", with phrases in Turkish, English and Romanian. `Scripts/build_app.sh` generates the App Intents metadata with `appintentsmetadataprocessor`.
 - **Sleep and power:** the sleep assertion (`caffeinate -i` equivalent) is verified in the system's assertion list; the app tells you when it is taken and released (start, finish, pause, cancel, quit) and shows a banner while a job runs. New option "Keep the display awake during a job" (`caffeinate -d` equivalent). Power advice for battery, low battery, Low Power Mode, the lid and the display, re-checked every minute during a job.
+
+### Fixed
+
+- **No orphaned rsync after a crash:** child processes are recorded; on a crash or termination signal Copiator stops them before exiting, and an rsync left running by a killed session (matched by process ID, exact start time and a dead parent) is stopped at the next launch and noted in the interrupted job's log.
 
 ### Security
 

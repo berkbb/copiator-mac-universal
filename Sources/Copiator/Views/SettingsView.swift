@@ -57,6 +57,7 @@ private struct RsyncSettingsView: View {
 
 private struct GeneralSettingsView: View {
     @Environment(AppSettings.self) private var settings
+    @Environment(AppModel.self) private var model
     @State private var showRestartAlert = false
 
     var body: some View {
@@ -96,6 +97,18 @@ private struct GeneralSettingsView: View {
                 }
             }
 
+            Section(settings.t(.settingsInterfaceSection)) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(settings.t(.settingsMenuBarIcon), isOn: $settings.showMenuBarIcon)
+                    Text(settings.t(.settingsMenuBarIconNote))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Toggle(settings.t(.settingsDockProgress), isOn: $settings.showDockProgress)
+                    .onChange(of: settings.showDockProgress) { model.onActivityChange?() }
+            }
+
             Section(settings.t(.settingsPowerSection)) {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(settings.t(.settingsKeepDisplayAwake), isOn: $settings.keepDisplayAwake)
@@ -129,6 +142,7 @@ private struct CopyingSettingsView: View {
                 note(.optionPreservePermissions, .optionPreservePermissionsNote, $settings.defaultPreservePermissions)
                 note(.optionXattrs, .optionXattrsNote, $settings.defaultPreserveXattrs)
                 note(.optionExcludeSystem, .optionExcludeSystemNote, $settings.defaultExcludeSystemFolders)
+                VerifyAfterCopyPicker(selection: $settings.defaultVerifyAfterCopy)
             } header: {
                 Text(settings.t(.settingsDefaultsSection))
             } footer: {
@@ -373,6 +387,16 @@ private struct ShortcutsSettingsView: View {
                     settings.resetAllShortcuts()
                 }
                 .disabled(settings.isAllShortcutsDefault)
+            }
+
+            // macOS Kestirmeler uygulaması ve Siri: işler "Kopyalama İşini Çalıştır" eylemiyle başlatılabilir.
+            Section {
+                Text(settings.t(.settingsShortcutsAppNote))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                Text(settings.t(.settingsShortcutsAppSection))
             }
         }
         .formStyle(.grouped)

@@ -18,8 +18,30 @@ public struct RsyncEngine: TransferEngine {
         // Sürdürülen bir işin geçmişte kalmış "şu saatte dur" sınırı yok sayılır (rsync geçmiş bir zamanı reddeder).
         var job = job
         if let stopAt = job.options.advanced.stopAt, stopAt <= Date() { job.options.advanced.stopAt = nil }
-        let problems = job.options.advanced.problems(source: job.source)
+        let problems = job.options.problems(source: job.source)
         guard problems.isEmpty else { return JobResult(kind: .failed, detail: "\(problems)") }
+
+        // Anlık görüntü: hedef kökte tarihli bir "….partial" klasörü (yarım kalan varsa o sürdürülür), önceki anlık
+        // görüntü `--link-dest` olur. Klasör ancak başarıyla bitince tarihli adına taşınır.
+        let snapshotRoot = job.destination
+        var preparation: SnapshotStore.Preparation?
+        if job.options.snapshots.enabled {
+            do {
+                let prepared = try SnapshotStore.prepare(in: snapshotRoot)
+                preparation = prepared
+                job = SnapshotStore.apply(prepared, to: job)
+                let name = prepared.partial.lastPathComponent
+                if prepared.resumed {
+                    onEvent(.log(JobLogEntry(level: .info, key: .logSnapshotResumed, arguments: [name])))
+                } else if let previous = prepared.previous {
+                    onEvent(.log(JobLogEntry(level: .info, key: .logSnapshotStarted, arguments: [name, previous.lastPathComponent])))
+                } else {
+                    onEvent(.log(JobLogEntry(level: .info, key: .logSnapshotFirst, arguments: [name])))
+                }
+            } catch {
+                return JobResult(kind: .failed, detail: error.localizedDescription)
+            }
+        }
         // Liste dosyaları (--files-from vb.) kum havuzunda özel bir kopyadan okunur: rsync bu dosyaları yol bileşenlerini
         // tek tek açarak okur; kişisel bir klasördeki listeye (ör. ~/.ssh) yalnızca dosyanın kendisine izin vermek
         // yetmez, klasörü açmak da kişisel klasörün içeriğini listeletirdi. Kopyalar iş bitince silinir.
@@ -35,10 +57,17 @@ public struct RsyncEngine: TransferEngine {
         let sourceIsDirectory = Self.isDirectory(job.source)
         let fileSystem = FileSystemKind.of(job.destination)
 
-        // Ön denetim: kaynağın boyutu, hedefte zaten bulunan kopya kadar azaltılarak boş alanla karşılaştırılır.
+        // Ön denetim: kaynağın boyutu, hedefte zaten bulunan kopya kadar azaltılarak boş alanla karşılaştırılır. Anlık
+        // görüntüde değişmeyen dosyalar önceki anlık görüntüyle paylaşıldığı için o da "zaten var" sayılır.
         let sourceBytes = DiskSpace.totalSize(of: [job.source], isCancelled: { Task.isCancelled })
-        let existing = DiskSpace.totalSize(of: Self.existingCounterparts(of: job, sourceIsDirectory: sourceIsDirectory),
+        var existing = DiskSpace.totalSize(of: Self.existingCounterparts(of: job, sourceIsDirectory: sourceIsDirectory),
                                            isCancelled: { Task.isCancelled })
+        if let previous = preparation?.previous {
+            var previousJob = job
+            previousJob.destination = previous
+            existing = max(existing, DiskSpace.totalSize(of: Self.existingCounterparts(of: previousJob, sourceIsDirectory: sourceIsDirectory),
+                                                         isCancelled: { Task.isCancelled }))
+        }
         if Task.isCancelled { return JobResult(kind: .cancelled) }
         let required = DiskSpace.requiredForCopy(sourceBytes: sourceBytes, existingDestinationBytes: existing)
         do {
@@ -110,7 +139,7 @@ public struct RsyncEngine: TransferEngine {
         }
         if Task.isCancelled { return JobResult(kind: .cancelled, exitCode: processResult.exitCode) }
 
-        let result = RsyncOutcome.classify(exitCode: processResult.exitCode, stderr: processResult.stderr, destinationFileSystem: fileSystem)
+        var result = RsyncOutcome.classify(exitCode: processResult.exitCode, stderr: processResult.stderr, destinationFileSystem: fileSystem)
         for line in RsyncOutcome.errorLines(in: processResult.stderr, destinationFileSystem: fileSystem) {
             onEvent(.log(JobLogEntry(level: result.kind.isSuccess ? .warning : .error, raw: line)))
         }
@@ -125,10 +154,125 @@ public struct RsyncEngine: TransferEngine {
             let marked = Quarantine.propagate(from: job.source, to: target, since: started, isCancelled: { Task.isCancelled })
             if marked > 0 { onEvent(.log(JobLogEntry(level: .info, key: .logQuarantineApplied, arguments: [String(marked)]))) }
         }
+
+        // Kopyalama sonrası doğrulama: hedef kaynakla yeniden karşılaştırılır (yalnızca toplu iş dosyası yazıldıysa hedef
+        // değişmediği için yapılmaz).
+        if result.kind.isSuccess, job.options.verifyAfterCopy != .off, advanced.batchMode != .onlyWrite, !Task.isCancelled {
+            onEvent(.phase(.verifying))
+            result = await verifyAfterCopy(job, context: context, copyResult: result, onEvent: onEvent)
+            if result.kind == .cancelled { return result }
+        }
+
+        if let preparation { finishSnapshot(preparation, root: snapshotRoot, options: job.options, result: &result, onEvent: onEvent) }
         return result
     }
 
+    /// Kopyalanan hedefi kaynakla karşılaştırır. Eksik ya da değişmiş öğeler (ve `--delete` seçiliyse hedefteki fazlalar)
+    /// fark sayılır; yalnızca öznitelik farkları ve `--delete` seçili değilken hedefte kalan eski dosyalar sayılmaz.
+    func verifyAfterCopy(
+        _ job: TransferJob, context: EngineContext, copyResult: JobResult, onEvent: @escaping @Sendable (TransferEvent) -> Void
+    ) async -> JobResult {
+        let checksum = job.options.verifyAfterCopy == .checksum
+        onEvent(.log(JobLogEntry(level: .info, key: checksum ? .logVerifyAfterCopyChecksum : .logVerifyAfterCopyQuick)))
+        // Anlık görüntü kendi başına tam bir kopyadır: önceki anlık görüntüyle değil, yalnızca kaynakla karşılaştırılır.
+        var target = job
+        if job.options.snapshots.enabled {
+            target.options.snapshots.enabled = false
+            target.options.advanced.referenceMode = .none
+            target.options.advanced.referenceDirectory = nil
+        }
+        let report = await compare(target, context: context, checksum: checksum)
+        if report.result.kind == .cancelled { return JobResult(kind: .cancelled) }
+        var result = copyResult
+        guard report.result.kind.isSuccess else {
+            onEvent(.log(JobLogEntry(level: .error, key: .logVerifyAfterCopyIncomplete)))
+            if !report.result.detail.isEmpty { onEvent(.log(JobLogEntry(level: .error, raw: report.result.detail))) }
+            result.kind = .verificationFailed
+            result.differenceCount = nil
+            return result
+        }
+        let differences = report.entries.filter { entry in
+            switch entry.kind {
+            case .missing, .changed: true
+            case .extra: job.options.deleteExtraneous
+            case .attributes: false
+            }
+        }
+        result.differenceCount = differences.count
+        if differences.isEmpty {
+            onEvent(.log(JobLogEntry(level: .info, key: .logVerifyAfterCopyPassed)))
+        } else {
+            result.kind = .verificationFailed
+            onEvent(.log(JobLogEntry(level: .error, key: .logVerifyAfterCopyDifferences, arguments: [String(differences.count)])))
+            onEvent(.logBatch(differences.prefix(Self.maxLoggedDifferences).map { JobLogEntry(level: .error, raw: "\($0.code) \($0.path)") }))
+        }
+        return result
+    }
+
+    /// Doğrulamanın günlüğe yazdığı en çok fark satırı.
+    static let maxLoggedDifferences = 100
+
+    /// Anlık görüntüyü tamamlar: başarılı (ya da kısmen başarılı) çalıştırmada "….partial" tarihli adına taşınır,
+    /// "Latest" ona çevrilir; yalnızca tam başarıda saklama kuralları uygulanır (eksik bir anlık görüntüye güvenip eski
+    /// anlık görüntüler silinmez). Duraklatılan ya da hatalı çalıştırmada klasör sonraki çalıştırma için bekler.
+    func finishSnapshot(
+        _ preparation: SnapshotStore.Preparation, root: URL, options: CopyOptions, result: inout JobResult,
+        onEvent: @escaping @Sendable (TransferEvent) -> Void
+    ) {
+        guard result.kind.isSuccess || result.kind == .partial || result.kind == .verificationFailed else {
+            onEvent(.log(JobLogEntry(level: .info, key: .logSnapshotPartialKept, arguments: [preparation.partial.lastPathComponent])))
+            return
+        }
+        let final: URL
+        do {
+            final = try SnapshotStore.finalize(partial: preparation.partial, in: root)
+        } catch {
+            onEvent(.log(JobLogEntry(level: .warning, key: .logSnapshotFinalizeFailed, arguments: [error.localizedDescription])))
+            return
+        }
+        result.snapshot = final.lastPathComponent
+        onEvent(.log(JobLogEntry(level: .info, key: .logSnapshotCreated, arguments: [final.lastPathComponent])))
+        guard result.kind.isSuccess, options.snapshots.hasRetention else { return }
+        let pruned = SnapshotStore.prune(in: root, options: options.snapshots, protecting: final.lastPathComponent)
+        if !pruned.removed.isEmpty {
+            onEvent(.log(JobLogEntry(level: .info, key: .logSnapshotPruned,
+                                     arguments: [String(pruned.removed.count), pruned.removed.joined(separator: ", ")])))
+        }
+        if !pruned.failed.isEmpty {
+            onEvent(.log(JobLogEntry(level: .warning, key: .logSnapshotPruneFailed, arguments: [pruned.failed.joined(separator: ", ")])))
+        }
+    }
+
+    /// Anlık görüntü işinde kaynak en yeni anlık görüntüyle karşılaştırılır; henüz anlık görüntü yoksa boş bir klasörle
+    /// (her şey "eksik" görünür: ilk çalıştırma her şeyi kopyalar).
     public func verify(_ job: TransferJob, context: EngineContext, checksum: Bool) async -> VerifyReport {
+        guard job.options.snapshots.enabled else { return await compare(job, context: context, checksum: checksum) }
+        if let problem = JobValidation.check(source: job.source, destination: job.destination, copyMode: job.options.copyMode) {
+            return VerifyReport(entries: [], result: JobResult(kind: Self.resultKind(for: problem)), checksum: checksum)
+        }
+        var target = job
+        target.options.snapshots.enabled = false
+        target.options.advanced.referenceMode = .none
+        target.options.advanced.referenceDirectory = nil
+        var empty: URL?
+        defer { if let empty { try? FileManager.default.removeItem(at: empty) } }
+        if let latest = SnapshotStore.latest(in: job.destination) {
+            target.destination = latest
+        } else {
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Copiator-empty-\(UUID().uuidString)", isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            } catch {
+                return VerifyReport(entries: [], result: JobResult(kind: .failed, detail: error.localizedDescription), checksum: checksum)
+            }
+            empty = folder
+            target.destination = SandboxProfile.resolved(folder)
+        }
+        return await compare(target, context: context, checksum: checksum)
+    }
+
+    /// İşi kuru çalıştırıp (`-n -i`) hedefle kaynak arasındaki farkları listeler; hiçbir yere yazmaz.
+    func compare(_ job: TransferJob, context: EngineContext, checksum: Bool) async -> VerifyReport {
         func report(_ kind: JobResultKind) -> VerifyReport { VerifyReport(entries: [], result: JobResult(kind: kind), checksum: checksum) }
         if let problem = JobValidation.check(source: job.source, destination: job.destination, copyMode: job.options.copyMode) {
             return report(Self.resultKind(for: problem))

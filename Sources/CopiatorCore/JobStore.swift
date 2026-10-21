@@ -54,9 +54,15 @@ public struct JobStore: Sendable {
 
 /// Kuyruğun saf kuralları (arayüz ve süreçten bağımsız, test edilebilir). İşler sırayla, birer birer çalışır.
 public enum JobQueue {
-    /// Sıradaki çalıştırılacak iş: listede ilk "bekliyor" durumundaki.
-    public static func next(in jobs: [TransferJob]) -> TransferJob.ID? {
-        jobs.first { $0.status == .waiting }?.id
+    /// Sıradaki çalıştırılacak iş: listede ilk "bekliyor" durumundaki. Diski takılı olmadığı için bekleyen iş
+    /// (`isWaitingForDisk`) atlanır; sıradaki iş başlar.
+    public static func next(in jobs: [TransferJob], pathsAvailable: (TransferJob) -> Bool = { $0.pathsAvailable }) -> TransferJob.ID? {
+        jobs.first { $0.status == .waiting && !isWaitingForDisk($0, pathsAvailable: pathsAvailable) }?.id
+    }
+
+    /// "Disk takılınca başla" seçili iş, kaynağının ya da hedefinin diski takılı değilken hata vermez, bekler.
+    public static func isWaitingForDisk(_ job: TransferJob, pathsAvailable: (TransferJob) -> Bool = { $0.pathsAvailable }) -> Bool {
+        job.status == .waiting && job.options.runWhenConnected && !pathsAvailable(job)
     }
 
     /// Uygulama açılırken: kapanış ya da çökme sırasında çalışan iş duraklatılmış ve "kesildi" olarak işaretlenir;
@@ -78,11 +84,14 @@ public enum JobQueue {
     public static func canRunAgain(_ job: TransferJob) -> Bool { job.status == .finished }
     public static func canRemove(_ job: TransferJob) -> Bool { !job.status.isActive }
     public static func canVerify(_ job: TransferJob) -> Bool { !job.status.isActive }
+    /// Çalışmayan bir işin kaynağı, hedefi ve seçenekleri değiştirilebilir (geçmişi ve günlüğü korunur).
+    public static func canEdit(_ job: TransferJob) -> Bool { !job.status.isActive }
 
     /// İşi sıraya alır (sürdürme, yeniden çalıştırma).
     public static func requeue(_ job: inout TransferJob) {
         job.status = .waiting
         job.result = nil
+        job.suspendedForDisk = false
     }
 
     /// Bir olayı işe uygular.
@@ -105,6 +114,10 @@ public enum JobQueue {
     /// Çalıştırma bitince işin son durumu. Kullanıcının iptali ve süre sınırı (`--stop-at`/`--stop-after`) işi
     /// "duraklatıldı" yapar: iş aynı komutla sürdürülebilir.
     public static func finish(_ job: inout TransferJob, with result: JobResult, at date: Date = Date()) {
+        job.appendRun(JobRun(
+            startedAt: job.startedAt ?? date, finishedAt: date, result: result,
+            bytesTransferred: job.progress?.bytesTransferred, filesTransferred: job.progress?.filesTransferred
+        ))
         job.result = result
         job.wasInterrupted = false
         switch result.kind {

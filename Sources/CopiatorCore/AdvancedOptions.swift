@@ -72,6 +72,36 @@ public enum ProgressDetail: String, Codable, CaseIterable, Identifiable, Sendabl
     public var id: String { rawValue }
 }
 
+/// Hazır dışlama listeleri: yedekte yer kaplayan, yeniden üretilebilen klasörler ve dosyalar. Kalıplar rsync'e
+/// `--exclude` olarak verilir; "/" ile bitenler yalnızca klasörlerle, ötekiler hem dosya hem klasörle eşleşir.
+/// "/" içeren kalıplar (ör. "Library/Caches/") yolun sonuyla, ötekiler yalnızca adla karşılaştırılır.
+public enum ExcludePreset: String, Codable, CaseIterable, Identifiable, Sendable {
+    /// Paket ve derleme klasörleri (node_modules, DerivedData, .build, Pods, Python ve JavaScript önbellekleri…).
+    case developer
+    /// Sürüm denetimi klasörleri (.git, .svn, .hg): depo geçmişi yedeğe girmez.
+    case versionControl
+    /// Uygulama ve araç önbellekleri (~/Library/Caches, ~/.cache…).
+    case caches
+    /// macOS'un yardımcı dosyaları (.DS_Store, "._" dosyaları, Çöp Sepeti).
+    case macOSJunk
+
+    public var id: String { rawValue }
+
+    public var patterns: [String] {
+        switch self {
+        case .developer:
+            ["node_modules/", "DerivedData/", ".build/", "Pods/", ".gradle/", "__pycache__/", ".venv/", ".tox/",
+             ".mypy_cache/", ".pytest_cache/", ".next/", ".nuxt/", ".dart_tool/", ".parcel-cache/", ".turbo/"]
+        case .versionControl:
+            [".git", ".svn", ".hg"]
+        case .caches:
+            ["Library/Caches/", ".cache/", ".npm/_cacache/", "Library/Developer/CoreSimulator/Caches/"]
+        case .macOSJunk:
+            [".DS_Store", "._*", ".AppleDouble/", ".Trash/", ".apdisk"]
+        }
+    }
+}
+
 /// rsync'in kum havuzunda kullanılabilen, varsayılan kopyalamanın ötesindeki seçenekleri. Her alanın varsayılanı
 /// "rsync'in kendi davranışı"dır: varsayılan değerlerle hiçbir ek argüman üretilmez.
 ///
@@ -85,6 +115,8 @@ public struct AdvancedOptions: Codable, Equatable, Sendable {
     public var includePatterns: [String] = []
     /// `--exclude` kalıpları.
     public var excludePatterns: [String] = []
+    /// Hazır dışlama listeleri (bkz. `ExcludePreset`).
+    public var excludePresets: [ExcludePreset] = []
     /// `-F`: klasörlerdeki `.rsync-filter` dosyalarını kullan.
     public var useFilterFiles = false
     /// `--include-from`, `--exclude-from`, `--files-from` dosyaları (mutlak yollar).
@@ -169,7 +201,7 @@ public struct AdvancedOptions: Codable, Equatable, Sendable {
     // MARK: Kodlama (geriye ve ileriye uyumlu)
 
     private enum CodingKeys: String, CodingKey {
-        case filterRules, includePatterns, excludePatterns, useFilterFiles, includeFromFile, excludeFromFile, filesFromFile
+        case filterRules, includePatterns, excludePatterns, excludePresets, useFilterFiles, includeFromFile, excludeFromFile, filesFromFile
         case maxSizeBytes, minSizeBytes, ignoreExisting, existingOnly, updateOnly, pruneEmptyDirectories
         case hardLinks, creationTimes, accessTimes, numericIDs, oneFileSystem, chmod
         case symlinks, sparse, inplace, wholeFile, appendMode
@@ -187,6 +219,9 @@ public struct AdvancedOptions: Codable, Equatable, Sendable {
         filterRules = value(.filterRules, d.filterRules)
         includePatterns = value(.includePatterns, d.includePatterns)
         excludePatterns = value(.excludePatterns, d.excludePatterns)
+        // Daha yeni bir sürümün eklediği bilinmeyen liste öteki listeleri silmez; yalnızca o atlanır.
+        excludePresets = ((try? c.decodeIfPresent([String].self, forKey: .excludePresets)) ?? nil)?
+            .compactMap(ExcludePreset.init(rawValue:)) ?? d.excludePresets
         useFilterFiles = value(.useFilterFiles, d.useFilterFiles)
         includeFromFile = optional(.includeFromFile)
         excludeFromFile = optional(.excludeFromFile)
@@ -250,6 +285,8 @@ public struct AdvancedOptions: Codable, Equatable, Sendable {
         case missingReferenceDirectory
         case missingBatchFile
         case stopAtInPast
+        /// Anlık görüntü saklama sayısı 1'den küçük.
+        case invalidRetention
     }
 
     /// - Parameters:

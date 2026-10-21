@@ -126,6 +126,11 @@ Without that permission rsync silently copies instead of linking, and the snapsh
 sandbox operation covers it (tested with each individual write operation). `--compare-dest` and `--copy-dest` only read
 the previous backup and get no write access.
 
+**Automatic snapshots** (New Job › Snapshots) use the same mechanism without an extra permission: the snapshot root is the
+job's destination, so the previous snapshot is already writable. Copiator creates the dated `….partial` folder itself,
+passes `--link-dest` to the newest complete snapshot and renames the folder when the run succeeds; retention (pruning old
+snapshots) is done by the app, not by rsync.
+
 ## 3. Not offered
 
 | Option | Why |

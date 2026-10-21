@@ -30,6 +30,9 @@
 10. **Cryptographic Release Verification:** every release `.dmg` carries an Ed25519 signature (`.dmg.sig`, key in the login keychain as `com.babadogantech.copiator.update-signing`, public key `CopiatorUpdatePublicEDKey`) and `SHA256SUMS.txt`.
 11. **OWASP Agentic Security (ASI) & Subprocess Shielding:** see `rules/owasp_agentic_security.md`; untrusted inputs are file names, rsync output and downloaded releases.
 12. **Verified Sleep Prevention:** a running job holds a `SleepGuard` assertion (`caffeinate -i`, optional `-d`) that is verified in the system's assertion list and released on finish, pause, failure and quit; each transition is logged and announced. Never claim sleep is prevented without verification.
+13. **Snapshot Pruning Safety:** only `SnapshotStore.prune` deletes data, and only real directories directly inside the snapshot root whose names parse exactly as `yyyy-MM-dd-HHmmss`. It never removes the snapshot just created, partial snapshots, symlinks or any other item, runs only after a fully successful run with at least one retention rule, and retention must be confirmed in the UI when it is set or changed.
+14. **No Orphaned Engine:** every child process goes through `CommandRunner`, which registers it with `ChildProcessGuard`. The crash handler may only call async-signal-safe functions (`kill`, `raise`). Orphan reaping at launch kills a process only if its PID, exact start time and launchd parent all match the record.
+15. **User-Rejected Scope:** scheduled (time-based) jobs and remote (SSH) jobs are rejected (`context/user_rejected_spec.md`); jobs start manually, from the Finder service, from Shortcuts or when the destination disk is connected.
 
 ---
 
@@ -38,7 +41,7 @@
 | Tier | Category | Scope in Copiator | Storage / Artifact |
 | :--- | :--- | :--- | :--- |
 | **L0** | **Conversation / Execution Logs** | Raw turns, `swift test` output, rsync traces | Session transcripts & temporary build outputs |
-| **L1** | **Atom (Atomic Parameters)** | `DiskSpace.reserve = 1 GiB` (≤ 2 % of volume), `DiskSpaceGuard.floor = 512 MiB`, `killGracePeriod = 2 s`, `drainGracePeriod = 2 s`, `progressInterval = 0.25 s`, `maxLogEntries = 500`, `maxOutputBytes = 512 MiB` | `DiskSpace.swift`, `CommandRunner.swift`, `RsyncEngine.swift`, `Job.swift` |
+| **L1** | **Atom (Atomic Parameters)** | `DiskSpace.reserve = 1 GiB` (≤ 2 % of volume), `DiskSpaceGuard.floor = 512 MiB`, `killGracePeriod = 2 s`, `drainGracePeriod = 2 s`, `progressInterval = 0.25 s`, `maxLogEntries = 500`, `maxHistoryEntries = 100`, `maxLoggedDifferences = 100`, `maxOutputBytes = 512 MiB`, unplug grace for recently failed jobs = 30 s | `DiskSpace.swift`, `CommandRunner.swift`, `RsyncEngine.swift`, `Job.swift` |
 | **L2** | **Scenario (Engine & Runtime States)** | `AppModel` (`EngineStatus`, `JobStatus`, `runningJobID`, `OperationState`, `UpdateState`), `AppSettings` (`UserDefaults`), `jobs.json` | `context/symbolic_memory_graph.md`, `context/domain_wiki.md` |
 | **L3** | **Persona (Governance & Invariants)** | Constitution, security redlines, SDD gates, localization rules | `AGENTS.md`, `rules/`, `context/user_rejected_spec.md` |
 

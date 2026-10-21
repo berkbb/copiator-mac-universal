@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import Foundation
 
-/// İşi yürüten motorun türü. 1.0'da yalnızca yerel rsync vardır; uzak (SSH) rsync ya da başka bir motor (aria2) yeni bir
-/// tür olarak eklenir ve `TransferEngine` protokolünü uygular. Kayıtlı işler türlerini taşır.
+/// İşi yürüten motorun türü. Yalnızca yerel rsync vardır; başka bir motor (ör. aria2) yeni bir tür olarak eklenir ve
+/// `TransferEngine` protokolünü uygular. Kayıtlı işler türlerini taşır.
 public enum JobKind: String, Codable, CaseIterable, Sendable {
     case rsync
 }
@@ -13,6 +13,17 @@ public enum CopyMode: String, Codable, CaseIterable, Identifiable, Sendable {
     case folder
     /// "Kaynak/" → hedef/… (klasörün içindekiler doğrudan hedefe).
     case contents
+
+    public var id: String { rawValue }
+}
+
+/// Kopyalama bitince hedefin kaynakla yeniden karşılaştırılması.
+public enum VerifyAfterCopy: String, Codable, CaseIterable, Identifiable, Sendable {
+    case off
+    /// Boyut ve değişiklik zamanı (`-n`).
+    case quick
+    /// İçerik sağlama toplamıyla (`-n -c`); yavaş ama kesin.
+    case checksum
 
     public var id: String { rawValue }
 }
@@ -28,12 +39,19 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     public var deleteExtraneous: Bool
     /// .Spotlight-V100, .Trashes, .fseventsd gibi macOS sistem klasörlerini dışarıda bırak.
     public var excludeSystemFolders: Bool
-    /// rsync'in kum havuzunda kullanılabilen öteki seçenekleri (süzgeçler, anlık görüntüler, ilerleme ayrıntısı…).
+    /// rsync'in kum havuzunda kullanılabilen öteki seçenekleri (süzgeçler, önceki yedek, ilerleme ayrıntısı…).
     public var advanced: AdvancedOptions
+    /// Otomatik anlık görüntüler: her çalıştırma hedefte tarihli yeni bir klasöre yazar (bkz. `SnapshotStore`).
+    public var snapshots: SnapshotOptions
+    /// Kopyalama bitince hedef kaynakla karşılaştırılır; fark varsa iş "doğrulanamadı" olarak biter.
+    public var verifyAfterCopy: VerifyAfterCopy
+    /// Hedef disk takılınca iş kendiliğinden başlar; disk takılı değilken bekler (hata vermez).
+    public var runWhenConnected: Bool
 
     public init(
         copyMode: CopyMode = .folder, preservePermissions: Bool = false, preserveExtendedAttributes: Bool = true,
-        deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions()
+        deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions(),
+        snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -41,10 +59,14 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.deleteExtraneous = deleteExtraneous
         self.excludeSystemFolders = excludeSystemFolders
         self.advanced = advanced
+        self.snapshots = snapshots
+        self.verifyAfterCopy = verifyAfterCopy
+        self.runWhenConnected = runWhenConnected
     }
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
+        case snapshots, verifyAfterCopy, runWhenConnected
     }
 
     public init(from decoder: Decoder) throws {
@@ -57,14 +79,30 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         deleteExtraneous = (try? container.decodeIfPresent(Bool.self, forKey: .deleteExtraneous)) ?? defaults.deleteExtraneous
         excludeSystemFolders = (try? container.decodeIfPresent(Bool.self, forKey: .excludeSystemFolders)) ?? defaults.excludeSystemFolders
         advanced = (try? container.decodeIfPresent(AdvancedOptions.self, forKey: .advanced)) ?? defaults.advanced
+        snapshots = (try? container.decodeIfPresent(SnapshotOptions.self, forKey: .snapshots)) ?? defaults.snapshots
+        verifyAfterCopy = (try? container.decodeIfPresent(VerifyAfterCopy.self, forKey: .verifyAfterCopy)) ?? defaults.verifyAfterCopy
+        runWhenConnected = (try? container.decodeIfPresent(Bool.self, forKey: .runWhenConnected)) ?? defaults.runWhenConnected
+    }
+
+    /// Seçeneklerdeki sorunlar (gelişmiş seçenekler ve saklama kuralları). Anlık görüntü kipinde "önceki yedek"
+    /// ayarı kullanılmadığı için denetlenmez.
+    public func problems(source: URL?, now: Date = Date()) -> [AdvancedOptions.Problem] {
+        var advanced = advanced
+        if snapshots.enabled {
+            advanced.referenceMode = .none
+            advanced.referenceDirectory = nil
+        }
+        var problems = advanced.problems(source: source, now: now)
+        if snapshots.enabled, !snapshots.isValid { problems.append(.invalidRetention) }
+        return problems
     }
 }
 
-/// İş durumu (Transmission'daki gibi). `scanning` ve `copying` yalnızca çalışan iştedir.
+/// İş durumu (Transmission'daki gibi). `scanning`, `copying` ve `verifying` yalnızca çalışan iştedir.
 public enum JobStatus: String, Codable, CaseIterable, Sendable {
-    case waiting, scanning, copying, paused, finished, failed
+    case waiting, scanning, copying, verifying, paused, finished, failed
 
-    public var isActive: Bool { self == .scanning || self == .copying }
+    public var isActive: Bool { self == .scanning || self == .copying || self == .verifying }
 }
 
 /// Bir çalıştırmanın sonucu (motordan bağımsız sınıflar; rsync çıkış kodları `RsyncOutcome` ile buraya çevrilir).
@@ -95,6 +133,8 @@ public enum JobResultKind: String, Codable, Sendable, CaseIterable {
     case unsupported
     /// Dosya G/Ç ya da veri akışı hatası (rsync 11, 12, 30…).
     case ioError
+    /// Kopyalandı, ama kopyalama sonrası doğrulama hedefte farklar buldu ya da tamamlanamadı.
+    case verificationFailed
     case failed
 
     /// İş "bitti" sayılır mı (yoksa "hatalı")?
@@ -111,10 +151,14 @@ public struct JobResult: Codable, Equatable, Sendable {
     /// Yer yetmediğinde gereken ve boş bayt (`destinationFull`); yazma sürerken durdurulduysa `requiredBytes` nil'dir.
     public var requiredBytes: Int64?
     public var availableBytes: Int64?
+    /// Bu çalıştırmanın tamamladığı anlık görüntünün adı ("2026-10-21-143005").
+    public var snapshot: String?
+    /// Kopyalama sonrası doğrulamanın bulduğu fark sayısı (doğrulama yapılmadıysa nil).
+    public var differenceCount: Int?
 
     public init(
         kind: JobResultKind, exitCode: Int32? = nil, noteCount: Int = 0, detail: String = "",
-        requiredBytes: Int64? = nil, availableBytes: Int64? = nil
+        requiredBytes: Int64? = nil, availableBytes: Int64? = nil, snapshot: String? = nil, differenceCount: Int? = nil
     ) {
         self.kind = kind
         self.exitCode = exitCode
@@ -122,9 +166,13 @@ public struct JobResult: Codable, Equatable, Sendable {
         self.detail = detail
         self.requiredBytes = requiredBytes
         self.availableBytes = availableBytes
+        self.snapshot = snapshot
+        self.differenceCount = differenceCount
     }
 
-    private enum CodingKeys: String, CodingKey { case kind, exitCode, noteCount, detail, requiredBytes, availableBytes }
+    private enum CodingKeys: String, CodingKey {
+        case kind, exitCode, noteCount, detail, requiredBytes, availableBytes, snapshot, differenceCount
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -134,6 +182,44 @@ public struct JobResult: Codable, Equatable, Sendable {
         detail = (try? container.decodeIfPresent(String.self, forKey: .detail)) ?? ""
         requiredBytes = try? container.decodeIfPresent(Int64.self, forKey: .requiredBytes)
         availableBytes = try? container.decodeIfPresent(Int64.self, forKey: .availableBytes)
+        snapshot = (try? container.decodeIfPresent(String.self, forKey: .snapshot)) ?? nil
+        differenceCount = (try? container.decodeIfPresent(Int.self, forKey: .differenceCount)) ?? nil
+    }
+}
+
+/// Bir çalıştırmanın geçmiş kaydı (başlangıç, bitiş, sonuç, aktarılan bayt ve dosya).
+public struct JobRun: Codable, Equatable, Identifiable, Sendable {
+    public var id: UUID
+    public var startedAt: Date
+    public var finishedAt: Date
+    public var result: JobResult
+    public var bytesTransferred: Int64?
+    public var filesTransferred: Int?
+
+    public init(
+        id: UUID = UUID(), startedAt: Date, finishedAt: Date, result: JobResult, bytesTransferred: Int64? = nil,
+        filesTransferred: Int? = nil
+    ) {
+        self.id = id
+        self.startedAt = startedAt
+        self.finishedAt = finishedAt
+        self.result = result
+        self.bytesTransferred = bytesTransferred
+        self.filesTransferred = filesTransferred
+    }
+
+    public var duration: TimeInterval { max(0, finishedAt.timeIntervalSince(startedAt)) }
+
+    private enum CodingKeys: String, CodingKey { case id, startedAt, finishedAt, result, bytesTransferred, filesTransferred }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? container.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID()
+        startedAt = try container.decode(Date.self, forKey: .startedAt)
+        finishedAt = (try? container.decodeIfPresent(Date.self, forKey: .finishedAt)) ?? startedAt
+        result = (try? container.decodeIfPresent(JobResult.self, forKey: .result)) ?? JobResult(kind: .failed)
+        bytesTransferred = (try? container.decodeIfPresent(Int64.self, forKey: .bytesTransferred)) ?? nil
+        filesTransferred = (try? container.decodeIfPresent(Int.self, forKey: .filesTransferred)) ?? nil
     }
 }
 
@@ -176,9 +262,15 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
     public var finishedAt: Date?
     /// Uygulama iş çalışırken kapandıysa (ya da çöktüyse) true: iş duraklatılmış olarak geri gelir.
     public var wasInterrupted: Bool
+    /// Kaynağın ya da hedefin diski çıkarıldığı için duraklatıldı: disk yeniden takılınca kendiliğinden sürer.
+    public var suspendedForDisk: Bool
+    /// Önceki çalıştırmalar, eskiden yeniye.
+    public var history: [JobRun]
 
     /// Günlükte tutulan en çok satır; uzun süreli işlerde kayıt dosyası şişmesin.
     public static let maxLogEntries = 500
+    /// Geçmişte tutulan en çok çalıştırma.
+    public static let maxHistoryEntries = 100
 
     public init(
         id: UUID = UUID(), kind: JobKind = .rsync, source: URL, destination: URL, options: CopyOptions = CopyOptions(),
@@ -197,10 +289,13 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         self.startedAt = nil
         self.finishedAt = nil
         self.wasInterrupted = false
+        self.suspendedForDisk = false
+        self.history = []
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, kind, source, destination, options, status, progress, result, log, createdAt, startedAt, finishedAt, wasInterrupted
+        case suspendedForDisk, history
     }
 
     public init(from decoder: Decoder) throws {
@@ -219,6 +314,8 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         startedAt = try? container.decodeIfPresent(Date.self, forKey: .startedAt)
         finishedAt = try? container.decodeIfPresent(Date.self, forKey: .finishedAt)
         wasInterrupted = (try? container.decodeIfPresent(Bool.self, forKey: .wasInterrupted)) ?? false
+        suspendedForDisk = (try? container.decodeIfPresent(Bool.self, forKey: .suspendedForDisk)) ?? false
+        history = (try? container.decodeIfPresent([JobRun].self, forKey: .history)) ?? []
     }
 
     /// Kaynağın hedefteki karşılığı: "klasörün kendisi" kipinde hedef/Ad, "içeriği" kipinde hedefin kendisi.
@@ -231,6 +328,34 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
     public mutating func appendLog(_ entry: JobLogEntry) {
         log.append(entry)
         if log.count > Self.maxLogEntries { log.removeFirst(log.count - Self.maxLogEntries) }
+    }
+
+    public mutating func appendRun(_ run: JobRun) {
+        history.append(run)
+        if history.count > Self.maxHistoryEntries { history.removeFirst(history.count - Self.maxHistoryEntries) }
+    }
+
+    /// Kaynak ve hedef şu an erişilebilir (diskleri takılı).
+    public var pathsAvailable: Bool {
+        var info = stat()
+        guard lstat(source.path, &info) == 0 else { return false }
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+
+    /// İşin kaynağı ya da hedefi bu birimde mi (`/Volumes/Yedek`)? Başlangıç birimi ("/") hiçbir işle eşleşmez:
+    /// takılıp çıkarılan diskler her zaman kendi bağlama noktalarındadır.
+    public func uses(volume: URL) -> Bool {
+        usesAsDestination(volume: volume) || Self.path(source, isOn: volume)
+    }
+
+    public func usesAsDestination(volume: URL) -> Bool { Self.path(destination, isOn: volume) }
+
+    static func path(_ url: URL, isOn volume: URL) -> Bool {
+        let base = RsyncCommand.absolutePath(volume)
+        guard base != "/" else { return false }
+        let path = RsyncCommand.absolutePath(url)
+        return path == base || path.hasPrefix(base + "/")
     }
 }
 

@@ -1,0 +1,6 @@
+/* Copiator Siri ve Kestirmeler ifadeleri — Türkçe. Anahtarlar Sources/Copiator/Intents.swift'teki ifadelerdir. */
+
+"Run ${job} in ${applicationName}" = "${applicationName} ile ${job} işini çalıştır";
+"Back up ${job} with ${applicationName}" = "${applicationName} ile ${job} yedekle";
+"Pause all jobs in ${applicationName}" = "${applicationName} işlerini duraklat";
+"Resume all jobs in ${applicationName}" = "${applicationName} işlerini sürdür";

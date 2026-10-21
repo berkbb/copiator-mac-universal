@@ -220,7 +220,8 @@ public enum RsyncCommand {
 
     /// Süzgeçler. rsync kuralları sırayla dener ve ilk eşleşen kazanır: kum havuzunun okutmadığı kişisel klasörler önce
     /// gelir (kullanıcının bir `--include` kuralı onları geri alamaz), ardından sistem klasörleri, sonra kullanıcının
-    /// `--filter`, `--include`, `--exclude` kuralları, `.rsync-filter` dosyaları ve liste dosyaları.
+    /// `--filter`, `--include`, `--exclude` kuralları, hazır dışlama listeleri (kullanıcının `--include` kuralı onlardan
+    /// önce gelir ve bir öğeyi geri alabilir), `.rsync-filter` dosyaları ve liste dosyaları.
     static func exclusions(_ job: TransferJob, _ environment: Environment) -> [String] {
         var patterns: [String] = []
         // Kum havuzunun okutmadığı kişisel klasörler: aktarım köküne bağlı ("/" ile başlayan) kalıplar.
@@ -233,6 +234,9 @@ public enum RsyncCommand {
         arguments += a.filterRules.map { "--filter=\($0)" }
         arguments += a.includePatterns.map { "--include=\($0)" }
         arguments += a.excludePatterns.map { "--exclude=\($0)" }
+        for preset in ExcludePreset.allCases where a.excludePresets.contains(preset) {
+            arguments += preset.patterns.map { "--exclude=\($0)" }
+        }
         if a.useFilterFiles { arguments.append("-F") }
         if let file = a.includeFromFile, !file.isEmpty { arguments.append("--include-from=\(file)") }
         if let file = a.excludeFromFile, !file.isEmpty { arguments.append("--exclude-from=\(file)") }

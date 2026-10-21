@@ -94,6 +94,7 @@ public struct CommandRunner: Sendable {
 
                 box.process.terminationHandler = { finished in
                     let exitCode = finished.terminationStatus
+                    ChildProcessGuard.unregister(finished.processIdentifier)
                     // Tüm çıktı okunduktan sonra sonucu teslim et. Süreç bittiği hâlde boruyu açık tutan bir torun süreç
                     // (ör. öldürülen bir kabuğun "sleep" çocuğu) EOF'u geciktirirse en çok `drainGracePeriod` beklenir;
                     // yoksa iptal, torun çıkana kadar asılı kalırdı.
@@ -110,6 +111,11 @@ public struct CommandRunner: Sendable {
                     continuation.resume(throwing: EngineError.engineNotFound)
                     return
                 }
+                // Uygulama çökerse ya da zorla kapatılırsa süreç yetim kalmasın (bkz. `ChildProcessGuard`). Süreç kayıttan
+                // önce bittiyse sonlanma işleyicisinin silmesi kaçmış olabilir: kayıt hemen geri alınır.
+                let pid = box.process.processIdentifier
+                ChildProcessGuard.register(pid, name: executableURL.lastPathComponent)
+                if !box.process.isRunning { ChildProcessGuard.unregister(pid) }
 
                 DispatchQueue.global().async {
                     box.drain(box.stdoutPipe) { state.appendStdout($0) }

@@ -1,0 +1,6 @@
+/* Copiator Siri and Shortcuts phrases — English. Keys match the phrases in Sources/Copiator/Intents.swift. */
+
+"Run ${job} in ${applicationName}" = "Run ${job} in ${applicationName}";
+"Back up ${job} with ${applicationName}" = "Back up ${job} with ${applicationName}";
+"Pause all jobs in ${applicationName}" = "Pause all jobs in ${applicationName}";
+"Resume all jobs in ${applicationName}" = "Resume all jobs in ${applicationName}";

@@ -37,6 +37,16 @@ for LPROJ in "$ROOT/Resources/"*.lproj; do
   done
 done
 grep -q "GNU GENERAL PUBLIC LICENSE" "$APP/Contents/Resources/Copiator-License.txt" 2>/dev/null || fail "Copiator lisansı GPL metni değil"
+# Kestirmeler (App Intents): eylemler ve Siri ifadeleri meta veride bulunmalı.
+ACTIONS="$APP/Contents/Resources/Metadata.appintents/extract.actionsdata"
+if [ -f "$ACTIONS" ]; then
+  for action in RunJobIntent PauseAllJobsIntent ResumeAllJobsIntent; do
+    grep -q "\"$action\"" "$ACTIONS" || fail "Kestirmeler meta verisinde eksik eylem: $action"
+  done
+  grep -q '"autoShortcuts"' "$ACTIONS" || fail "Kestirmeler meta verisinde Siri ifadeleri yok"
+else
+  fail "Eksik: Contents/Resources/Metadata.appintents"
+fi
 
 codesign --verify --deep --strict "$APP" 2>/dev/null || fail "İmza doğrulanamadı"
 

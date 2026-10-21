@@ -11,7 +11,7 @@
 - **`CopiatorCore`**: rsync argument generation, output parsers, outcome classification, sandbox profiles, disk-space guards, quarantine propagation, the engine-independent job model and queue rules, persistence, sleep assertions, engine discovery/updating, update signatures and localization tables.
 - **`Copiator`**: `@MainActor` SwiftUI app (`AppModel`, `AppSettings`, Finder service, views).
 
-Version 1.0 scope: local disk → local disk. Planned job kinds: remote rsync over SSH, scheduled jobs, other engines (e.g. aria2).
+Version 1.0 scope: local disk → local disk. Planned job kinds: other engines (e.g. aria2). Remote rsync over SSH and scheduled jobs were rejected by the user on 2026-10-21 (see `user_rejected_spec.md`).
 
 ## 2. rsync Command Contract (`RsyncCommand`)
 

@@ -58,3 +58,15 @@
 ## Episode 10: FAT Re-runs Copy Everything
 - **Root Cause:** FAT stores modification times in 2-second steps; rsync's quick check sees every file as changed.
 - **Guardrail:** Add `--modify-window=1` for FAT destinations; verify with a real FAT32 image that a re-run has no differences.
+
+## Episode 14: Swift Testing Suites Share One Process
+- **Root Cause:** core and app test targets run in one test process; a test that sets global state (`ChildProcessGuard.configure(stateFile:)`) can redirect another suite's records mid-test.
+- **Guardrail:** tests of global registries assert only additive in-memory state (`registeredPIDs`); file persistence of the registry is checked once, in the app's launch-reaping test.
+
+## Episode 15: Off-Screen Snapshots Lose Light Text
+- **Root Cause:** `cacheDisplay` draws only the hosting view; non-`Form` views have no background, so dark-mode text vanished on a transparent PNG.
+- **Guardrail:** the render helper draws `windowBackgroundColor` behind every view.
+
+## Episode 16: App Intents Metadata Is Not Produced by SwiftPM
+- **Root Cause:** SwiftPM's build emits `*.swiftconstvalues` but, unlike Xcode, never runs `appintentsmetadataprocessor`, so Shortcuts would not see the actions.
+- **Guardrail:** `Scripts/build_app.sh` runs the processor and bundles `Metadata.appintents`; `verify_bundle.sh` fails if an action or the Siri phrases are missing. `@Parameter` properties cannot live in a `nonisolated struct` under default MainActor isolation; keep that intent main-actor and mark its static metadata `nonisolated`.

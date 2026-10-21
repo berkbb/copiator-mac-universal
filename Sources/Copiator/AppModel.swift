@@ -66,11 +66,14 @@ struct AlertItem: Identifiable {
     var cancelAction: (() -> Void)?
 }
 
-/// Yeni İş sayfası (Finder servisi ya da sürükle-bırak kaynağı önceden doldurabilir).
+/// Yeni İş sayfası (Finder servisi ya da sürükle-bırak kaynağı önceden doldurabilir). Var olan bir işi düzenlerken
+/// `editing` o işin kimliğidir; çoğaltırken sayfa işin ayarlarıyla dolu, yeni bir iş olarak açılır.
 struct NewJobRequest: Identifiable {
     let id = UUID()
     var source: URL?
     var destination: URL?
+    var options: CopyOptions?
+    var editing: TransferJob.ID?
 }
 
 /// Doğrulama sonucunun gösterimi.
@@ -119,7 +122,12 @@ enum JobFilter: String, CaseIterable, Identifiable, Hashable {
 
 @Observable
 final class AppModel {
-    static let shared = AppModel(settings: .shared)
+    static let shared = AppModel(settings: .shared, processStateFile: AppModel.defaultProcessStateFile)
+
+    /// Çalışan alt süreçlerin kaydı (bkz. `ChildProcessGuard`): çökmeden sonra açılışta yetim rsync durdurulur.
+    nonisolated static var defaultProcessStateFile: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Copiator/running-processes.json")
+    }
 
     let settings: AppSettings
 
@@ -190,11 +198,20 @@ final class AppModel {
     @ObservationIgnored private var lastProgressSave = Date.distantPast
     /// Uygulama kapanıyor: çalışan iş durdurulup "kesildi" olarak kaydedildi, kuyruk ilerlemez.
     @ObservationIgnored private var isTerminating = false
+    /// Çalışan işin diski çıkarılıyor: rsync durduruluyor, iş disk takılınca sürecek.
+    @ObservationIgnored private var isSuspendingRunningJobForDisk = false
+    /// Kaynak ve hedefin erişilebilirliği ("disk takılınca başla" işleri için); testler sahte bir denetim verebilir.
+    @ObservationIgnored var pathsAvailable: (TransferJob) -> Bool = { $0.pathsAvailable }
+    /// Alt süreç kayıt dosyası (yalnızca uygulamada; testlerde nil).
+    @ObservationIgnored private let processStateFile: URL?
+    /// Dock simgesi ve menü çubuğu için ilerleme bildirimi (uygulama kurar; testlerde nil).
+    @ObservationIgnored var onActivityChange: (() -> Void)?
 
-    init(settings: AppSettings, store: JobStore = JobStore(), sleepReason: String = AppModel.sleepReason) {
+    init(settings: AppSettings, store: JobStore = JobStore(), sleepReason: String = AppModel.sleepReason, processStateFile: URL? = nil) {
         self.settings = settings
         self.store = store
         self.sleepReason = sleepReason
+        self.processStateFile = processStateFile
         sleepGuard = SleepGuard(reason: sleepReason)
         loadJobs()
     }
@@ -237,6 +254,8 @@ final class AppModel {
         guard !didLaunch else { return }
         didLaunch = true
         settings.applyAppearance()
+        reapOrphanedProcesses()
+        refreshShortcutParameters()
         await refreshEngine()
         scheduleNext()
         if !settings.updateConsentAsked {
@@ -432,6 +451,21 @@ final class AppModel {
         NSWorkspace.shared.open(release.downloadURL ?? release.pageURL)
     }
 
+    /// Önceki oturum çöktüyse ya da zorla kapatıldıysa hâlâ çalışan rsync durdurulur (kuyruk başlamadan önce) ve
+    /// kesilen işin günlüğüne yazılır. Sonra bu oturumun alt süreçleri aynı dosyaya kaydedilmeye başlar.
+    func reapOrphanedProcesses() {
+        guard let processStateFile else { return }
+        let reaped = ChildProcessGuard.reapOrphans(stateFile: processStateFile)
+        ChildProcessGuard.configure(stateFile: processStateFile)
+        guard !reaped.isEmpty else { return }
+        let description = reaped.map { "\($0.name) \($0.pid)" }.joined(separator: ", ")
+        let interrupted = jobs.filter(\.wasInterrupted).map(\.id)
+        for id in interrupted.isEmpty ? Array(jobs.suffix(1).map(\.id)) : interrupted {
+            update(id) { $0.appendLog(JobLogEntry(level: .warning, key: .logOrphanStopped, arguments: [description])) }
+        }
+        save()
+    }
+
     // MARK: - İş kuyruğu: kayıt
 
     private func loadJobs() {
@@ -477,20 +511,69 @@ final class AppModel {
         newJobRequest = NewJobRequest(source: source)
     }
 
-    /// İşi denetler ve kuyruğa ekler. - Returns: Sorun varsa açıklaması (sayfa kapanmaz).
-    @discardableResult
-    func addJob(source: URL, destination: URL, options: CopyOptions) -> String? {
+    /// Çalışmayan bir işi düzenleme sayfasında açar.
+    func beginEdit(_ id: TransferJob.ID) {
+        guard let job = job(id), JobQueue.canEdit(job) else { return }
+        newJobRequest = NewJobRequest(source: job.source, destination: job.destination, options: job.options, editing: id)
+    }
+
+    /// İşin ayarlarıyla yeni bir iş sayfası açar (ör. aynı kaynağı başka bir diske yedeklemek için).
+    func beginDuplicate(_ id: TransferJob.ID) {
+        guard let job = job(id) else { return }
+        newJobRequest = NewJobRequest(source: job.source, destination: job.destination, options: job.options)
+    }
+
+    /// İş eklenmeden ya da kaydedilmeden önceki denetimler. - Returns: Sorun varsa açıklaması.
+    private func validationMessage(source: URL, destination: URL, options: CopyOptions) -> String? {
         if let problem = JobValidation.check(source: source, destination: destination, copyMode: options.copyMode) {
             return settings.result(JobResult(kind: RsyncEngine.resultKind(for: problem)))
         }
-        if let problem = options.advanced.problems(source: source).first {
+        if let problem = options.problems(source: source).first {
             return settings.problem(problem)
         }
+        return nil
+    }
+
+    /// Çalışmayan bir işin kaynağını, hedefini ve seçeneklerini değiştirir; geçmişi ve günlüğü korunur.
+    /// - Returns: Sorun varsa açıklaması (sayfa kapanmaz).
+    @discardableResult
+    func updateJob(_ id: TransferJob.ID, source: URL, destination: URL, options: CopyOptions) -> String? {
+        guard let job = job(id), JobQueue.canEdit(job) else { return settings.t(.errorCancelled) }
+        if let message = validationMessage(source: source, destination: destination, options: options) { return message }
+        update(id) { job in
+            job.source = source
+            job.destination = destination
+            job.options = options
+            job.appendLog(JobLogEntry(level: .info, key: .logEdited))
+        }
+        save()
+        showToast(t(.toastJobUpdated), systemImage: "pencil.circle.fill")
+        refreshShortcutParameters()
+        scheduleNext()
+        return nil
+    }
+
+    /// İşi değişiklik yapmadan çalıştırıp neyin kopyalanacağını, güncelleneceğini ve silineceğini listeler.
+    func preview(source: URL, destination: URL, options: CopyOptions) async -> VerifyReport {
+        await ensureEngine()
+        guard let engineURL, let engineInfo else {
+            return VerifyReport(entries: [], result: JobResult(kind: .engineMissing), checksum: false)
+        }
+        let context = EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine)
+        let job = TransferJob(source: source, destination: destination, options: options)
+        return await engineProvider(job.kind).verify(job, context: context, checksum: false)
+    }
+
+    /// İşi denetler ve kuyruğa ekler. - Returns: Sorun varsa açıklaması (sayfa kapanmaz).
+    @discardableResult
+    func addJob(source: URL, destination: URL, options: CopyOptions) -> String? {
+        if let message = validationMessage(source: source, destination: destination, options: options) { return message }
         let job = TransferJob(source: source, destination: destination, options: options)
         jobs.append(job)
         selection = [job.id]
         save()
         showToast(t(.toastJobAdded), systemImage: "plus.circle.fill")
+        refreshShortcutParameters()
         scheduleNext()
         return nil
     }
@@ -525,6 +608,8 @@ final class AppModel {
         jobs.removeAll { ids.contains($0.id) && JobQueue.canRemove($0) }
         selection.subtract(ids)
         save()
+        refreshShortcutParameters()
+        onActivityChange?()
     }
 
     func removeFinished() {
@@ -546,9 +631,76 @@ final class AppModel {
 
     /// Boştaysa sıradaki bekleyen işi başlatır. İşler birer birer, listedeki sırayla çalışır.
     func scheduleNext() {
+        defer { onActivityChange?() }
         guard !isTerminating, runningJobID == nil, operation == nil, !settings.queueHeld, engineChecked,
-              let engineURL, let engineInfo, let next = JobQueue.next(in: jobs) else { return }
+              let engineURL, let engineInfo, let next = JobQueue.next(in: jobs, pathsAvailable: pathsAvailable) else { return }
         start(next, context: EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine))
+    }
+
+    /// "Disk takılınca başla" seçili iş, diski takılı olmadığı için bekliyor.
+    func isWaitingForDisk(_ job: TransferJob) -> Bool { JobQueue.isWaitingForDisk(job, pathsAvailable: pathsAvailable) }
+
+    // MARK: - Disk takma ve çıkarma
+
+    /// Bir disk çıkarılmak üzere: çalışan iş o diski kullanıyorsa durdurulur (rsync yarım dosyayı saklar, disk
+    /// serbest kalır) ve disk takılınca sürmek üzere duraklatılır. Sırada bekleyen ve o diski kullanan işler de
+    /// duraklatılır ("disk takılınca başla" seçili olanlar zaten bekler).
+    func volumeWillUnmount(_ volume: URL) {
+        if let id = runningJobID, let job = job(id), job.uses(volume: volume) {
+            isSuspendingRunningJobForDisk = true
+            runningTask?.cancel()
+        }
+        var changed = false
+        for job in jobs where job.status == .waiting && !job.options.runWhenConnected && job.uses(volume: volume) {
+            update(job.id) {
+                $0.status = .paused
+                $0.suspendedForDisk = true
+                $0.appendLog(JobLogEntry(level: .info, key: .logSuspendedForDisk))
+            }
+            changed = true
+        }
+        if changed { save() }
+    }
+
+    /// Disk çıkarıldı (ya da kablo çekildi): çalışan iş hâlâ o diski kullanıyorsa durdurulur; az önce G/Ç hatasıyla
+    /// biten iş de "disk bekliyor" olarak duraklatılır.
+    func volumeDidUnmount(_ volume: URL, now: Date = Date()) {
+        volumeWillUnmount(volume)
+        var changed = false
+        for job in jobs where job.status == .failed && job.uses(volume: volume) {
+            guard let finished = job.finishedAt, now.timeIntervalSince(finished) < 30 else { continue }
+            update(job.id) {
+                $0.status = .paused
+                $0.suspendedForDisk = true
+                $0.appendLog(JobLogEntry(level: .info, key: .logSuspendedForDisk))
+            }
+            changed = true
+        }
+        if changed { save() }
+    }
+
+    /// Bir disk takıldı: o disk yüzünden duraklatılan işler sürer; hedefi bu diskte olan "disk takılınca başla" işleri
+    /// (bitmiş ya da hatalı olsalar da) yeniden sıraya girer. Kullanıcının duraklattığı işlere dokunulmaz.
+    func volumeDidMount(_ volume: URL) {
+        var changed = false
+        for job in jobs where job.uses(volume: volume) && pathsAvailable(job) {
+            if job.status == .paused && job.suspendedForDisk {
+                update(job.id) {
+                    JobQueue.requeue(&$0)
+                    $0.appendLog(JobLogEntry(level: .info, key: .logResumedAfterDisk))
+                }
+                changed = true
+            } else if job.options.runWhenConnected, job.usesAsDestination(volume: volume),
+                      job.status == .finished || job.status == .failed {
+                update(job.id) {
+                    JobQueue.requeue(&$0)
+                    $0.appendLog(JobLogEntry(level: .info, key: .logStartedOnConnect))
+                }
+                changed = true
+            }
+        }
+        if changed { save() }
+        scheduleNext()
     }
 
     private func start(_ id: TransferJob.ID, context: EngineContext) {
@@ -592,21 +744,36 @@ final class AppModel {
                 save()
             }
         }
+        onActivityChange?()
     }
+
+    /// Çalışan işin ilerlemesi (0…1; bilinmiyorsa nil) — Dock simgesi ve menü çubuğu için.
+    var runningFraction: Double? {
+        guard let id = runningJobID, let job = job(id), job.status == .copying else { return nil }
+        return job.progress?.fraction
+    }
+
+    /// Çalışan ve sırada bekleyen işlerin sayısı (Dock rozeti).
+    var pendingCount: Int { jobs.lazy.filter { $0.status == .waiting || $0.status.isActive }.count }
 
     private func finishRun(_ id: TransferJob.ID, result: JobResult) {
         // Çıkışta durdurulan iş "kesildi" olarak kalır (bkz. `prepareForTermination`); sıradaki iş başlatılmaz.
         if isTerminating {
             runningJobID = nil
             runningTask = nil
+            isSuspendingRunningJobForDisk = false
             endSleepGuard(for: id, announce: false)
             save()
             return
         }
         let pausedByUser = isPausingRunningJob
+        let suspendedForDisk = isSuspendingRunningJobForDisk && result.kind == .cancelled
         update(id) { job in
             JobQueue.finish(&job, with: result)
             switch result.kind {
+            case .cancelled where suspendedForDisk:
+                job.suspendedForDisk = true
+                job.appendLog(JobLogEntry(level: .info, key: .logSuspendedForDisk))
             case .cancelled, .stoppedAtLimit: job.appendLog(JobLogEntry(level: .info, key: .logPaused))
             case let kind where kind.isSuccess: job.appendLog(JobLogEntry(level: .info, key: .logFinished))
             default: job.appendLog(JobLogEntry(level: .error, key: .logFailed, arguments: [settings.result(result)]))
@@ -615,9 +782,12 @@ final class AppModel {
         runningJobID = nil
         runningTask = nil
         isPausingRunningJob = false
+        isSuspendingRunningJobForDisk = false
         endSleepGuard(for: id, announce: true)
         save()
-        if let job = job(id), result.kind != .cancelled || !pausedByUser {
+        if suspendedForDisk {
+            showToast(t(.toastSuspendedForDisk), systemImage: "externaldrive.badge.exclamationmark")
+        } else if let job = job(id), result.kind != .cancelled || !pausedByUser {
             notify(job)
         }
         scheduleNext()
@@ -727,6 +897,8 @@ final class AppModel {
     /// İşin çalıştıracağı rsync komutu (kopyalanabilir, kabuğa uygun tırnaklı). Kum havuzu ve uyku engeli komutun
     /// parçası değildir; uygulama onları ayrıca sağlar.
     func commandPreview(for job: TransferJob) -> String {
+        // Anlık görüntü işi kökte tarihli bir klasöre, önceki anlık görüntüye bağlanarak yazar (klasör oluşturulmaz).
+        let job = job.options.snapshots.enabled ? SnapshotStore.apply(SnapshotStore.plan(in: job.destination), to: job) : job
         let info = engineInfo ?? EngineInfo(version: "3.5.1", isOpenrsync: false, supportsACLs: true, supportsXattrs: true)
         let sourceIsDirectory = RsyncEngine.isDirectory(job.source) || !FileManager.default.fileExists(atPath: job.source.path)
         let protected = settings.sandboxEngine && sourceIsDirectory
@@ -840,9 +1012,10 @@ final class AppModel {
         if let job = job(id) { reveal(job.source) }
     }
 
-    /// Hedefteki kopya varsa o, yoksa hedef klasör gösterilir.
+    /// Hedefteki kopya varsa o, yoksa hedef klasör gösterilir. Anlık görüntü işinde en yeni anlık görüntüdeki kopya.
     func revealDestination(_ id: TransferJob.ID) {
-        guard let job = job(id) else { return }
+        guard var job = job(id) else { return }
+        if job.options.snapshots.enabled, let latest = SnapshotStore.latest(in: job.destination) { job.destination = latest }
         let target = job.target(sourceIsDirectory: RsyncEngine.isDirectory(job.source))
         reveal(FileManager.default.fileExists(atPath: target.path) ? target : job.destination)
     }

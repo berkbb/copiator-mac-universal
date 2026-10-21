@@ -100,7 +100,8 @@ struct ViewRenderTests {
         _ = NSApplication.shared
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        let host = NSHostingView(rootView: view)
+        // Pencere arka planı görünümün altına çizilir: PNG'de koyu kipteki açık renkli metin saydam zeminde kaybolmasın.
+        let host = NSHostingView(rootView: view.background(Color(nsColor: .windowBackgroundColor)))
         window.contentView = host
         window.layoutIfNeeded()
         window.displayIfNeeded()
@@ -173,6 +174,43 @@ struct ViewRenderTests {
         render(Form { SandboxLimitsSection() }.formStyle(.grouped).environment(settings),
                size: NSSize(width: 620, height: 640), name: "sandbox-limits")
         #expect(SandboxLimitsSection.items.count == 5)
+    }
+
+    /// Anlık görüntü, otomasyon ve önizleme; düzenleme sayfası; menü çubuğu penceresi; geçmiş listesi.
+    @Test func automationViewsRender() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        let settings = fixture.settings
+        await model.refreshEngine()
+        var options = CopyOptions(verifyAfterCopy: .checksum, runWhenConnected: true)
+        options.snapshots = SnapshotOptions(enabled: true, keepLast: 10, keepDaily: 7, keepMonthly: 12)
+        options.advanced.excludePresets = [.developer, .macOSJunk]
+        model.toggleQueueHold()
+        let id = try #require(fixture.addJob(options: options))
+        render(NewJobSheet(request: NewJobRequest(source: fixture.url("Kaynak"), destination: fixture.url("Hedef"), options: options, editing: id))
+            .environment(model).environment(settings), size: NSSize(width: 620, height: 1100), name: "editjob")
+
+        let entries = [
+            DiffEntry(kind: .missing, path: "Kaynak/yeni.txt", isDirectory: false, code: ">f+++++++++"),
+            DiffEntry(kind: .changed, path: "Kaynak/degisen.txt", isDirectory: false, code: ">f.st......"),
+            DiffEntry(kind: .extra, path: "Kaynak/eski", isDirectory: true, code: "*deleting"),
+        ]
+        for deleting in [true, false] {
+            let report = VerifyReport(entries: entries, result: JobResult(kind: .succeeded), checksum: false)
+            render(PreviewSheet(presentation: PreviewPresentation(jobName: "Kaynak", report: report, deleteEnabled: deleting))
+                .environment(settings), size: NSSize(width: 660, height: 500), name: deleting ? "preview-delete" : "preview")
+        }
+
+        var job = try #require(model.job(id))
+        job.startedAt = Date(timeIntervalSinceNow: -120)
+        job.progress = TransferProgress(bytesTransferred: 1 << 30, fraction: 1, filesTransferred: 1200)
+        JobQueue.finish(&job, with: JobResult(kind: .succeeded, snapshot: SnapshotStore.name(for: Date()), differenceCount: 0))
+        JobQueue.finish(&job, with: JobResult(kind: .verificationFailed, differenceCount: 4))
+        render(ScrollView { JobHistoryList(job: job, settings: settings).padding() }, size: NSSize(width: 360, height: 300), name: "history")
+        render(MenuBarContent().environment(model).environment(settings), size: NSSize(width: 320, height: 240), name: "menubar")
+        model.selection = [id]
+        render(ContentView().environment(model).environment(settings), name: "inspector-automation")
     }
 }
 

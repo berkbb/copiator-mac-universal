@@ -117,7 +117,7 @@ struct ContentView: View {
         guard let id = model.runningJobID, let job = model.job(id) else {
             return settings.queueHeld ? settings.t(.queueHeldNotice) : ""
         }
-        return settings.t(job.status == .scanning ? .statusScanning : .statusCopying) + " · " + job.source.lastPathComponent
+        return settings.t(job.status.titleKey) + " · " + job.source.lastPathComponent
     }
 
     @ToolbarContentBuilder

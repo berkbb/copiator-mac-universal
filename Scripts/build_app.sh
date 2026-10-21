@@ -27,6 +27,37 @@ echo "▸ Swift paketi derleniyor ($CONFIG, ${ARCHS})…"
 swift build "${BUILD_ARGS[@]}" --product Copiator
 BIN_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 
+# Kestirmeler ve Siri (App Intents) meta verisi. Derleyici sabit değerleri (*.swiftconstvalues) üretir; Xcode'un derleme
+# sırasında yaptığı gibi bunlardan Metadata.appintents paketini appintentsmetadataprocessor oluşturur. Meta veri mimariden
+# bağımsızdır; derlenen ilk mimarinin dosyaları kullanılır.
+echo "▸ Kestirmeler meta verisi üretiliyor…"
+CONFIG_DIR="$(printf '%s' "${CONFIG:0:1}" | tr '[:lower:]' '[:upper:]')${CONFIG:1}"
+if [ "$ARCHS" = "native" ]; then META_ARCH="$(uname -m)"; else META_ARCH="${ARCHS%% *}"; fi
+OBJ_DIR="$ROOT/.build/out/Intermediates.noindex/Copiator.build/$CONFIG_DIR/Copiator-p.build/Objects-normal/$META_ARCH"
+INTENTS_DIR="$ROOT/.build/appintents"
+rm -rf "$INTENTS_DIR"
+mkdir -p "$INTENTS_DIR"
+find "$OBJ_DIR" -maxdepth 1 -name "*.swiftconstvalues" > "$INTENTS_DIR/constvalues.txt" 2>/dev/null || true
+if [ ! -s "$INTENTS_DIR/constvalues.txt" ] || [ ! -f "$OBJ_DIR/Copiator.SwiftFileList" ]; then
+  echo "⚠ Sabit değer dosyaları bulunamadı ($OBJ_DIR); Kestirmeler meta verisi üretilemedi." >&2
+  exit 1
+fi
+TOOLCHAIN_DIR="$(dirname "$(dirname "$(dirname "$(xcrun --find swiftc)")")")"
+MIN_MACOS="$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$ROOT/Support/Info.plist")"
+xcrun appintentsmetadataprocessor \
+  --output "$INTENTS_DIR" \
+  --toolchain-dir "$TOOLCHAIN_DIR" \
+  --module-name Copiator \
+  --sdk-root "$(xcrun --sdk macosx --show-sdk-path)" \
+  --xcode-version "$(xcodebuild -version | awk '/Build version/ { print $3 }')" \
+  --platform-family macOS \
+  --deployment-target "$MIN_MACOS" \
+  --target-triple "$META_ARCH-apple-macos$MIN_MACOS" \
+  --source-file-list "$OBJ_DIR/Copiator.SwiftFileList" \
+  --swift-const-vals-list "$INTENTS_DIR/constvalues.txt" \
+  --force >/dev/null 2>"$INTENTS_DIR/processor.log" || { cat "$INTENTS_DIR/processor.log" >&2; exit 1; }
+[ -d "$INTENTS_DIR/Metadata.appintents" ] || { echo "⚠ Metadata.appintents üretilmedi." >&2; cat "$INTENTS_DIR/processor.log" >&2; exit 1; }
+
 if [ ! -f "$ROOT/Resources/AppIcon.icns" ]; then
   echo "▸ Uygulama simgesi çiziliyor…"
   swift "$ROOT/Scripts/make_icon.swift" "$ROOT/Resources/AppIcon.icns"
@@ -39,6 +70,7 @@ cp "$BIN_DIR/Copiator" "$APP/Contents/MacOS/Copiator"
 cp "$ROOT/Support/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/"
 cp -R "$ROOT/Resources/"*.lproj "$APP/Contents/Resources/"
+cp -R "$INTENTS_DIR/Metadata.appintents" "$APP/Contents/Resources/Metadata.appintents"
 # rsync güncelleyicisi kaynaktan derler: iki betik birlikte gider.
 for script in update-rsync.sh build-rsync.sh; do
   cp "$ROOT/Scripts/$script" "$APP/Contents/Resources/$script"

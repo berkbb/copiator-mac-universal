@@ -21,29 +21,39 @@
 | `N_OUTCOME` | `RsyncOutcome` | `Sources/CopiatorCore/RsyncOutcome.swift` | Result classes |
 | `N_GUARD` | `DiskSpaceGuard` | `Sources/CopiatorCore/DiskSpace.swift` | In-copy floor |
 | `N_SLEEP` | `SleepAssertion` | `Sources/CopiatorCore/SleepAssertion.swift` | Idle-sleep prevention |
+| `N_SNAPSHOTS` | `SnapshotStore` | `Sources/CopiatorCore/Snapshots.swift` | Dated snapshot folders, `Latest`, retention |
+| `N_ORPHANS` | `ChildProcessGuard` | `Sources/CopiatorCore/ChildProcessGuard.swift` | Child registry, crash handlers, launch reaping |
+| `N_VOLUMES` | `VolumeWatcher` | `Sources/Copiator/StatusItems.swift` | Mount/unmount events → `AppModel` |
+| `N_INTENTS` | `RunJobIntent` & co. | `Sources/Copiator/Intents.swift` | Shortcuts and Siri entry points |
 
 ## 2. Job State Machine
 
 ```mermaid
 stateDiagram-v2
     [*] --> waiting: addJob (validated)
-    waiting --> scanning: AppModel.start (first waiting, queue not held)
+    waiting --> scanning: AppModel.start (first waiting whose disk is present, queue not held)
     scanning --> copying: phase(.copying) / first progress
     scanning --> failed: preflight problem (overlap, missing, no space)
+    copying --> verifying: success and verifyAfterCopy != off
+    verifying --> finished: no differences
+    verifying --> failed: verificationFailed
     copying --> finished: succeeded / succeededWithNotes / sourceFilesVanished
     copying --> failed: partial / ioError / destinationFull / …
-    copying --> paused: user pause (rsync 20) or quit (wasInterrupted)
-    waiting --> paused: user pause
-    paused --> waiting: resume
-    failed --> waiting: resume
-    finished --> waiting: run again
+    copying --> paused: user pause (rsync 20), quit (wasInterrupted) or disk ejected (suspendedForDisk)
+    waiting --> paused: user pause or disk ejected (suspendedForDisk)
+    paused --> waiting: resume, or disk mounted (suspendedForDisk)
+    failed --> waiting: resume, or destination mounted (runWhenConnected)
+    finished --> waiting: run again, Shortcuts, or destination mounted (runWhenConnected)
 ```
 
 ## 3. Transfer Pipeline (`N_ENGINE`)
 
 ```mermaid
 flowchart TD
-    A[JobValidation] --> B[DiskSpace preflight: source − existing ≤ free − reserve]
+    A[JobValidation] --> S{snapshots?}
+    S -- yes --> P[SnapshotStore.prepare: reuse or create .partial, --link-dest newest]
+    S -- no --> B
+    P --> B[DiskSpace preflight: source − existing ≤ free − reserve]
     B --> C[SandboxProfile.forTransfer + protectedPaths]
     C --> D[RsyncCommand.transfer]
     D --> E[DiskSpaceGuard.run → CommandRunner.run, records → RsyncProgressParser → ProgressThrottle]
@@ -52,4 +62,8 @@ flowchart TD
     G -- no --> H[Quarantine.propagate]
     G -- yes --> I[JobResult]
     H --> I
+    I --> V{verifyAfterCopy?}
+    V -- yes --> W[compare: -n -i (-c)] --> X
+    V -- no --> X{snapshot?}
+    X -- yes --> Y[finalize: rename, Latest, prune on full success]
 ```

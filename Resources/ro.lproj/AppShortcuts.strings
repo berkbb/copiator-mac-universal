@@ -1,0 +1,6 @@
+/* Expresii Siri și Scurtături pentru Copiator — română. Cheile sunt expresiile din Sources/Copiator/Intents.swift. */
+
+"Run ${job} in ${applicationName}" = "Rulează ${job} în ${applicationName}";
+"Back up ${job} with ${applicationName}" = "Fă o copie de rezervă pentru ${job} cu ${applicationName}";
+"Pause all jobs in ${applicationName}" = "Întrerupe toate lucrările în ${applicationName}";
+"Resume all jobs in ${applicationName}" = "Reia toate lucrările în ${applicationName}";

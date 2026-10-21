@@ -22,14 +22,10 @@ The sandbox blocks every connection with `(deny network*)`.
 | `--address`, `--sockopts`, `-4`, `-6` | Network address and socket settings |
 | `--rsync-path` | Path of rsync on the remote side |
 
-What it would take:
-- A separate job kind for SSH
-- A separate sandbox profile that allows connections to that server only
-- Host key verification
-- Credentials never written on the command line
-
-Because `ssh` is a separate program, the profile would also have to allow running it; today no program other than rsync
-can be run. This is the next step on the roadmap.
+Remote transfers are not planned: remote (SSH) jobs were declined on 2026-10-21, so Copiator stays a local copy and sync
+app and the sandbox keeps the network closed. (They would need a separate job kind, a sandbox profile that allows only that
+server and running `ssh`, host key verification and credentials kept off the command line.) A network share that macOS has
+mounted (SMB, AFP, NFS) is a local path and works as a source or destination.
 
 ## 2. Modifies the source
 

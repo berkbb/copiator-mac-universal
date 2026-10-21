@@ -2,16 +2,24 @@
 
 A native backup and sync app for macOS 26+, built with SwiftUI and Liquid Glass on top of [rsync](https://rsync.samba.org). It is built as a universal app (Apple Silicon + Intel), and a dependency-free universal rsync 3.5.1 ships inside the app bundle.
 
-Version 1.0 copies from a local disk to a local disk. Remote servers (SSH), schedules and other engines are planned; the job model and the engine layer are already engine-independent.
+Copiator copies from a local disk to a local disk (internal, external, USB or network-mounted volumes). The job model and the engine layer are engine-independent, so other engines can be added as new job kinds.
 
 ## Features
 
-- **Job queue** (like Transmission): every job has a source, a destination, options, a status (waiting, scanning, copying, paused, finished, failed), progress, speed, time left and a log. Jobs run one at a time in list order; drag to reorder.
+- **Job queue** (like Transmission): every job has a source, a destination, options, a status (waiting, waiting for disk, scanning, copying, verifying, paused, finished, failed), progress, speed, time left and a log. Jobs run one at a time in list order; drag to reorder.
 - **Resume:** an interrupted job continues with the same command (`--partial`); only what is missing is copied. Pausing, quitting the app or a full disk never loses work.
 - **Honest progress:** bytes copied, percentage, speed, time left and checked items come from rsync's `--info=progress2`. While rsync is still scanning (`ir-chk`), the row says the estimate is not final.
-- **Verify:** runs the same job as a dry run (`-n -i`, optionally with checksums `-c`) and lists missing, changed and extra items. Nothing is changed.
+- **Verify:** runs the same job as a dry run (`-n -i`, optionally with checksums `-c`) and lists missing, changed and extra items. Nothing is changed. Jobs can also **verify automatically after copying** (quick or checksum); differences fail the job and are written to its log.
+- **Preview before adding:** the New Job sheet can dry-run the job and list what will be copied, updated and — when `--delete` is on — deleted, highlighted in red.
+- **Automatic snapshots:** every run writes a dated folder (`yyyy-MM-dd-HHmmss`) in the destination; unchanged files are hard-linked to the previous snapshot (`--link-dest`, no extra space), `Latest` points to the newest, an interrupted snapshot is resumed, and optional retention rules (keep the last N, one per day/week/month) delete expired snapshots only after a successful run.
+- **Start when the destination disk is connected:** the job waits (instead of failing) while the disk is missing and starts when it is plugged in, even if it already finished. Ejecting a disk pauses the job using it; reconnecting resumes it.
+- **Edit and duplicate jobs** without losing their history; every run is recorded in the job's **history** (result, duration, bytes, files, snapshot).
+- **Ready-made exclude lists:** developer folders (`node_modules`, `DerivedData`, `.build`, `Pods`, Python and JavaScript caches), version control (`.git`, `.svn`, `.hg`), caches (`Library/Caches`, `.cache`) and macOS helper files (`.DS_Store`, `._*`, Trash).
+- **Menu bar and Dock:** a menu bar icon with the running job's progress and pause/resume all (Copiator keeps running without a window while it is on), and a progress bar and pending-job badge on the Dock icon.
+- **Shortcuts and Siri:** "Run Copy Job", "Pause All Jobs" and "Resume All Jobs" actions, e.g. "Run Photos in Copiator".
+- **No orphaned rsync:** if Copiator crashes or is terminated, the running rsync is stopped; one left over from a killed session is stopped at the next launch.
 - **Copy mode:** "copy the folder itself" (`Source` → `Destination/Source/…`) or "copy its contents" (`Source/` → `Destination/…`), with a preview of the result.
-- **Every rsync option that works in the sandbox:** filters and list files, size limits, hard links, creation/access times, symlink handling, sparse/in-place/append writes, deletion details, size-only comparison, time tolerance, bandwidth limit, stop after/at a time, file-name encoding, Time Machine-like snapshots (`--link-dest`), old versions (`--backup-dir`), per-file or exact progress, current file name, statistics, change log, log and batch files. Defaults in **Settings › rsync**, per job in the New Job sheet; the exact `rsync …` command is shown before it runs. See [docs/rsync-possible-in-sandbox.md](docs/rsync-possible-in-sandbox.md) and [docs/rsync-not-possible-in-sandbox.md](docs/rsync-not-possible-in-sandbox.md).
+- **Every rsync option that works in the sandbox:** filters and list files, size limits, hard links, creation/access times, symlink handling, sparse/in-place/append writes, deletion details, size-only comparison, time tolerance, bandwidth limit, stop after/at a time, file-name encoding, a manually chosen previous backup (`--link-dest`, `--compare-dest`, `--copy-dest`), old versions (`--backup-dir`), per-file or exact progress, current file name, statistics, change log, log and batch files. Defaults in **Settings › rsync**, per job in the New Job sheet; the exact `rsync …` command is shown before it runs. See [docs/rsync-possible-in-sandbox.md](docs/rsync-possible-in-sandbox.md) and [docs/rsync-not-possible-in-sandbox.md](docs/rsync-not-possible-in-sandbox.md).
 - **Safe by default:**
   - the source is never modified (`--remove-source-files` is never used; the sandbox makes the source read-only even inside the destination);
   - deleting extra files at the destination (`--delete`) only when chosen per job and confirmed;

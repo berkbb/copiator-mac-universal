@@ -174,6 +174,37 @@ public enum LKey: String, CaseIterable, Sendable {
     case sandboxLimitNetworkTitle, sandboxLimitNetwork, sandboxLimitSourceTitle, sandboxLimitSource
     case sandboxLimitProgramsTitle, sandboxLimitPrograms, sandboxLimitPersonalTitle, sandboxLimitPersonal
     case sandboxLimitNotOfferedTitle, sandboxLimitNotOffered
+    // Anlık görüntüler
+    case logSnapshotStarted, logSnapshotFirst, logSnapshotResumed, logSnapshotCreated, logSnapshotPartialKept
+    case logSnapshotFinalizeFailed, logSnapshotPruned, logSnapshotPruneFailed
+    case sectionSnapshots, optionSnapshots, optionSnapshotsNote, snapshotKeepLast, snapshotKeepDaily, snapshotKeepWeekly
+    case snapshotKeepMonthly, snapshotRetentionNote, snapshotReferenceIgnored, problemRetention
+    case retentionConfirmTitle, retentionConfirmMessage, retentionConfirmButton
+    case detailSnapshots, detailSnapshotsCount, detailSnapshotsNone
+    // Kopyalama sonrası doğrulama
+    case statusVerifying, resultVerificationFailed, resultVerificationIncomplete
+    case logVerifyAfterCopyQuick, logVerifyAfterCopyChecksum, logVerifyAfterCopyPassed, logVerifyAfterCopyDifferences
+    case logVerifyAfterCopyIncomplete
+    case optionVerifyAfterCopy, optionVerifyAfterCopyNote, verifyAfterOff, verifyAfterQuick, verifyAfterChecksum
+    // Disk takılınca başlatma
+    case sectionAutomation, optionRunWhenConnected, optionRunWhenConnectedNote, statusWaitingForDisk
+    case logSuspendedForDisk, logResumedAfterDisk, logStartedOnConnect, toastSuspendedForDisk
+    // Hazır dışlama listeleri
+    case advExcludePresets, advExcludePresetsNote, presetDeveloper, presetVersionControl, presetCaches, presetMacOSJunk
+    // Düzenleme, çoğaltma, önizleme
+    case menuEditJob, menuDuplicateJob, editJobTitle, editJobSave, logEdited, toastJobUpdated
+    case newJobPreview, previewTitle, previewSummary, previewSummaryKept, previewNothing, previewDeleteWarning
+    case previewWillCopy, previewWillUpdate, previewWillDelete, previewKept, previewAttributes
+    // Geçmiş ve yetim süreçler
+    case detailHistory, detailNoHistory, historySnapshot, historyDifferences, logOrphanStopped
+    // Menü çubuğu ve Dock
+    case settingsInterfaceSection, settingsMenuBarIcon, settingsMenuBarIconNote, settingsDockProgress
+    case menuBarIdle, menuBarProgress, menuBarWaiting, menuBarOpen, menuBarQuit
+    // Kestirmeler
+    case intentRunJobTitle, intentRunJobDescription, intentJobParameter, intentJobTypeName, intentRunJobStarted
+    case intentJobNotFound, intentJobCannotRun, intentPauseAllTitle, intentPauseAllDescription, intentPauseAllDone
+    case intentResumeAllTitle, intentResumeAllDescription, intentResumeAllDone, shortcutRunJob, shortcutPauseAll, shortcutResumeAll
+    case settingsShortcutsAppSection, settingsShortcutsAppNote
 }
 
 extension StringTable {
@@ -205,6 +236,9 @@ extension StringTable {
         case .engineMissing: return string(.resultEngineMissing, language: code)
         case .unsupported: return string(.resultUnsupported, language: code)
         case .ioError: return string(.resultIOError, language: code)
+        case .verificationFailed:
+            if let count = result.differenceCount { return format(.resultVerificationFailed, count) }
+            return string(.resultVerificationIncomplete, language: code)
         case .failed: return format(.resultFailed, Int(result.exitCode ?? -1))
         }
     }

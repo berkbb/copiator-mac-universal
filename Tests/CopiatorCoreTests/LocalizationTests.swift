@@ -51,7 +51,7 @@ func translationsAreNotEnglishFallbacks(code: String) throws {
 
 @Test func eachSupportedLanguageHasDedicatedFiles() throws {
     for code in AppLanguage.supportedCodes {
-        for name in ["Localizable", "InfoPlist", "ServicesMenu"] {
+        for name in ["Localizable", "InfoPlist", "ServicesMenu", "AppShortcuts"] {
             let url = resources.appendingPathComponent("\(code).lproj/\(name).strings")
             #expect(FileManager.default.fileExists(atPath: url.path), "\(code).lproj/\(name).strings")
             #expect(!(try Data(contentsOf: url)).isEmpty)
@@ -109,4 +109,25 @@ func resultMessagesAreLocalizedAndFormatted(code: String) throws {
     let text = strings.logText(entry, language: code)
     #expect(text.contains("3") && text.contains("exfat") && !text.contains("%"))
     #expect(strings.logText(JobLogEntry(level: .error, raw: "rsync: ham"), language: code) == "rsync: ham")
+}
+
+/// Siri ve Kestirmeler ifadeleri: koddaki her ifade her dilin AppShortcuts.strings tablosunda bulunur; çeviriler uygulama
+/// adını ve iş parametresini korur (Siri ifadeyi bunlarla eşleştirir).
+@Test func appShortcutPhrasesAreLocalized() throws {
+    let source = try String(contentsOf: packageRoot.appendingPathComponent("Sources/Copiator/Intents.swift"), encoding: .utf8)
+    let regex = try NSRegularExpression(pattern: #""((?:[^"\\]|\\.)*\\\(\.applicationName\)(?:[^"\\]|\\.)*)""#)
+    let phrases = regex.matches(in: source, range: NSRange(source.startIndex..., in: source)).map { match in
+        String(source[Range(match.range(at: 1), in: source)!])
+            .replacingOccurrences(of: #"\(\.$job)"#, with: "${job}")
+            .replacingOccurrences(of: #"\(.applicationName)"#, with: "${applicationName}")
+    }
+    #expect(phrases.count >= 4)
+    for code in AppLanguage.supportedCodes {
+        let table = try table(code, "AppShortcuts")
+        #expect(Set(table.keys) == Set(phrases), "\(code) AppShortcuts.strings")
+        for (key, value) in table {
+            #expect(value.contains("${applicationName}"), "\(code): \(key)")
+            #expect(key.contains("${job}") == value.contains("${job}"), "\(code): \(key)")
+        }
+    }
 }

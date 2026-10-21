@@ -37,16 +37,39 @@ struct CopiatorApp: App {
                 .environment(model)
                 .environment(settings)
         }
+
+        MenuBarExtra(isInserted: $settings.showMenuBarIcon) {
+            MenuBarContent()
+                .environment(model)
+                .environment(settings)
+        } label: {
+            MenuBarLabel(isRunning: model.runningJobID != nil, title: settings.t(.appName))
+        }
+        .menuBarExtraStyle(.window)
     }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let services = FinderServices()
+    private let volumes = VolumeWatcher()
+    private let dock = DockProgress()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Uygulama çökerse ya da sonlandırılırsa rsync yetim kalmasın (bkz. ChildProcessGuard).
+        ChildProcessGuard.installCrashHandlers()
         // Finder sağ tık menüsündeki "Hızlı Eylemler / Servisler" öğesi.
         NSApp.servicesProvider = services
         NSUpdateDynamicServices()
+        let model = AppModel.shared
+        // Disk takılınca başlayan işler; çıkarılan diskteki iş duraklar, yeniden takılınca sürer.
+        volumes.start(model: model)
+        model.onActivityChange = { [dock, weak model] in
+            guard let model else { return }
+            dock.update(fraction: model.runningFraction, active: model.runningJobID != nil, badge: model.pendingCount,
+                        enabled: model.settings.showDockProgress)
+        }
+        // Pencere açılmadan (Kestirmeler ya da Finder servisiyle) başlatılsa da kuyruk ve motor hazırlanır.
+        Task { await model.launch() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -54,8 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // Kopyalama sürerken pencere kapatılınca uygulama da kapanıp işi kesmesin.
-        AppModel.shared.runningJobID == nil
+        // Kopyalama sürerken pencere kapatılınca uygulama da kapanıp işi kesmesin; menü çubuğu simgesi açıkken
+        // uygulama (disk takılınca başlayan işler için) çalışmayı sürdürür.
+        AppModel.shared.runningJobID == nil && !AppSettings.shared.showMenuBarIcon
     }
 }
 
@@ -114,6 +138,11 @@ struct AppCommands: Commands {
                 .disabled(selected.count != 1 || !selected.allSatisfy(JobQueue.canVerify) || model.operation != nil)
             Button(settings.t(.menuVerifyChecksum)) { if let id = selected.first?.id { model.verify(id, checksum: true) } }
                 .disabled(selected.count != 1 || !selected.allSatisfy(JobQueue.canVerify) || model.operation != nil)
+            Divider()
+            Button(settings.t(.menuEditJob)) { if let id = selected.first?.id { model.beginEdit(id) } }
+                .disabled(selected.count != 1 || !selected.allSatisfy(JobQueue.canEdit))
+            Button(settings.t(.menuDuplicateJob)) { if let id = selected.first?.id { model.beginDuplicate(id) } }
+                .disabled(selected.count != 1)
             Divider()
             Button(settings.t(.menuShowSource)) { if let id = selected.first?.id { model.revealSource(id) } }
                 .disabled(selected.count != 1)

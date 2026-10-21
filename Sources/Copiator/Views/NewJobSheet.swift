@@ -14,8 +14,14 @@ struct NewJobSheet: View {
     @State private var options = CopyOptions()
     @State private var problem: String?
     @State private var confirmDelete = false
+    @State private var confirmRetention = false
     @State private var isSourceTargeted = false
     @State private var showAdvanced = false
+    @State private var previewTask: Task<Void, Never>?
+    @State private var previewPresentation: PreviewPresentation?
+
+    /// Düzenlenen iş (yeni işte nil).
+    private var editedJob: TransferJob? { request.editing.flatMap(model.job) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,7 +65,9 @@ struct NewJobSheet: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle(settings.t(.optionDelete), isOn: $options.deleteExtraneous)
                             .accessibilityIdentifier("copiator.newjob.delete")
-                        if options.deleteExtraneous {
+                            // Anlık görüntü her çalıştırmada yeni bir klasöre yazar: silinecek eski dosya yoktur.
+                            .disabled(options.snapshots.enabled)
+                        if options.deleteExtraneous && !options.snapshots.enabled {
                             Label(settings.t(.optionDeleteWarning), systemImage: "exclamationmark.triangle.fill")
                                 .font(.footnote)
                                 .foregroundStyle(.red)
@@ -68,12 +76,16 @@ struct NewJobSheet: View {
                     }
                 }
 
+                SnapshotSection(options: $options.snapshots)
+                AutomationSection(options: $options)
+
                 Section {
                     Toggle(settings.t(.newJobAdvanced), isOn: $showAdvanced)
                         .accessibilityIdentifier("copiator.newjob.advanced")
                 }
                 if showAdvanced {
-                    AdvancedOptionsSections(options: $options.advanced, deleteEnabled: options.deleteExtraneous)
+                    AdvancedOptionsSections(options: $options.advanced, deleteEnabled: options.deleteExtraneous,
+                                            snapshotsEnabled: options.snapshots.enabled)
                 }
 
                 if let job = previewJob {
@@ -82,7 +94,7 @@ struct NewJobSheet: View {
                     }
                 }
 
-                let problems = options.advanced.problems(source: source)
+                let problems = options.problems(source: source)
                 if problem != nil || !problems.isEmpty {
                     Section {
                         if let problem {
@@ -102,34 +114,94 @@ struct NewJobSheet: View {
 
             Divider()
             HStack {
+                // Önizleme: iş eklenmeden kuru çalıştırılır; neyin kopyalanacağı ve silineceği listelenir.
+                Button {
+                    runPreview()
+                } label: {
+                    Label(settings.t(.newJobPreview), systemImage: "eye")
+                }
+                .disabled(source == nil || destination == nil || previewTask != nil || !options.problems(source: source).isEmpty)
+                .accessibilityIdentifier("copiator.newjob.preview")
+                if previewTask != nil {
+                    ProgressView().controlSize(.small)
+                    Button(settings.t(.buttonCancel)) { cancelPreview() }
+                }
                 Spacer()
                 Button(settings.t(.buttonCancel), role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(settings.t(.newJobAdd)) { submit() }
+                Button(settings.t(editedJob == nil ? .newJobAdd : .editJobSave)) { submit() }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.glassProminent)
-                    .disabled(source == nil || destination == nil || !options.advanced.problems(source: source).isEmpty)
+                    .disabled(source == nil || destination == nil || !options.problems(source: source).isEmpty)
                     .accessibilityIdentifier("copiator.newjob.add")
             }
             .padding(14)
         }
         .frame(width: 620)
         .frame(minHeight: 600)
-        .navigationTitle(settings.t(.newJobTitle))
+        .navigationTitle(settings.t(editedJob == nil ? .newJobTitle : .editJobTitle))
         .onAppear {
             source = request.source
             destination = request.destination
-            options = settings.defaultOptions
+            options = request.options ?? settings.defaultOptions
             showAdvanced = !options.advanced.isDefault
         }
+        .onDisappear { cancelPreview() }
         .onChange(of: source) { problem = nil }
         .onChange(of: destination) { problem = nil }
+        .sheet(item: $previewPresentation) { PreviewSheet(presentation: $0) }
         .confirmationDialog(settings.t(.deleteConfirmTitle), isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button(settings.t(.deleteConfirmButton), role: .destructive) { add() }
+            Button(settings.t(.deleteConfirmButton), role: .destructive) {
+                // İkinci onay, birinci kapandıktan sonra açılır.
+                if needsRetentionConfirmation { DispatchQueue.main.async { confirmRetention = true } } else { commit() }
+            }
+            Button(settings.t(.newJobPreview)) { runPreview() }
             Button(settings.t(.buttonCancel), role: .cancel) {}
         } message: {
             Text(settings.t(.deleteConfirmMessage, OpenSafety.visibleName(targetPath ?? "")))
         }
+        .confirmationDialog(settings.t(.retentionConfirmTitle), isPresented: $confirmRetention, titleVisibility: .visible) {
+            Button(settings.t(.retentionConfirmButton), role: .destructive) { commit() }
+            Button(settings.t(.buttonCancel), role: .cancel) {}
+        } message: {
+            Text(settings.t(.retentionConfirmMessage, OpenSafety.visibleName(destination?.path ?? "")))
+        }
+    }
+
+    /// `--delete` yeni seçildiyse onay gerekir (düzenlenen işte zaten seçiliyse yeniden sorulmaz).
+    private var needsDeleteConfirmation: Bool {
+        options.deleteExtraneous && !options.snapshots.enabled && editedJob?.options.deleteExtraneous != true
+    }
+
+    /// Saklama kuralları eski anlık görüntüleri siler: kurallar yeni ya da değişmişse onay gerekir.
+    private var needsRetentionConfirmation: Bool {
+        options.snapshots.hasRetention && editedJob?.options.snapshots != options.snapshots
+    }
+
+    private func runPreview() {
+        guard let source, let destination, previewTask == nil else { return }
+        var options = finalOptions
+        if !sourceIsDirectory { options.copyMode = .folder }
+        let name = source.lastPathComponent
+        previewTask = Task {
+            let report = await model.preview(source: source, destination: destination, options: options)
+            if !Task.isCancelled, report.result.kind != .cancelled {
+                previewPresentation = PreviewPresentation(jobName: name, report: report, deleteEnabled: options.deleteExtraneous)
+            }
+            previewTask = nil
+        }
+    }
+
+    private func cancelPreview() {
+        previewTask?.cancel()
+        previewTask = nil
+    }
+
+    /// Kaydedilecek seçenekler: anlık görüntü kipinde `--delete` kullanılmaz.
+    private var finalOptions: CopyOptions {
+        var options = options
+        if options.snapshots.enabled { options.deleteExtraneous = false }
+        return options
     }
 
     private var sourceIsDirectory: Bool { source.map(RsyncEngine.isDirectory) ?? true }
@@ -156,10 +228,11 @@ struct NewJobSheet: View {
         return job.target(sourceIsDirectory: sourceIsDirectory).path
     }
 
-    /// Seçilen biçimin sonucu: "Hedef/Kaynak/…" ya da "Hedef/…".
+    /// Seçilen biçimin sonucu: "Hedef/Kaynak/…" ya da "Hedef/…"; anlık görüntüde "Hedef/<tarih>/Kaynak/…".
     private var resultPreview: String? {
         guard let source, let destination else { return nil }
-        let base = destination.path.hasSuffix("/") ? destination.path : destination.path + "/"
+        var base = destination.path.hasSuffix("/") ? destination.path : destination.path + "/"
+        if options.snapshots.enabled { base += SnapshotStore.name(for: Date()) + "/" }
         if !sourceIsDirectory { return settings.t(.modeFileHelp, base + source.lastPathComponent) }
         switch options.copyMode {
         case .folder: return settings.t(.modeFolderHelp, base + source.lastPathComponent + "/…")
@@ -219,20 +292,29 @@ struct NewJobSheet: View {
     }
 
     /// `--delete` seçiliyse önce ayrıca onay istenir.
+    /// `--delete` yeni seçildiyse ve saklama kuralları eski anlık görüntüleri silecekse önce ayrıca onay istenir.
     private func submit() {
         guard source != nil, destination != nil else { return }
-        if options.deleteExtraneous { confirmDelete = true } else { add() }
+        if needsDeleteConfirmation {
+            confirmDelete = true
+        } else if needsRetentionConfirmation {
+            confirmRetention = true
+        } else {
+            commit()
+        }
     }
 
-    private func add() {
+    /// İşi ekler ya da (düzenlemede) kaydeder.
+    private func commit() {
         guard let source, let destination else { return }
-        var options = options
+        var options = finalOptions
         if !sourceIsDirectory { options.copyMode = .folder }
-        if let message = model.addJob(source: source, destination: destination, options: options) {
-            problem = message
+        let message = if let id = request.editing {
+            model.updateJob(id, source: source, destination: destination, options: options)
         } else {
-            dismiss()
+            model.addJob(source: source, destination: destination, options: options)
         }
+        if let message { problem = message } else { dismiss() }
     }
 }
 

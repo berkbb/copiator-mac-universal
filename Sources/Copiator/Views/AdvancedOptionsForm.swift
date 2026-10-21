@@ -9,9 +9,13 @@ struct AdvancedOptionsSections: View {
     @Binding var options: AdvancedOptions
     /// "Kaynakta olmayanları hedeften sil" açık mı (silme ayrıntıları yalnızca o zaman uygulanır).
     var deleteEnabled: Bool
+    /// Otomatik anlık görüntüler açık mı (önceki yedek o zaman kendiliğinden seçilir).
+    var snapshotsEnabled = false
     @Environment(AppSettings.self) private var settings
 
     var body: some View {
+        ExcludePresetsSection(presets: $options.excludePresets)
+
         Section {
             patternsField(.advFilterRules, $options.filterRules)
             patternsField(.advIncludePatterns, $options.includePatterns)
@@ -104,16 +108,20 @@ struct AdvancedOptionsSections: View {
         }
 
         Section {
-            Picker(settings.t(.advReferenceMode), selection: $options.referenceMode) {
-                Text(settings.t(.referenceNone)).tag(ReferenceMode.none)
-                Text(settings.t(.referenceLink)).tag(ReferenceMode.linkDest)
-                Text(settings.t(.referenceCompare)).tag(ReferenceMode.compareDest)
-                Text(settings.t(.referenceCopy)).tag(ReferenceMode.copyDest)
+            if snapshotsEnabled {
+                note(settings.t(.snapshotReferenceIgnored))
+            } else {
+                Picker(settings.t(.advReferenceMode), selection: $options.referenceMode) {
+                    Text(settings.t(.referenceNone)).tag(ReferenceMode.none)
+                    Text(settings.t(.referenceLink)).tag(ReferenceMode.linkDest)
+                    Text(settings.t(.referenceCompare)).tag(ReferenceMode.compareDest)
+                    Text(settings.t(.referenceCopy)).tag(ReferenceMode.copyDest)
+                }
+                if options.referenceMode != .none {
+                    pathField(.advReferenceDirectory, $options.referenceDirectory, kind: .directory)
+                }
+                note(settings.t(.advReferenceNote))
             }
-            if options.referenceMode != .none {
-                pathField(.advReferenceDirectory, $options.referenceDirectory, kind: .directory)
-            }
-            note(settings.t(.advReferenceNote))
             Toggle(settings.t(.advKeepBackups), isOn: $options.keepBackups)
             if options.keepBackups {
                 pathField(.advBackupDirectory, $options.backupDirectory, kind: .directory)

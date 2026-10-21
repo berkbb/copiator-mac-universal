@@ -188,10 +188,14 @@ final class AppSettings {
         static let customShortcuts = "customShortcuts"
         static let keepDisplayAwake = "keepDisplayAwake"
         static let defaultAdvanced = "defaultAdvancedOptions"
+        static let defaultVerifyAfterCopy = "defaultVerifyAfterCopy"
+        static let showMenuBarIcon = "showMenuBarIcon"
+        static let showDockProgress = "showDockProgress"
         static let all = [
             language, appearance, notifyOnFinish, resumeInterruptedAtLaunch, defaultCopyMode, defaultPreservePermissions,
             defaultPreserveXattrs, defaultExcludeSystemFolders, customEnginePath, checkUpdatesAtLaunch, updateConsentAsked,
-            sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, defaultAdvanced,
+            sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, defaultAdvanced, defaultVerifyAfterCopy,
+            showMenuBarIcon, showDockProgress,
         ]
     }
 
@@ -235,6 +239,14 @@ final class AppSettings {
             if let data = try? JSONEncoder().encode(defaultAdvanced) { defaults.set(data, forKey: Key.defaultAdvanced) }
         }
     }
+    /// Yeni işlerde kopyalama sonrası doğrulama.
+    var defaultVerifyAfterCopy: VerifyAfterCopy {
+        didSet { defaults.set(defaultVerifyAfterCopy.rawValue, forKey: Key.defaultVerifyAfterCopy) }
+    }
+    /// Menü çubuğu simgesi (ilerleme, tümünü duraklat/sürdür). Açıkken son pencere kapanınca uygulama çalışmayı sürdürür.
+    var showMenuBarIcon: Bool { didSet { defaults.set(showMenuBarIcon, forKey: Key.showMenuBarIcon) } }
+    /// Dock simgesinde çalışan işin ilerlemesi ve bekleyen işlerin sayısı.
+    var showDockProgress: Bool { didSet { defaults.set(showDockProgress, forKey: Key.showDockProgress) } }
     /// Kullanıcının özelleştirdiği kısayollar; varsayılandan farklı olanlar saklanır.
     var customShortcuts: [String: KeyboardShortcutData] {
         didSet {
@@ -263,6 +275,9 @@ final class AppSettings {
         keepDisplayAwake = defaults.object(forKey: Key.keepDisplayAwake) as? Bool ?? false
         defaultAdvanced = defaults.data(forKey: Key.defaultAdvanced)
             .flatMap { try? JSONDecoder().decode(AdvancedOptions.self, from: $0) } ?? AdvancedOptions()
+        defaultVerifyAfterCopy = VerifyAfterCopy(rawValue: defaults.string(forKey: Key.defaultVerifyAfterCopy) ?? "") ?? .off
+        showMenuBarIcon = defaults.object(forKey: Key.showMenuBarIcon) as? Bool ?? true
+        showDockProgress = defaults.object(forKey: Key.showDockProgress) as? Bool ?? true
         if let data = defaults.data(forKey: Key.customShortcuts),
            let decoded = try? JSONDecoder().decode([String: KeyboardShortcutData].self, from: data) {
             customShortcuts = decoded
@@ -276,7 +291,7 @@ final class AppSettings {
         CopyOptions(
             copyMode: defaultCopyMode, preservePermissions: defaultPreservePermissions,
             preserveExtendedAttributes: defaultPreserveXattrs, deleteExtraneous: false,
-            excludeSystemFolders: defaultExcludeSystemFolders, advanced: defaultAdvanced
+            excludeSystemFolders: defaultExcludeSystemFolders, advanced: defaultAdvanced, verifyAfterCopy: defaultVerifyAfterCopy
         )
     }
 
@@ -296,6 +311,9 @@ final class AppSettings {
         queueHeld = false
         keepDisplayAwake = false
         defaultAdvanced = AdvancedOptions()
+        defaultVerifyAfterCopy = .off
+        showMenuBarIcon = true
+        showDockProgress = true
         customShortcuts = [:]
         // Özellik gözlemcileri değerleri yeniden yazdı; ilk kurulumdaki gibi hiçbir tercih kalmasın.
         // "AppleLanguages" en sonda silinir: dil atanırken yeniden yazılıyordu.
@@ -391,6 +409,7 @@ final class AppSettings {
         case .missingReferenceDirectory: t(.problemReference)
         case .missingBatchFile: t(.problemBatch)
         case .stopAtInPast: t(.problemStopAt)
+        case .invalidRetention: t(.problemRetention)
         }
     }
 

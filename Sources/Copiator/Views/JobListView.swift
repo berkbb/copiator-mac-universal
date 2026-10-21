@@ -95,6 +95,10 @@ struct JobListView: View {
             Button(settings.t(.menuPauseJob), systemImage: "pause.fill") { model.pause(ids) }
         }
         Divider()
+        Button(settings.t(.menuEditJob), systemImage: "pencil") { model.beginEdit(job.id) }
+            .disabled(!JobQueue.canEdit(job))
+        Button(settings.t(.menuDuplicateJob), systemImage: "plus.square.on.square") { model.beginDuplicate(job.id) }
+        Divider()
         Button(settings.t(.menuVerify), systemImage: "checkmark.shield") { model.requestVerify(job.id) }
             .disabled(!JobQueue.canVerify(job) || model.operation != nil)
         Divider()
@@ -133,7 +137,8 @@ struct JobRow: View {
                         .lineLimit(1)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    StatusBadge(job: job, settings: settings, isPausing: model.isPausingRunningJob && model.runningJobID == job.id)
+                    StatusBadge(job: job, settings: settings, isPausing: model.isPausingRunningJob && model.runningJobID == job.id,
+                                isWaitingForDisk: model.isWaitingForDisk(job))
                 }
                 progressBar
                 let detail = detailLine
@@ -165,7 +170,7 @@ struct JobRow: View {
     @ViewBuilder
     private var progressBar: some View {
         switch job.status {
-        case .scanning:
+        case .scanning, .verifying:
             ProgressView().progressViewStyle(.linear)
         case .copying where job.progress?.isListing == true:
             ProgressView().progressViewStyle(.linear)
@@ -226,6 +231,8 @@ struct StatusBadge: View {
     let job: TransferJob
     let settings: AppSettings
     var isPausing = false
+    /// "Disk takılınca başla" seçili iş diski takılı olmadığı için bekliyor.
+    var isWaitingForDisk = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -243,20 +250,13 @@ struct StatusBadge: View {
     }
 
     private var titleKey: LKey {
-        switch job.status {
-        case .waiting: .statusWaiting
-        case .scanning: .statusScanning
-        case .copying: .statusCopying
-        case .paused: .statusPaused
-        case .finished: .statusFinished
-        case .failed: .statusFailed
-        }
+        isWaitingForDisk ? .statusWaitingForDisk : job.status.titleKey
     }
 
     private var color: Color {
         switch job.status {
         case .waiting: .secondary
-        case .scanning, .copying: .accentColor
+        case .scanning, .copying, .verifying: .accentColor
         case .paused: .orange
         case .finished: .green
         case .failed: .red
@@ -275,10 +275,11 @@ struct JobDetailView: View {
                     Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 8) {
                         row(.detailSource, OpenSafety.visibleName(job.source.path))
                         row(.detailDestination, OpenSafety.visibleName(job.destination.path))
-                        row(.detailTarget, OpenSafety.visibleName(job.target(sourceIsDirectory: RsyncEngine.isDirectory(job.source)).path))
+                        row(.detailTarget, OpenSafety.visibleName(targetPath(job)))
+                        if job.options.snapshots.enabled { row(.detailSnapshots, snapshotSummary(job)) }
                         row(.detailMode, settings.t(job.options.copyMode == .folder ? .modeFolder : .modeContents))
-                        row(.detailOptions, optionsSummary(job.options))
-                        row(.detailStatus, settings.t(statusKey(job.status)))
+                        row(.detailOptions, optionsSummary(job.options), lineLimit: nil)
+                        row(.detailStatus, settings.t(job.status.titleKey))
                         if let result = job.result {
                             row(.detailResult, settings.result(result))
                             if let code = result.exitCode { row(.detailExitCode, String(code)) }
@@ -294,6 +295,8 @@ struct JobDetailView: View {
                     }
                     Divider()
                     CommandPreview(command: model.commandPreview(for: job))
+                    Divider()
+                    JobHistoryList(job: job, settings: settings)
                     Divider()
                     Text(settings.t(.detailLog)).font(.headline)
                     if job.log.isEmpty {
@@ -326,14 +329,14 @@ struct JobDetailView: View {
         }
     }
 
-    private func row(_ key: LKey, _ value: String) -> some View {
+    private func row(_ key: LKey, _ value: String, lineLimit: Int? = 4) -> some View {
         GridRow {
             Text(settings.t(key))
                 .foregroundStyle(.secondary)
                 .gridColumnAlignment(.trailing)
             Text(value)
                 .textSelection(.enabled)
-                .lineLimit(4)
+                .lineLimit(lineLimit)
                 .truncationMode(.middle)
         }
     }
@@ -344,18 +347,31 @@ struct JobDetailView: View {
         if options.preserveExtendedAttributes { parts.append(settings.t(.optionXattrs)) }
         if options.excludeSystemFolders { parts.append(settings.t(.optionExcludeSystem)) }
         if options.deleteExtraneous { parts.append(settings.t(.optionDelete)) }
+        if options.snapshots.enabled { parts.append(settings.t(.optionSnapshots)) }
+        if options.runWhenConnected { parts.append(settings.t(.optionRunWhenConnected)) }
+        switch options.verifyAfterCopy {
+        case .off: break
+        case .quick: parts.append(settings.t(.optionVerifyAfterCopy) + ": " + settings.t(.verifyAfterQuick))
+        case .checksum: parts.append(settings.t(.optionVerifyAfterCopy) + ": " + settings.t(.verifyAfterChecksum))
+        }
+        parts += options.advanced.excludePresets.map { settings.t($0.titleKey) }
         return parts.joined(separator: "\n")
     }
 
-    private func statusKey(_ status: JobStatus) -> LKey {
-        switch status {
-        case .waiting: .statusWaiting
-        case .scanning: .statusScanning
-        case .copying: .statusCopying
-        case .paused: .statusPaused
-        case .finished: .statusFinished
-        case .failed: .statusFailed
+    /// Kaynağın hedefteki karşılığı; anlık görüntü işinde en yeni anlık görüntünün (yoksa bugünün adıyla) içinde.
+    private func targetPath(_ job: TransferJob) -> String {
+        var job = job
+        if job.options.snapshots.enabled {
+            let name = SnapshotStore.latest(in: job.destination)?.lastPathComponent ?? SnapshotStore.name(for: Date())
+            job.destination = job.destination.appendingPathComponent(name, isDirectory: true)
         }
+        return job.target(sourceIsDirectory: RsyncEngine.isDirectory(job.source)).path
+    }
+
+    private func snapshotSummary(_ job: TransferJob) -> String {
+        let snapshots = SnapshotStore.completeSnapshots(in: job.destination)
+        guard let latest = snapshots.last else { return settings.t(.detailSnapshotsNone) }
+        return settings.t(.detailSnapshotsCount, snapshots.count, latest)
     }
 
     private func icon(_ level: JobLogEntry.Level) -> String {
@@ -371,6 +387,20 @@ struct JobDetailView: View {
         case .info: .secondary
         case .warning: .orange
         case .error: .red
+        }
+    }
+}
+
+extension JobStatus {
+    var titleKey: LKey {
+        switch self {
+        case .waiting: .statusWaiting
+        case .scanning: .statusScanning
+        case .copying: .statusCopying
+        case .verifying: .statusVerifying
+        case .paused: .statusPaused
+        case .finished: .statusFinished
+        case .failed: .statusFailed
         }
     }
 }
