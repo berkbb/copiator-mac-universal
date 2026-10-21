@@ -48,6 +48,7 @@ private struct RsyncSettingsView: View {
                         .font(.callout)
                 }
             }
+            SandboxLimitsSection()
             AdvancedOptionsSections(options: $settings.defaultAdvanced, deleteEnabled: true)
         }
         .formStyle(.grouped)

@@ -170,5 +170,8 @@ struct ViewRenderTests {
         ), size: NSSize(width: 700, height: 160), name: "power")
         render(CommandPreview(command: "rsync -rltDhX --info=progress2 --partial -H -- /a/ /b/").environment(settings),
                size: NSSize(width: 500, height: 120), name: "command")
+        render(Form { SandboxLimitsSection() }.formStyle(.grouped).environment(settings),
+               size: NSSize(width: 620, height: 640), name: "sandbox-limits")
+        #expect(SandboxLimitsSection.items.count == 5)
     }
 }

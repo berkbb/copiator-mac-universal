@@ -385,3 +385,17 @@
 "progressCurrentItem" = "Now: %@";
 "progressListing" = "Building the file list: %ld files";
 "progressThisFile" = "this file %@";
+
+/* Kum havuzu nedeniyle yapılamayanlar */
+"sandboxLimitsTitle" = "Not possible because of the sandbox";
+"sandboxLimitsFooter" = "The personal folder protection can be removed by turning off Settings › Advanced › \"Run rsync in a sandbox\". Remote transfers and moving are not offered even with the sandbox off.";
+"sandboxLimitNetworkTitle" = "No remote transfers";
+"sandboxLimitNetwork" = "rsync cannot reach the network: copying to or from another machine over SSH (user@host:/path, -e ssh), rsync servers (rsync://, --daemon), compression (-z) and connection time limits (--timeout) are not available.";
+"sandboxLimitSourceTitle" = "The source cannot be changed";
+"sandboxLimitSource" = "rsync cannot write to or delete from the source: moving (--remove-source-files) is not available. The source is read-only even when it lies inside the destination.";
+"sandboxLimitProgramsTitle" = "No other programs can run";
+"sandboxLimitPrograms" = "rsync cannot start any program other than itself: another connection program (-e, --rsh) or a command on the other side (--rsync-path) cannot be used.";
+"sandboxLimitPersonalTitle" = "Personal folders cannot be read";
+"sandboxLimitPersonal" = "~/.ssh, the Keychain, Mail, Messages, browser profiles and similar folders are not copied unless chosen directly as the source. Inside a larger source they are skipped, and even a link (-L) pointing to them does not copy their contents.";
+"sandboxLimitNotOfferedTitle" = "Two options not offered";
+"sandboxLimitNotOffered" = "--preallocate is not supported by this macOS build; --read-batch is not an option but a separate operation (applying a batch file).";

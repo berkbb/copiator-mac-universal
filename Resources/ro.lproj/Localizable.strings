@@ -385,3 +385,17 @@
 "progressCurrentItem" = "Acum: %@";
 "progressListing" = "Se construiește lista: %ld fișiere";
 "progressThisFile" = "acest fișier %@";
+
+/* Kum havuzu nedeniyle yapılamayanlar */
+"sandboxLimitsTitle" = "Imposibil din cauza sandbox-ului";
+"sandboxLimitsFooter" = "Protecția dosarelor personale poate fi eliminată dezactivând Configurări › Avansat › „Rulează rsync într-un sandbox”. Transferurile la distanță și mutarea nu sunt oferite nici cu sandbox-ul dezactivat.";
+"sandboxLimitNetworkTitle" = "Fără transferuri la distanță";
+"sandboxLimitNetwork" = "rsync nu poate accesa rețeaua: copierea către sau de pe alt computer prin SSH (utilizator@server:/cale, -e ssh), serverele rsync (rsync://, --daemon), compresia (-z) și limitele de timp ale conexiunii (--timeout) nu sunt disponibile.";
+"sandboxLimitSourceTitle" = "Sursa nu poate fi modificată";
+"sandboxLimitSource" = "rsync nu poate scrie în sursă și nu poate șterge din ea: mutarea (--remove-source-files) nu este disponibilă. Sursa este doar pentru citire chiar dacă se află în destinație.";
+"sandboxLimitProgramsTitle" = "Nu pot rula alte programe";
+"sandboxLimitPrograms" = "rsync nu poate porni niciun alt program în afară de el însuși: un alt program de conexiune (-e, --rsh) sau o comandă pe partea cealaltă (--rsync-path) nu pot fi folosite.";
+"sandboxLimitPersonalTitle" = "Dosarele personale nu pot fi citite";
+"sandboxLimitPersonal" = "~/.ssh, Portcheiul, Mail, Mesaje, profilurile de browser și dosarele similare nu sunt copiate decât dacă sunt alese direct ca sursă. Într-o sursă mai mare sunt omise, iar nici o legătură (-L) către ele nu le copiază conținutul.";
+"sandboxLimitNotOfferedTitle" = "Două opțiuni neoferite";
+"sandboxLimitNotOffered" = "--preallocate nu este acceptat de această versiune macOS; --read-batch nu este o opțiune, ci o operație separată (aplicarea unui fișier lot).";

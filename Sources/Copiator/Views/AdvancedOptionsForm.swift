@@ -332,3 +332,46 @@ struct PowerStatusBanner: View {
         .accessibilityIdentifier("copiator.power")
     }
 }
+
+/// rsync kum havuzunda (sandbox-exec) çalıştığı için yapılamayanlar. Ayrıntısı: docs/rsync-not-possible-in-sandbox.md.
+struct SandboxLimitsSection: View {
+    @Environment(AppSettings.self) private var settings
+
+    /// Her satır: simge, başlık, açıklama.
+    static let items: [(symbol: String, title: LKey, detail: LKey)] = [
+        ("network.slash", .sandboxLimitNetworkTitle, .sandboxLimitNetwork),
+        ("lock.doc", .sandboxLimitSourceTitle, .sandboxLimitSource),
+        ("terminal", .sandboxLimitProgramsTitle, .sandboxLimitPrograms),
+        ("person.badge.key", .sandboxLimitPersonalTitle, .sandboxLimitPersonal),
+        ("minus.circle", .sandboxLimitNotOfferedTitle, .sandboxLimitNotOffered),
+    ]
+
+    var body: some View {
+        Section {
+            ForEach(Self.items, id: \.title) { item in
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(settings.t(item.title))
+                            .font(.callout.weight(.semibold))
+                        Text(settings.t(item.detail))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } icon: {
+                    Image(systemName: item.symbol)
+                        .foregroundStyle(.orange)
+                        .accessibilityHidden(true)
+                }
+            }
+        } header: {
+            Label(settings.t(.sandboxLimitsTitle), systemImage: "info.circle")
+        } footer: {
+            Text(settings.t(.sandboxLimitsFooter))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityIdentifier("copiator.sandbox.limits")
+    }
+}

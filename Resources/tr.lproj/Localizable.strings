@@ -385,3 +385,17 @@
 "progressCurrentItem" = "Şu an: %@";
 "progressListing" = "Dosya listesi çıkarılıyor: %ld dosya";
 "progressThisFile" = "bu dosya %@";
+
+/* Kum havuzu nedeniyle yapılamayanlar */
+"sandboxLimitsTitle" = "Kum havuzu nedeniyle yapılamayanlar";
+"sandboxLimitsFooter" = "Kişisel klasör koruması Ayarlar › Gelişmiş › \"rsync'i kum havuzunda çalıştır\" kapatılarak kaldırılabilir. Uzak aktarım ve taşıma ise kum havuzu kapalıyken de sunulmaz.";
+"sandboxLimitNetworkTitle" = "Uzak aktarım yok";
+"sandboxLimitNetwork" = "rsync ağa çıkamaz: SSH ile başka bir makineye ya da makineden kopyalama (kullanıcı@sunucu:/yol, -e ssh), rsync sunucusu (rsync://, --daemon), sıkıştırma (-z) ve bağlantı süre sınırları (--timeout) kullanılamaz.";
+"sandboxLimitSourceTitle" = "Kaynak değiştirilemez";
+"sandboxLimitSource" = "rsync kaynağa yazamaz ve kaynaktan silemez: taşıma (--remove-source-files) yoktur. Kaynak, hedefin içinde olsa bile salt okunurdur.";
+"sandboxLimitProgramsTitle" = "Başka program çalıştırılamaz";
+"sandboxLimitPrograms" = "rsync kendisi dışında hiçbir programı başlatamaz: bağlantı için başka bir program (-e, --rsh) ya da karşı tarafta bir komut (--rsync-path) kullanılamaz.";
+"sandboxLimitPersonalTitle" = "Kişisel klasörler okunamaz";
+"sandboxLimitPersonal" = "~/.ssh, Anahtar Zinciri, Mail, Mesajlar, tarayıcı profilleri ve benzeri klasörler, kaynak olarak doğrudan seçilmedikçe kopyalanmaz. Daha büyük bir kaynağın içindeyseler atlanır; bir bağlantı (-L) onları gösterse de içerikleri kopyalanmaz.";
+"sandboxLimitNotOfferedTitle" = "Sunulmayan iki seçenek";
+"sandboxLimitNotOffered" = "--preallocate bu macOS derlemesinde desteklenmez; --read-batch bir seçenek değil, ayrı bir işlemdir (toplu iş dosyasını uygulamak).";

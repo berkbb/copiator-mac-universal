@@ -169,6 +169,11 @@ public enum LKey: String, CaseIterable, Sendable {
     case problemPattern, problemChmod, problemIconv, problemSuffix, problemNumber, problemPath, problemWritesInsideSource
     case problemReference, problemBatch, problemStopAt
     case progressCurrentItem, progressListing, progressThisFile
+    // Kum havuzu nedeniyle yapılamayanlar
+    case sandboxLimitsTitle, sandboxLimitsFooter
+    case sandboxLimitNetworkTitle, sandboxLimitNetwork, sandboxLimitSourceTitle, sandboxLimitSource
+    case sandboxLimitProgramsTitle, sandboxLimitPrograms, sandboxLimitPersonalTitle, sandboxLimitPersonal
+    case sandboxLimitNotOfferedTitle, sandboxLimitNotOffered
 }
 
 extension StringTable {
