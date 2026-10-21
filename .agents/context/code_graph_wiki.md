@@ -14,7 +14,10 @@
 | `CommandRunner.swift` | `ProcessResult`, `EngineError`, `CommandRunner`, `ProcessBox`, `RunState` | Subprocess execution, `\r`/`\n` record streaming (`onRecord`), tail-only stdout (`retainStdout: false`), timeout, SIGTERM + 2 s SIGKILL, bounded drain after exit, output cap |
 | `Sandbox.swift` | `SandboxProfile` (`forTransfer`, `protectedPaths`, `resolved`, `profileText`), `CommandRunner.sandboxed` | SBPL generation, realpath resolution, personal-data protection |
 | `RsyncCommand.swift` | `RsyncCommand` (`transfer`, `verify`, `Environment`, `systemExclusions`, `escapePattern`) | The single source of rsync arguments |
-| `RsyncProgress.swift` | `TransferProgress`, `RsyncProgressParser` | `--info=progress2` parsing, units |
+| `RsyncProgress.swift` | `TransferProgress` (`currentItem`, `fileFraction`, `filesListed`, `isListing`), `RsyncProgressParser` | `--info=progress2`/`progress1` parsing, units |
+| `AdvancedOptions.swift` | `AdvancedOptions`, `SymlinkMode`, `DeleteTiming`, `AppendMode`, `ReferenceMode`, `BatchMode`, `ProgressDetail`, `Problem` | Sandbox-compatible rsync options, validation, extra sandbox paths, `--stop-at` format |
+| `RsyncOutputCollector.swift` | `RsyncOutputCollector` | Output records → progress, names, list counter, batched change lines, statistics |
+| `PowerAdvisor.swift` | `PowerSnapshot`, `PowerAdvice`, `PowerAdvisor`, `SleepGuard` | Power source/battery/Low Power Mode, advice rules, verified sleep assertions |
 | `RsyncOutcome.swift` | `RsyncOutcome` (`classify`, `errorLines`, `messageBody`, `endsWithErrno`) | Exit code + stderr → `JobResult` |
 | `ItemizeParser.swift` | `DiffEntry`, `ItemizeParser` | `-i` parsing, `\#ooo` unescaping |
 | `Engine.swift` | `EngineInfo`, `EngineLocator`, `EngineUpdateResult`, `EngineUpdater` | Candidates, version/capability parsing, choice, updater wrapper |
@@ -46,7 +49,7 @@
 
 | Change | Also update |
 | :--- | :--- |
-| New rsync flag | `RsyncCommand`, `RsyncCommandTests`, `FuzzTests.commandBuilderInvariantsHoldForRandomPaths`, `domain_wiki.md` §2 |
+| New rsync flag | `AdvancedOptions` (+ tolerant decoding, validation), `RsyncCommand.advancedFlags`/`verify`, `unsupportedByOpenrsync`, `AdvancedOptionsSections`, three tables, `AdvancedOptionsTests`, `docs/rsync-possible-in-sandbox.md` |
 | New result kind | `JobResultKind`, `RsyncOutcome`, `StringTable.resultMessage`, three `Localizable.strings`, `LocalizationTests` |
 | New job field | `TransferJob` coding keys + tolerant decoding, `JobModelTests.decodesMinimalAndForwardJobs`, `snapshot_audit_skill.md` |
 | New engine | `JobKind` case, `TransferEngine` implementation, `TransferEngines.engine(for:)`, integration tests |

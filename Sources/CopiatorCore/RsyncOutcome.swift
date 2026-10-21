@@ -54,6 +54,9 @@ public enum RsyncOutcome {
             return JobResult(kind: .succeeded, exitCode: 0)
         case 20:
             return JobResult(kind: .cancelled, exitCode: exitCode, detail: detail)
+        case 30 where lines.contains(where: { $0.trimmingCharacters(in: .whitespaces) == "stopping at requested limit" }):
+            // `--stop-at` / `--stop-after` sınırı: rsync zaman aşımıyla aynı kodla çıkar, ama iş sürdürülebilir.
+            return JobResult(kind: .stoppedAtLimit, exitCode: exitCode, detail: detail)
         case 24:
             // Kaynaktaki bazı dosyalar kopyalanırken silindi ya da taşındı (canlı klasörlerde olağan). Başka hata da
             // varsa 23 dönerdi; geri kalan her şey kopyalanmıştır.

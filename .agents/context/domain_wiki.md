@@ -19,7 +19,8 @@ Version 1.0 scope: local disk → local disk. Planned job kinds: remote rsync ov
 | :--- | :--- | :--- |
 | **Transfer** | `-rltDhX --info=progress2 --partial [-pogA\|-pog] [--modify-window=1] [--delete] [--exclude=…] -- <source>[/] <destination>/` | `X` dropped when xattrs are off; `-pog*` never on exFAT/FAT/NTFS; `--modify-window=1` on FAT; trailing `/` on the source = "copy its contents". |
 | **Verify** | `-rltDhX -n -i [-c] [-pog…] --delete [--exclude=…] -- <source>[/] <destination>/` | Dry run; `--delete` lists extra items only; sandbox has no writable folder. |
-| **openrsync (fallback)** | `-rltDh [--extended-attributes] --partial [-pog] …` | No `--info=progress2`, no `-X`, no ACLs; progress is indeterminate. |
+| **openrsync (fallback)** | `-rltDh [--extended-attributes] --partial [-pog] …` | No `--info=progress2`, no `-X`, no ACLs; progress is indeterminate. Unsupported advanced options are dropped and logged. |
+| **Advanced (per job)** | `--info=progress1\|2[,name1][,flist2][,stats2] [--no-inc-recursive] [-i]` + selection, attribute, link, write, comparison, reference, backup and output flags + `--filter/--include/--exclude/-F/--*-from` | All defaults add nothing. Verify keeps only comparison-affecting flags. Order of filters: protected, system, user. |
 
 ### rsync Facts Verified on 3.5.1
 
@@ -30,6 +31,10 @@ Version 1.0 scope: local disk → local disk. Planned job kinds: remote rsync ov
 5. Under `sandbox-exec` with `(deny network*)`, `(deny mach-lookup)` and `(deny process-exec)` except rsync itself, a local copy works (rsync forks and uses a socketpair, no exec); a blocked write reports `Operation not permitted (1)` and exit 23; a blocked connection reports `Operation not permitted` instead of `Connection refused`.
 6. On macOS 27, exFAT and FAT32 destinations accept `-pogA` silently; FAT32 keeps times in 2-second steps, so re-runs recopy everything without `--modify-window=1`.
 7. A shallow git checkout of the tag lacks `configure.sh`; rsync's `mkgitver` appends `-g<commit>` to the version when `.git` exists.
+8. `--info=name1` prints names as `\n` lines between `\r` progress records; `--info=progress1` lines have the progress2 format but per-file values; `flist2` prints ` N files...` only with `--no-inc-recursive`; `stats2` prints a `Number of files:` block at the end.
+9. `--stop-at`/`--stop-after` → `stopping at requested limit`, exit 30 (same code as a timeout).
+10. Under the sandbox, `--link-dest` links only if the previous backup is writable (a hard link is a write on the existing file); `--files-from` inside a denied folder fails because rsync opens list files component by component; sources inside a denied folder with a file-level allow work.
+11. This build reports `no prealloc`: `--preallocate` fails with "preallocation is not supported".
 
 ## 3. Security & Isolation Architecture
 

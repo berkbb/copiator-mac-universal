@@ -143,6 +143,32 @@ public enum LKey: String, CaseIterable, Sendable {
     case aboutRepository, aboutEngineWebsite
     case licenseAppSubtitle, licenseEngineSubtitle, licenseNoticesSubtitle, licenseReadOnly, licensePublisher, licenseLabel
     case licenseCopyText, licenseCopied
+    // Süre sınırı, düşürülen seçenekler, istatistikler
+    case resultStoppedAtLimit, logDroppedOptions, logStatsHeader, notifyStoppedTitle, notifyStoppedBody
+    // Uyku ve güç
+    case sleepPreventedVerified, sleepPreventedUnverified, sleepDisplayKept, sleepRestored, sleepRestoreUnverified
+    case toastSleepPrevented, toastSleepRestored, sleepBadge, sleepBadgeHelp
+    case adviceOnBattery, adviceBatteryLow, adviceBatteryCritical, adviceLowPowerMode, adviceDisplaySleep, adviceLid, adviceOnAC
+    case settingsPowerSection, settingsKeepDisplayAwake, settingsKeepDisplayAwakeNote
+    // Gelişmiş rsync seçenekleri
+    case settingsRsync, settingsRsyncNote, newJobAdvanced, newJobCommand, buttonClear, advNotSet
+    case advSelection, advAttributes, advLinks, advWriting, advDeletion, advComparison, advSnapshots, advProgress
+    case advFilterRules, advIncludePatterns, advExcludePatterns, advPatternsNote, advUseFilterFiles
+    case advIncludeFrom, advExcludeFrom, advFilesFrom, advFilesFromNote, advMaxSize, advMinSize
+    case advIgnoreExisting, advExistingOnly, advUpdateOnly, advPruneEmpty
+    case advHardLinks, advHardLinksNote, advCreationTimes, advAccessTimes, advNumericIDs, advOneFileSystem, advChmod, advChmodNote
+    case advSymlinks, symlinkPreserve, symlinkCopyTargets, symlinkCopyUnsafe, symlinkSkipUnsafe
+    case advSparse, advInplace, advInplaceNote, advWholeFile, advWholeFileNote, advAppend, appendOff, appendOn, appendVerify
+    case advDeleteTiming, deleteDuring, deleteBefore, deleteAfter, deleteDelay, advDeleteExcluded, advMaxDelete, advIgnoreErrors, advDeleteNote
+    case advSizeOnly, advModifyWindow, advBandwidth, advStopAfter, advStopAt, advStopNote, advIconv, advIconvNote
+    case advReferenceMode, referenceNone, referenceLink, referenceCompare, referenceCopy, advReferenceDirectory, advReferenceNote
+    case advKeepBackups, advBackupDirectory, advBackupSuffix, advBackupsNote
+    case advProgressDetail, progressDetailTotal, progressDetailPerFile, advShowFileNames, advFileListProgress, advFileListNote
+    case advShowStats, advLogChanges, advLogChangesNote, advPreciseProgress, advPreciseNote, advLogFile
+    case advBatchMode, batchOff, batchWrite, batchOnlyWrite, advBatchFile, advUnavailableNote
+    case problemPattern, problemChmod, problemIconv, problemSuffix, problemNumber, problemPath, problemWritesInsideSource
+    case problemReference, problemBatch, problemStopAt
+    case progressCurrentItem, progressListing, progressThisFile
 }
 
 extension StringTable {
@@ -159,6 +185,7 @@ extension StringTable {
         case .sourceFilesVanished: return string(.resultSourceFilesVanished, language: code)
         case .partial: return format(.resultPartial, result.noteCount)
         case .cancelled: return string(.resultCancelled, language: code)
+        case .stoppedAtLimit: return string(.resultStoppedAtLimit, language: code)
         case .destinationFull:
             if let required = result.requiredBytes, let available = result.availableBytes {
                 return format(.resultDestinationFullDetail, bytes(required), bytes(available))

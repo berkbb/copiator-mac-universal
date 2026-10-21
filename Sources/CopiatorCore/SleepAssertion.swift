@@ -2,18 +2,23 @@
 import Foundation
 import IOKit.pwr_mgt
 
-/// Bir iş çalışırken Mac'in boşta kalınca uyumasını engeller (`caffeinate -i` karşılığı).
+/// Bir iş çalışırken Mac'in boşta kalınca uyumasını engeller (`caffeinate -i` karşılığı); ekran türüyle
+/// (`kIOPMAssertionTypePreventUserIdleDisplaySleep`) ekranın kararmasını da (`caffeinate -d`).
 ///
-/// Ekran kararabilir; yalnızca sistem uykusu ertelenir. Kapak kapatma ve elle uyutma engellenmez. İş bitince,
+/// Varsayılan türde ekran kararabilir; yalnızca sistem uykusu ertelenir. Kapak kapatma ve elle uyutma engellenmez. İş bitince,
 /// duraklatılınca ya da hata verince bırakılır; nesne yok edilirken de bırakılır (sızıntı olmaz).
 public final class SleepAssertion: @unchecked Sendable {
     private let lock = NSLock()
     private var assertionID: IOPMAssertionID = IOPMAssertionID(kIOPMNullAssertionID)
     private let reason: String
+    private let type: String
 
-    /// - Parameter reason: Etkinlik Monitörü ve `pmset -g assertions` çıktısında görünen açıklama.
-    public init(reason: String) {
+    /// - Parameters:
+    ///   - reason: Etkinlik Monitörü ve `pmset -g assertions` çıktısında görünen açıklama.
+    ///   - type: IOPM engel türü (varsayılan: boşta sistem uykusu).
+    public init(reason: String, type: String = kIOPMAssertionTypePreventUserIdleSystemSleep) {
         self.reason = reason
+        self.type = type
     }
 
     deinit { release() }
@@ -27,7 +32,7 @@ public final class SleepAssertion: @unchecked Sendable {
             if assertionID != IOPMAssertionID(kIOPMNullAssertionID) { return true }
             var id = IOPMAssertionID(kIOPMNullAssertionID)
             let status = IOPMAssertionCreateWithName(
-                kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
+                type as CFString,
                 IOPMAssertionLevel(kIOPMAssertionLevelOn),
                 reason as CFString,
                 &id

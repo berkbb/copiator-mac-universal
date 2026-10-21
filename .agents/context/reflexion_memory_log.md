@@ -43,6 +43,18 @@
 - **Root Cause:** Connecting to a closed local port fails with or without a sandbox.
 - **Guardrail:** Assert `Operation not permitted` under the sandbox and `Connection refused` without it (`networkIsDenied`).
 
+## Episode 11: `--link-dest` Silently Copied Instead of Linking Under the Sandbox
+- **Root Cause:** macOS's sandbox treats `link()` as a write on the existing file. With the previous backup outside the writable destination, rsync's link failed and it fell back to a full copy without an error. No individual operation (`file-link`, `file-write-create`, …) is enough; only `file-write*` on the reference works.
+- **Guardrail:** grant write access to the `--link-dest` reference only; assert identical inodes in a live test (`linkDestSnapshots`). Do not trust exit code 0 for "linked".
+
+## Episode 12: A File-Level Allow Does Not Let rsync Read a List in a Denied Folder
+- **Root Cause:** rsync 3.5.1 opens `--files-from`/`--*-from` files component by component (symlink-safe open), so it needs to read the denied folder itself; `cat` with the same profile works.
+- **Guardrail:** the app reads list files itself and passes a private temporary copy (`stageListFiles`); never open the whole personal folder.
+
+## Episode 13: Shared Assertion Names Make Parallel Tests Lie
+- **Root Cause:** suites run in parallel; every model used the reason "Copiator copy job", so "still present after release" was true because of another suite's job.
+- **Guardrail:** `AppModel(sleepReason:)` is unique per test model; verification compares exact names.
+
 ## Episode 10: FAT Re-runs Copy Everything
 - **Root Cause:** FAT stores modification times in 2-second steps; rsync's quick check sees every file as changed.
 - **Guardrail:** Add `--modify-window=1` for FAT destinations; verify with a real FAT32 image that a re-run has no differences.

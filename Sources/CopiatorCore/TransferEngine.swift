@@ -7,6 +7,8 @@ public enum TransferEvent: Sendable, Equatable {
     case phase(JobStatus)
     case progress(TransferProgress)
     case log(JobLogEntry)
+    /// Birden çok günlük satırı (değişiklik listesi, istatistikler): kayıt dosyası satır başına değil bir kez yazılır.
+    case logBatch([JobLogEntry])
 }
 
 /// Motoru çalıştırmak için gereken ortam: hangi ikili, hangi yetenekler, kum havuzu.

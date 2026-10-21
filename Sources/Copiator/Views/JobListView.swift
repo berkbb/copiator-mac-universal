@@ -65,13 +65,19 @@ struct JobListView: View {
             }
         }
         .safeAreaInset(edge: .top) {
-            if settings.queueHeld {
-                Label(settings.t(.queueHeldNotice), systemImage: "pause.circle.fill")
-                    .font(.callout)
-                    .foregroundStyle(.orange)
-                    .padding(8)
-                    .frame(maxWidth: .infinity)
-                    .background(.orange.opacity(0.08))
+            VStack(spacing: 0) {
+                if settings.queueHeld {
+                    Label(settings.t(.queueHeldNotice), systemImage: "pause.circle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                        .padding(8)
+                        .frame(maxWidth: .infinity)
+                        .background(.orange.opacity(0.08))
+                }
+                // İş sürerken: uyku engeli (sistemde doğrulandı mı) ve güç, pil, ekran önerileri.
+                if model.runningJobID != nil, let status = model.sleepStatus {
+                    PowerStatusBanner(status: status, advice: model.powerAdvice, snapshot: model.powerSnapshot, settings: settings)
+                }
             }
         }
     }
@@ -135,7 +141,7 @@ struct JobRow: View {
                     Text(detail)
                         .font(.caption)
                         .foregroundStyle(detailIsWarning ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .monospacedDigit()
                 }
             }
@@ -160,6 +166,8 @@ struct JobRow: View {
     private var progressBar: some View {
         switch job.status {
         case .scanning:
+            ProgressView().progressViewStyle(.linear)
+        case .copying where job.progress?.isListing == true:
             ProgressView().progressViewStyle(.linear)
         case .copying:
             if let fraction = job.progress?.fraction, model.engineInfo?.supportsProgress2 != false {
@@ -187,6 +195,9 @@ struct JobRow: View {
         guard let progress = job.progress else {
             return job.status == .copying && model.engineInfo?.supportsProgress2 == false ? settings.t(.progressLimited) : ""
         }
+        if progress.isListing, let listed = progress.filesListed {
+            return settings.t(.progressListing, listed)
+        }
         var parts = [settings.t(.progressBytes, settings.bytes(progress.bytesTransferred))]
         if job.status == .copying {
             if let rate = progress.bytesPerSecond, rate > 0 {
@@ -202,6 +213,11 @@ struct JobRow: View {
         }
         var line = parts.joined(separator: " · ")
         if progress.isEstimating && job.status == .copying { line += "\n" + settings.t(.progressEstimating) }
+        if job.status == .copying, let item = progress.currentItem {
+            var current = settings.t(.progressCurrentItem, OpenSafety.visibleName(item))
+            if let fileFraction = progress.fileFraction { current += " · " + settings.t(.progressThisFile, settings.percent(fileFraction)) }
+            line += "\n" + current
+        }
         return line
     }
 }
@@ -273,6 +289,11 @@ struct JobDetailView: View {
                     }
                     .font(.callout)
 
+                    if job.id == model.runningJobID, let status = model.sleepStatus {
+                        PowerStatusBanner(status: status, advice: model.powerAdvice, snapshot: model.powerSnapshot, settings: settings)
+                    }
+                    Divider()
+                    CommandPreview(command: model.commandPreview(for: job))
                     Divider()
                     Text(settings.t(.detailLog)).font(.headline)
                     if job.log.isEmpty {

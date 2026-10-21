@@ -153,7 +153,21 @@ final class AppModel {
     @ObservationIgnored private var toastTask: Task<Void, Never>?
     @ObservationIgnored private var didLaunch = false
     @ObservationIgnored private var consentPending = false
-    @ObservationIgnored private let sleepAssertion = SleepAssertion(reason: "Copiator copy job")
+    /// Uyku engeli (`caffeinate -i`, isteğe bağlı `-d` karşılığı); sistemin engel listesinde doğrulanır.
+    @ObservationIgnored private let sleepGuard: SleepGuard
+    /// Uyku engelinin `pmset -g assertions` çıktısında görünen adı.
+    nonisolated static let sleepReason = "Copiator copy job"
+    let sleepReason: String
+    /// Çalışan işin uyku engeli durumu (iş yokken nil).
+    private(set) var sleepStatus: SleepGuard.Status?
+    /// Çalışan iş için güç, pil ve ekran önerileri.
+    private(set) var powerAdvice: [PowerAdvice] = []
+    private(set) var powerSnapshot: PowerSnapshot?
+    /// Güç durumu kaynağı; testler sahte bir durum verebilir.
+    @ObservationIgnored var powerProvider: () -> PowerSnapshot = PowerSnapshot.current
+    /// İş sürerken güç durumunun yeniden denetlenme aralığı.
+    @ObservationIgnored var powerCheckInterval: Duration = .seconds(60)
+    @ObservationIgnored private var powerMonitor: Task<Void, Never>?
     /// İş bitince gösterilen bildirim; testler ve paket dışı çalıştırma için değiştirilebilir.
     @ObservationIgnored var notifier: (_ title: String, _ body: String) -> Void = AppModel.postUserNotification
     /// Motorlar (iş türü → motor); testler sahte bir motor verebilir.
@@ -163,9 +177,11 @@ final class AppModel {
     /// Uygulama kapanıyor: çalışan iş durdurulup "kesildi" olarak kaydedildi, kuyruk ilerlemez.
     @ObservationIgnored private var isTerminating = false
 
-    init(settings: AppSettings, store: JobStore = JobStore()) {
+    init(settings: AppSettings, store: JobStore = JobStore(), sleepReason: String = AppModel.sleepReason) {
         self.settings = settings
         self.store = store
+        self.sleepReason = sleepReason
+        sleepGuard = SleepGuard(reason: sleepReason)
         loadJobs()
     }
 
@@ -453,6 +469,9 @@ final class AppModel {
         if let problem = JobValidation.check(source: source, destination: destination, copyMode: options.copyMode) {
             return settings.result(JobResult(kind: RsyncEngine.resultKind(for: problem)))
         }
+        if let problem = options.advanced.problems(source: source).first {
+            return settings.problem(problem)
+        }
         let job = TransferJob(source: source, destination: destination, options: options)
         jobs.append(job)
         selection = [job.id]
@@ -522,7 +541,6 @@ final class AppModel {
         guard let job = job(id) else { return }
         runningJobID = id
         isPausingRunningJob = false
-        sleepAssertion.acquire()
         let resuming = job.progress != nil || job.wasInterrupted || job.result?.kind == .cancelled
         update(id) {
             // Durum, motorun ilk olayını beklemeden hemen "taranıyor" olur: aksi hâlde başlamış bir iş bir an için
@@ -533,6 +551,7 @@ final class AppModel {
             $0.wasInterrupted = false
             $0.appendLog(JobLogEntry(level: .info, key: resuming ? .logResumed : .logStarted, arguments: resuming ? [] : [context.info.version]))
         }
+        beginSleepGuard(for: id)
         save()
         let engine = engineProvider(job.kind)
         let (events, continuation) = AsyncStream<TransferEvent>.makeStream(bufferingPolicy: .unbounded)
@@ -551,7 +570,7 @@ final class AppModel {
     private func apply(_ event: TransferEvent, to id: TransferJob.ID) {
         update(id) { JobQueue.apply(event, to: &$0) }
         switch event {
-        case .phase, .log:
+        case .phase, .log, .logBatch:
             save()
         case .progress:
             if Date().timeIntervalSince(lastProgressSave) > 5 {
@@ -566,7 +585,7 @@ final class AppModel {
         if isTerminating {
             runningJobID = nil
             runningTask = nil
-            sleepAssertion.release()
+            endSleepGuard(for: id, announce: false)
             save()
             return
         }
@@ -574,7 +593,7 @@ final class AppModel {
         update(id) { job in
             JobQueue.finish(&job, with: result)
             switch result.kind {
-            case .cancelled: job.appendLog(JobLogEntry(level: .info, key: .logPaused))
+            case .cancelled, .stoppedAtLimit: job.appendLog(JobLogEntry(level: .info, key: .logPaused))
             case let kind where kind.isSuccess: job.appendLog(JobLogEntry(level: .info, key: .logFinished))
             default: job.appendLog(JobLogEntry(level: .error, key: .logFailed, arguments: [settings.result(result)]))
             }
@@ -582,7 +601,7 @@ final class AppModel {
         runningJobID = nil
         runningTask = nil
         isPausingRunningJob = false
-        sleepAssertion.release()
+        endSleepGuard(for: id, announce: true)
         save()
         if let job = job(id), result.kind != .cancelled || !pausedByUser {
             notify(job)
@@ -593,7 +612,9 @@ final class AppModel {
     private func notify(_ job: TransferJob) {
         guard settings.notifyOnFinish, let result = job.result, result.kind != .cancelled else { return }
         let name = job.source.lastPathComponent
-        if result.kind.isSuccess {
+        if result.kind == .stoppedAtLimit {
+            notifier(t(.notifyStoppedTitle), t(.notifyStoppedBody, name))
+        } else if result.kind.isSuccess {
             notifier(t(.notifyFinishedTitle), t(.notifyFinishedBody, name))
         } else {
             notifier(t(.notifyFailedTitle), t(.notifyFailedBody, name, settings.result(result)))
@@ -624,8 +645,84 @@ final class AppModel {
             }
         }
         operationTask?.cancel()
-        sleepAssertion.release()
+        if let runningJobID { endSleepGuard(for: runningJobID, announce: false) }
         save()
+    }
+
+    // MARK: - Uyku engeli ve güç önerileri
+
+    /// İş başında uyku engelini alır, sistemde doğrular, günlüğe yazar ve kullanıcıya bildirir; güç önerilerini
+    /// hesaplar ve iş sürerken güç durumunu izlemeye başlar.
+    private func beginSleepGuard(for id: TransferJob.ID) {
+        let status = sleepGuard.begin(keepDisplayAwake: settings.keepDisplayAwake)
+        sleepStatus = status
+        update(id) { job in
+            job.appendLog(JobLogEntry(level: status.unverified ? .warning : .info,
+                                      key: status.systemSleepPrevented ? .sleepPreventedVerified : .sleepPreventedUnverified))
+            if status.displaySleepPrevented { job.appendLog(JobLogEntry(level: .info, key: .sleepDisplayKept)) }
+        }
+        if status.systemSleepPrevented { showToast(t(.toastSleepPrevented), systemImage: "cup.and.saucer.fill") }
+        refreshPower(for: id, announceAll: true)
+        powerMonitor?.cancel()
+        let interval = powerCheckInterval
+        powerMonitor = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: interval)
+                guard !Task.isCancelled, let self, self.runningJobID == id else { return }
+                self.refreshPower(for: id, announceAll: false)
+            }
+        }
+    }
+
+    /// İş bitince, duraklatılınca, hata verince ya da uygulama kapanırken uyku engelini bırakır ve doğrular.
+    private func endSleepGuard(for id: TransferJob.ID, announce: Bool) {
+        powerMonitor?.cancel()
+        powerMonitor = nil
+        guard sleepStatus != nil || sleepGuard.isHeld else { return }
+        let stillPresent = sleepGuard.end()
+        sleepStatus = nil
+        powerAdvice = []
+        update(id) { $0.appendLog(JobLogEntry(level: stillPresent ? .warning : .info, key: stillPresent ? .sleepRestoreUnverified : .sleepRestored)) }
+        if announce { showToast(t(.toastSleepRestored), systemImage: "moon.zzz.fill") }
+    }
+
+    /// Güç durumunu okur ve önerileri günceller. İlk denetimde tüm öneriler, sonrakilerde yalnızca yeni uyarılar (pille
+    /// çalışmaya geçme, pilin azalması, Düşük Güç Modu) günlüğe yazılır ve bildirilir; adaptör takılınca bu da yazılır.
+    func refreshPower(for id: TransferJob.ID, announceAll: Bool) {
+        let snapshot = powerProvider()
+        let previous = powerAdvice
+        let advice = PowerAdvisor.advice(for: snapshot, keepDisplayAwake: settings.keepDisplayAwake)
+        let previousSource = powerSnapshot?.source
+        powerSnapshot = snapshot
+        powerAdvice = advice
+        let toLog = announceAll ? advice : PowerAdvisor.newWarnings(previous: previous, current: advice)
+        update(id) { job in
+            for item in toLog { job.appendLog(JobLogEntry(level: item.isWarning ? .warning : .info, key: item.titleKey, arguments: item.arguments(snapshot, settings))) }
+            if !announceAll, previousSource == .battery, snapshot.source == .ac {
+                job.appendLog(JobLogEntry(level: .info, key: .adviceOnAC))
+            }
+        }
+        if !announceAll, let warning = toLog.first(where: \.isWarning) {
+            showToast(settings.t(warning.titleKey, arguments: warning.arguments(snapshot, settings)), systemImage: warning.systemImage)
+        }
+        if !toLog.isEmpty { save() }
+    }
+
+    // MARK: - Komut önizlemesi
+
+    /// İşin çalıştıracağı rsync komutu (kopyalanabilir, kabuğa uygun tırnaklı). Kum havuzu ve uyku engeli komutun
+    /// parçası değildir; uygulama onları ayrıca sağlar.
+    func commandPreview(for job: TransferJob) -> String {
+        let info = engineInfo ?? EngineInfo(version: "3.5.1", isOpenrsync: false, supportsACLs: true, supportsXattrs: true)
+        let sourceIsDirectory = RsyncEngine.isDirectory(job.source) || !FileManager.default.fileExists(atPath: job.source.path)
+        let protected = settings.sandboxEngine && sourceIsDirectory
+            ? SandboxProfile.forTransfer(sources: [job.source], destination: job.destination).protectedPaths(inside: job.source)
+            : []
+        let environment = RsyncCommand.Environment(
+            engine: info, destinationFileSystem: FileSystemKind.of(job.destination), sourceIsDirectory: sourceIsDirectory,
+            protectedPaths: protected
+        )
+        return RsyncCommand.displayString(arguments: RsyncCommand.transfer(job, environment: environment))
     }
 
     /// Çalışan işin ya da tek seferlik işlemin bitmesini bekler (testler için).

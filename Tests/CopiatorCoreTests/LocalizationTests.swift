@@ -41,7 +41,7 @@ func translationsAreNotEnglishFallbacks(code: String) throws {
     let english = try table("en")
     let other = try table(code)
     // Dilde gerçekten aynı yazılan sözcükler: "OK", "General" (tr/ro), "Active" (ro, "etkin" çoğulu).
-    let sameEverywhere: Set<String> = ["appName", "buttonOK", "progressSpeed", "notifyFailedBody", "settingsGeneral", "filterActive"]
+    let sameEverywhere: Set<String> = ["appName", "buttonOK", "progressSpeed", "notifyFailedBody", "settingsGeneral", "filterActive", "settingsRsync"]
     let identical = LKey.allCases.map(\.rawValue).filter { key in
         guard let value = other[key], value == english[key], !sameEverywhere.contains(key) else { return false }
         return value.contains(where: \.isLetter)

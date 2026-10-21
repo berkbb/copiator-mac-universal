@@ -15,6 +15,7 @@ struct NewJobSheet: View {
     @State private var problem: String?
     @State private var confirmDelete = false
     @State private var isSourceTargeted = false
+    @State private var showAdvanced = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -67,10 +68,34 @@ struct NewJobSheet: View {
                     }
                 }
 
-                if let problem {
-                    Label(problem, systemImage: "exclamationmark.octagon.fill")
-                        .foregroundStyle(.red)
-                        .font(.callout)
+                Section {
+                    Toggle(settings.t(.newJobAdvanced), isOn: $showAdvanced)
+                        .accessibilityIdentifier("copiator.newjob.advanced")
+                }
+                if showAdvanced {
+                    AdvancedOptionsSections(options: $options.advanced, deleteEnabled: options.deleteExtraneous)
+                }
+
+                if let job = previewJob {
+                    Section {
+                        CommandPreview(command: model.commandPreview(for: job))
+                    }
+                }
+
+                let problems = options.advanced.problems(source: source)
+                if problem != nil || !problems.isEmpty {
+                    Section {
+                        if let problem {
+                            Label(problem, systemImage: "exclamationmark.octagon.fill")
+                                .foregroundStyle(.red)
+                                .font(.callout)
+                        }
+                        ForEach(problems.indices, id: \.self) { index in
+                            Label(settings.problem(problems[index]), systemImage: "exclamationmark.octagon.fill")
+                                .foregroundStyle(.red)
+                                .font(.callout)
+                        }
+                    }
                 }
             }
             .formStyle(.grouped)
@@ -83,18 +108,19 @@ struct NewJobSheet: View {
                 Button(settings.t(.newJobAdd)) { submit() }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.glassProminent)
-                    .disabled(source == nil || destination == nil)
+                    .disabled(source == nil || destination == nil || !options.advanced.problems(source: source).isEmpty)
                     .accessibilityIdentifier("copiator.newjob.add")
             }
             .padding(14)
         }
-        .frame(width: 560)
-        .frame(minHeight: 560)
+        .frame(width: 620)
+        .frame(minHeight: 600)
         .navigationTitle(settings.t(.newJobTitle))
         .onAppear {
             source = request.source
             destination = request.destination
             options = settings.defaultOptions
+            showAdvanced = !options.advanced.isDefault
         }
         .onChange(of: source) { problem = nil }
         .onChange(of: destination) { problem = nil }
@@ -114,6 +140,14 @@ struct NewJobSheet: View {
         destinationFileSystem.lacksPosixMetadata
             ? settings.t(.optionPermissionsUnavailable, destinationFileSystem.rawValue)
             : settings.t(.optionPreservePermissionsNote)
+    }
+
+    /// Komut önizlemesi için iş (kaynak ve hedef seçildiyse).
+    private var previewJob: TransferJob? {
+        guard let source, let destination else { return nil }
+        var options = options
+        if !sourceIsDirectory { options.copyMode = .folder }
+        return TransferJob(source: source, destination: destination, options: options)
     }
 
     private var targetPath: String? {

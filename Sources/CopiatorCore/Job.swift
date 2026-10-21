@@ -28,20 +28,23 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     public var deleteExtraneous: Bool
     /// .Spotlight-V100, .Trashes, .fseventsd gibi macOS sistem klasörlerini dışarıda bırak.
     public var excludeSystemFolders: Bool
+    /// rsync'in kum havuzunda kullanılabilen öteki seçenekleri (süzgeçler, anlık görüntüler, ilerleme ayrıntısı…).
+    public var advanced: AdvancedOptions
 
     public init(
         copyMode: CopyMode = .folder, preservePermissions: Bool = false, preserveExtendedAttributes: Bool = true,
-        deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true
+        deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions()
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
         self.preserveExtendedAttributes = preserveExtendedAttributes
         self.deleteExtraneous = deleteExtraneous
         self.excludeSystemFolders = excludeSystemFolders
+        self.advanced = advanced
     }
 
     private enum CodingKeys: String, CodingKey {
-        case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders
+        case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
     }
 
     public init(from decoder: Decoder) throws {
@@ -53,6 +56,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
             ?? defaults.preserveExtendedAttributes
         deleteExtraneous = (try? container.decodeIfPresent(Bool.self, forKey: .deleteExtraneous)) ?? defaults.deleteExtraneous
         excludeSystemFolders = (try? container.decodeIfPresent(Bool.self, forKey: .excludeSystemFolders)) ?? defaults.excludeSystemFolders
+        advanced = (try? container.decodeIfPresent(AdvancedOptions.self, forKey: .advanced)) ?? defaults.advanced
     }
 }
 
@@ -75,6 +79,8 @@ public enum JobResultKind: String, Codable, Sendable, CaseIterable {
     case partial
     /// Kullanıcı durdurdu (rsync 20).
     case cancelled
+    /// `--stop-at` / `--stop-after` sınırına ulaşıldı (rsync 30, "stopping at requested limit"); iş sürdürülebilir.
+    case stoppedAtLimit
     case destinationFull
     case destinationReadOnly
     case permissionDenied

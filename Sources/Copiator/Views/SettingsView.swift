@@ -14,6 +14,9 @@ struct SettingsView: View {
             Tab(settings.t(.settingsCopying), systemImage: "doc.on.doc") {
                 CopyingSettingsView()
             }
+            Tab(settings.t(.settingsRsync), systemImage: "slider.horizontal.3") {
+                RsyncSettingsView()
+            }
             Tab(settings.t(.settingsShortcuts), systemImage: "command") {
                 ShortcutsSettingsView()
             }
@@ -21,8 +24,33 @@ struct SettingsView: View {
                 AdvancedSettingsView()
             }
         }
-        .frame(width: 580)
-        .frame(minHeight: 460)
+        .frame(width: 620)
+        .frame(minHeight: 520)
+    }
+}
+
+/// Yeni işlerin gelişmiş rsync seçenekleri (varsayılanlar). Her iş bunları Yeni İş sayfasında değiştirebilir.
+private struct RsyncSettingsView: View {
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        @Bindable var settings = settings
+        Form {
+            Section {
+                Text(settings.t(.settingsRsyncNote))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                let problems = settings.defaultAdvanced.problems(source: nil)
+                ForEach(problems.indices, id: \.self) { index in
+                    Label(settings.problem(problems[index]), systemImage: "exclamationmark.octagon.fill")
+                        .foregroundStyle(.red)
+                        .font(.callout)
+                }
+            }
+            AdvancedOptionsSections(options: $settings.defaultAdvanced, deleteEnabled: true)
+        }
+        .formStyle(.grouped)
     }
 }
 
@@ -61,6 +89,16 @@ private struct GeneralSettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(settings.t(.settingsResumeInterrupted), isOn: $settings.resumeInterruptedAtLaunch)
                     Text(settings.t(.settingsResumeInterruptedNote))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Section(settings.t(.settingsPowerSection)) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(settings.t(.settingsKeepDisplayAwake), isOn: $settings.keepDisplayAwake)
+                    Text(settings.t(.settingsKeepDisplayAwakeNote))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

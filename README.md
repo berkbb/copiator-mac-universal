@@ -11,6 +11,7 @@ Version 1.0 copies from a local disk to a local disk. Remote servers (SSH), sche
 - **Honest progress:** bytes copied, percentage, speed, time left and checked items come from rsync's `--info=progress2`. While rsync is still scanning (`ir-chk`), the row says the estimate is not final.
 - **Verify:** runs the same job as a dry run (`-n -i`, optionally with checksums `-c`) and lists missing, changed and extra items. Nothing is changed.
 - **Copy mode:** "copy the folder itself" (`Source` → `Destination/Source/…`) or "copy its contents" (`Source/` → `Destination/…`), with a preview of the result.
+- **Every rsync option that works in the sandbox:** filters and list files, size limits, hard links, creation/access times, symlink handling, sparse/in-place/append writes, deletion details, size-only comparison, time tolerance, bandwidth limit, stop after/at a time, file-name encoding, Time Machine-like snapshots (`--link-dest`), old versions (`--backup-dir`), per-file or exact progress, current file name, statistics, change log, log and batch files. Defaults in **Settings › rsync**, per job in the New Job sheet; the exact `rsync …` command is shown before it runs. See [docs/rsync-possible-in-sandbox.md](docs/rsync-possible-in-sandbox.md) and [docs/rsync-not-possible-in-sandbox.md](docs/rsync-not-possible-in-sandbox.md).
 - **Safe by default:**
   - the source is never modified (`--remove-source-files` is never used; the sandbox makes the source read-only even inside the destination);
   - deleting extra files at the destination (`--delete`) only when chosen per job and confirmed;
@@ -18,7 +19,8 @@ Version 1.0 copies from a local disk to a local disk. Remote servers (SSH), sche
   - jobs whose source and destination overlap are refused;
   - free space is checked before copying and watched while copying.
 - **exFAT/FAT disks:** permissions, owners and ACLs are not sent to disks that cannot store them; harmless "failed to set times / permissions" warnings become one info line; FAT gets `--modify-window=1` so re-runs do not recopy everything.
-- **macOS details:** system folders (`.Spotlight-V100`, `.Trashes`, `.fseventsd`, `.TemporaryItems`…) are left out; the quarantine flag of downloaded files is kept even when extended attributes are not copied; the Mac does not idle-sleep while a job runs; a notification arrives when a job finishes.
+- **macOS details:** system folders (`.Spotlight-V100`, `.Trashes`, `.fseventsd`, `.TemporaryItems`…) are left out; the quarantine flag of downloaded files is kept even when extended attributes are not copied; a notification arrives when a job finishes.
+- **Sleep and power:** while a job runs the Mac does not idle-sleep (the same assertion as `caffeinate -i`, optionally `-d` for the display). Copiator checks the assertion in the system's own list (what `pmset -g assertions` shows), tells you when it is taken and released (start, finish, pause, cancel), and advises about battery, Low Power Mode, the lid and the display; the power state is re-checked every minute during a job.
 - **Finder:** right-click › **Back Up with Copiator**, or drop a folder on the window.
 - **Languages:** Turkish (default), English, Romanian. **Appearance:** Automatic, Light, Dark.
 - **rsync updater:** downloads the latest release from [github.com/RsyncProject/rsync](https://github.com/RsyncProject/rsync/releases), verifies its SHA-256 and builds it on your Mac (needs the Xcode Command Line Tools).

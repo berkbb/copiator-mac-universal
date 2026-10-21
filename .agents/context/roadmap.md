@@ -18,12 +18,12 @@
 
 ### Features
 
-5. ⬜ **[Medium] User exclude patterns** per job (`--exclude`/`--filter`) with escaping through `RsyncCommand.escapePattern` and a preview.
 6. ⬜ **[Medium] Multiple sources per job** (model already keeps sources as a single URL; needs a schema version bump with migration).
-7. ⬜ **[Low] Bandwidth limit** (`--bwlimit`) and low-priority I/O option.
-8. ⬜ **[Low] Snapshot-style backups** (`--link-dest`) with retention rules.
+7. ⬜ **[Low] Low-priority I/O option** (e.g. `taskpolicy`-style background I/O for rsync).
+8. 🟡 **[Medium] Automatic snapshots:** `--link-dest` is available per job (the user picks the previous backup); still open: dated snapshot folders created automatically, "latest" tracking and retention rules.
 
-9a. ⬜ **[Medium] Full rsync capability (decision pending, deferred by the user on 2026-10-21):** choose between localized, tested options for the common flags, a validated per-job "extra rsync arguments" field, or both.
+9a. ⬜ **[Low] Edit options of an existing job** (today options are set when the job is added; a job can be removed and re-added).
+9c. ⬜ **[Low] `--read-batch` as its own job kind** (apply a batch file to a destination).
 9b. ⬜ **[Low] "Move" mode (`--remove-source-files`) — decision pending, deferred by the user on 2026-10-21.** It conflicts with the "source is never modified" invariant (`AGENTS.md` §1.1) and needs an explicit user decision before any work.
 
 ### Verification & Distribution

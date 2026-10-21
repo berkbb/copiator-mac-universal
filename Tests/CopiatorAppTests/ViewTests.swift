@@ -152,5 +152,23 @@ struct ViewRenderTests {
             .environment(settings), size: NSSize(width: 640, height: 480), name: "verify")
         render(SettingsView().environment(model).environment(settings), size: NSSize(width: 580, height: 520), name: "settings")
         render(AboutView().environment(model).environment(settings), size: NSSize(width: 540, height: 560), name: "about")
+
+        // Gelişmiş seçenekler varsayılanı değiştirilmişse Yeni İş sayfası onları açık gösterir (tüm denetimler çizilir).
+        settings.defaultAdvanced.hardLinks = true
+        settings.defaultAdvanced.referenceMode = .linkDest
+        settings.defaultAdvanced.keepBackups = true
+        settings.defaultAdvanced.batchMode = .write
+        settings.defaultAdvanced.maxDelete = 10
+        settings.defaultAdvanced.stopAt = Date().addingTimeInterval(3600)
+        render(NewJobSheet(request: NewJobRequest(source: fixture.url("Kaynak"), destination: fixture.url("Hedef")))
+            .environment(model).environment(settings), size: NSSize(width: 620, height: 1600), name: "newjob-advanced")
+        render(PowerStatusBanner(
+            status: SleepGuard.Status(systemSleepPrevented: true, displaySleepPrevented: false),
+            advice: [.batteryLow, .lowPowerMode, .lidClosesSleep, .displayMaySleep],
+            snapshot: PowerSnapshot(source: .battery, hasBattery: true, batteryPercent: 15, lowPowerMode: true),
+            settings: settings
+        ), size: NSSize(width: 700, height: 160), name: "power")
+        render(CommandPreview(command: "rsync -rltDhX --info=progress2 --partial -H -- /a/ /b/").environment(settings),
+               size: NSSize(width: 500, height: 120), name: "command")
     }
 }

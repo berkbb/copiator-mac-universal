@@ -5,6 +5,18 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+### Added
+
+- **All rsync options that work inside the sandbox**, as defaults in the new **Settings › rsync** tab and per job under **Advanced rsync options** in the New Job sheet: `--filter`/`--include`/`--exclude` (one pattern per line), `-F`, `--include-from`/`--exclude-from`/`--files-from`, `--max-size`/`--min-size`, `--ignore-existing`, `--existing`, `-u`, `-m`, `-H`, `-N`, `-U`, `--numeric-ids`, `-x`, `--chmod`, `-L`/`--copy-unsafe-links`/`--safe-links`, `--sparse`, `--inplace`, `-W`, `--append`/`--append-verify`, `--delete-before/after/delay`, `--delete-excluded`, `--max-delete`, `--ignore-errors`, `--size-only`, `--modify-window`, `--bwlimit`, `--stop-after`/`--stop-at`, `--iconv`, `--link-dest`/`--compare-dest`/`--copy-dest`, `-b`/`--backup-dir`/`--suffix`, `--info=progress1`, `--info=name1`, `--info=flist2`, `--info=stats2`, `-i`, `--no-inc-recursive`, `--log-file`, `--write-batch`/`--only-write-batch`. Invalid values are explained and block the job.
+- The New Job sheet and the inspector show the exact `rsync …` command (shell-quoted, copyable).
+- Job rows show the file being copied, per-file progress and a counter while the file list is built; statistics and change lines go to the job log.
+- A job stopped by `--stop-at`/`--stop-after` is paused (resumable) and announced instead of failing.
+- **Sleep and power:** the sleep assertion (`caffeinate -i` equivalent) is verified in the system's assertion list; the app tells you when it is taken and released (start, finish, pause, cancel, quit) and shows a banner while a job runs. New option "Keep the display awake during a job" (`caffeinate -d` equivalent). Power advice for battery, low battery, Low Power Mode, the lid and the display, re-checked every minute during a job.
+
+### Security
+
+- Extra sandbox permissions are granted per job only for paths you choose: list files (read), log and batch files (write that file), an outside old-versions folder and the `--link-dest` previous backup (write). Paths inside the source are refused. List files in protected folders are read by the app and passed to rsync as a private temporary copy, so the protected folder stays closed.
+
 ## [1.0.0] — 2026-10-21
 
 First release: local disk to local disk backup and sync with rsync.

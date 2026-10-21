@@ -42,7 +42,7 @@ final class Fixture {
         settings.customEnginePath = rsyncURL?.path
         settings.updateConsentAsked = true
         store = JobStore(url: workspace.appendingPathComponent("Destek/jobs.json"))
-        model = AppModel(settings: settings, store: store)
+        model = AppModel(settings: settings, store: store, sleepReason: "Copiator test \(suiteName)")
         attach(model)
         try write("Kaynak/not.txt", "merhaba\n")
         try write("Kaynak/alt/b.txt", "alt\n")
@@ -55,7 +55,7 @@ final class Fixture {
 
     /// Aynı kayıt dosyası ve ayarlarla yeni bir model (uygulamanın yeniden açılması).
     func relaunch() -> AppModel {
-        model = AppModel(settings: settings, store: store)
+        model = AppModel(settings: settings, store: store, sleepReason: "Copiator test \(suiteName)")
         attach(model)
         return model
     }
@@ -125,7 +125,7 @@ struct AppModelTests {
         #expect(fixture.notifications.count == 1)
         #expect(model.runningJobID == nil)
         // Uyku engeli iş bitince bırakıldı.
-        #expect(!SleepAssertion.activeAssertionNames().contains("Copiator copy job"))
+        #expect(!SleepAssertion.activeAssertionNames().contains(model.sleepReason))
         // Kalıcı kayıt: dosyada da bitti olarak durur.
         #expect(try fixture.store.load().first?.status == .finished)
     }
@@ -172,7 +172,7 @@ struct AppModelTests {
         #expect(model.job(id)?.status == .paused)
         #expect(model.job(id)?.result?.kind == .cancelled)
         #expect(fixture.notifications.isEmpty)
-        #expect(!SleepAssertion.activeAssertionNames().contains("Copiator copy job"))
+        #expect(!SleepAssertion.activeAssertionNames().contains(model.sleepReason))
 
         model.resume([id])
         await model.waitUntilIdle()

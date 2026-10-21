@@ -93,18 +93,22 @@ public enum JobQueue {
             if status == .scanning { job.progress = nil }
         case .progress(let progress):
             job.progress = progress
-            if job.status == .scanning { job.status = .copying }
+            // Liste sayacı (flist2) gelirken iş hâlâ taranıyordur.
+            if job.status == .scanning, !progress.isListing { job.status = .copying }
         case .log(let entry):
             job.appendLog(entry)
+        case .logBatch(let entries):
+            entries.forEach { job.appendLog($0) }
         }
     }
 
-    /// Çalıştırma bitince işin son durumu. İptal, kullanıcı duraklattıysa "duraklatıldı" olur.
+    /// Çalıştırma bitince işin son durumu. Kullanıcının iptali ve süre sınırı (`--stop-at`/`--stop-after`) işi
+    /// "duraklatıldı" yapar: iş aynı komutla sürdürülebilir.
     public static func finish(_ job: inout TransferJob, with result: JobResult, at date: Date = Date()) {
         job.result = result
         job.wasInterrupted = false
         switch result.kind {
-        case .cancelled:
+        case .cancelled, .stoppedAtLimit:
             job.status = .paused
         case let kind where kind.isSuccess:
             job.status = .finished

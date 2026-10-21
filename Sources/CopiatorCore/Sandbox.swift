@@ -16,6 +16,8 @@ public struct SandboxProfile: Sendable, Equatable {
     public var readableFiles: [URL]
     /// Yasaklı bir klasörün içindeki (ya da kendisi olan), kullanıcının açıkça seçtiği kaynak klasörler.
     public var readableDirectories: [URL]
+    /// Yazılabilir tek dosyalar (iş başına seçilen günlük ve toplu iş dosyaları).
+    public var writableFiles: [URL]
 
     public static let launcher = URL(fileURLWithPath: "/usr/bin/sandbox-exec")
 
@@ -25,8 +27,9 @@ public struct SandboxProfile: Sendable, Equatable {
 
     public init(
         writableDirectories: [URL], readOnlyDirectories: [URL] = [], deniedReadDirectories: [URL],
-        readableFiles: [URL] = [], readableDirectories: [URL] = []
+        readableFiles: [URL] = [], readableDirectories: [URL] = [], writableFiles: [URL] = []
     ) {
+        self.writableFiles = writableFiles
         self.writableDirectories = writableDirectories
         self.readOnlyDirectories = readOnlyDirectories
         self.deniedReadDirectories = deniedReadDirectories
@@ -62,9 +65,13 @@ public struct SandboxProfile: Sendable, Equatable {
     ///     yasaklı KALIR, yalnızca seçilen kaynak (klasörse içeriğiyle) yasaktan sonra gelen bir izinle okunur.
     ///   - destination: rsync'in yazacağı tek klasör.
     ///   - protectPersonalData: false ise kişisel veri klasörleri yasaklanmaz.
+    ///   - extraReadable: İşin okuması gereken ek yollar (`--files-from` listesi, `--link-dest` önceki yedeği…).
+    ///   - extraWritableFiles: İşin yazması gereken tek dosyalar (`--log-file`, `--write-batch` ve `.sh` betiği).
+    ///   - extraWritableDirectories: Hedefin dışındaki yedek klasörü (`--backup-dir`).
     public static func forTransfer(
         sources: [URL], destination: URL, protectPersonalData: Bool = true,
-        home: URL = FileManager.default.homeDirectoryForCurrentUser
+        home: URL = FileManager.default.homeDirectoryForCurrentUser,
+        extraReadable: [URL] = [], extraWritableFiles: [URL] = [], extraWritableDirectories: [URL] = []
     ) -> SandboxProfile {
         let destination = resolved(destination)
         let sources = sources.map(resolved)
@@ -76,7 +83,10 @@ public struct SandboxProfile: Sendable, Equatable {
             : []
         var readableFiles: [URL] = []
         var readableDirectories: [URL] = []
-        for source in sources where denied.contains(where: { source.path == $0.path || source.path.hasPrefix($0.path + "/") }) {
+        // Seçilen kaynaklar ve iş başına seçilen ek okuma yolları (liste dosyaları, önceki yedek): yasaklı bir klasörün
+        // içindeyseler yalnızca kendileri izinlidir.
+        for source in sources + extraReadable.map(resolved)
+        where denied.contains(where: { source.path == $0.path || source.path.hasPrefix($0.path + "/") }) {
             var info = stat()
             if stat(source.path, &info) == 0, info.st_mode & S_IFMT == S_IFDIR {
                 readableDirectories.append(source)
@@ -84,9 +94,11 @@ public struct SandboxProfile: Sendable, Equatable {
                 readableFiles.append(source)
             }
         }
+        // Kaynağın içine düşen ek yazma yolları verilmez: kaynak her durumda salt okunurdur (yasak izinden sonra gelir).
         return SandboxProfile(
-            writableDirectories: [destination], readOnlyDirectories: sources, deniedReadDirectories: denied,
-            readableFiles: readableFiles, readableDirectories: readableDirectories
+            writableDirectories: [destination] + extraWritableDirectories.map(resolved), readOnlyDirectories: sources,
+            deniedReadDirectories: denied, readableFiles: readableFiles, readableDirectories: readableDirectories,
+            writableFiles: extraWritableFiles.map(resolved)
         )
     }
 
@@ -125,6 +137,7 @@ public struct SandboxProfile: Sendable, Equatable {
     public var profileText: String {
         var lines = ["(version 1)", "(allow default)", "(deny network*)", "(deny file-write*)"]
         let writes = ["(subpath \"/dev\")"] + writableDirectories.indices.map { "(subpath (param \"W\($0)\"))" }
+            + writableFiles.indices.map { "(literal (param \"A\($0)\"))" }
         lines.append("(allow file-write* \(writes.joined(separator: " ")))")
         // Kaynaklar, hedefin içinde olsalar bile salt okunur: yasak izinden SONRA gelir (son eşleşen kural kazanır).
         if !readOnlyDirectories.isEmpty {
@@ -156,6 +169,7 @@ public struct SandboxProfile: Sendable, Equatable {
     public func launchArguments(executable: URL, arguments: [String]) -> [String] {
         var result = ["-p", profileText]
         for (index, url) in writableDirectories.enumerated() { result += ["-D", "W\(index)=\(url.path)"] }
+        for (index, url) in writableFiles.enumerated() { result += ["-D", "A\(index)=\(url.path)"] }
         for (index, url) in readOnlyDirectories.enumerated() { result += ["-D", "K\(index)=\(url.path)"] }
         for (index, url) in deniedReadDirectories.enumerated() { result += ["-D", "R\(index)=\(url.path)"] }
         for (index, url) in readableFiles.enumerated() { result += ["-D", "F\(index)=\(url.path)"] }

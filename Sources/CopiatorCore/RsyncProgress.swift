@@ -18,11 +18,21 @@ public struct TransferProgress: Codable, Equatable, Sendable {
     public var itemsTotal: Int?
     /// rsync dosya listesini hâlâ tarıyor (`ir-chk`): toplam büyüyebilir, yüzde ve kalan süre tahmindir.
     public var isEstimating: Bool
+    /// Şu an kopyalanan öğe (`--info=name1` ya da `-i` açıkken).
+    public var currentItem: String?
+    /// Dosya başı ilerlemede (`--info=progress1`) şu anki dosyanın yüzdesi; `fraction` o zaman denetlenen öğelerden gelir.
+    public var fileFraction: Double?
+    /// Kopyalamadan önce listelenen dosya sayısı (`--no-inc-recursive` ile `--info=flist2`): liste çıkarılıyor.
+    public var filesListed: Int?
 
     public init(
         bytesTransferred: Int64 = 0, fraction: Double? = nil, bytesPerSecond: Double? = nil, remainingSeconds: Int? = nil,
-        filesTransferred: Int = 0, itemsRemaining: Int? = nil, itemsTotal: Int? = nil, isEstimating: Bool = false
+        filesTransferred: Int = 0, itemsRemaining: Int? = nil, itemsTotal: Int? = nil, isEstimating: Bool = false,
+        currentItem: String? = nil, fileFraction: Double? = nil, filesListed: Int? = nil
     ) {
+        self.currentItem = currentItem
+        self.fileFraction = fileFraction
+        self.filesListed = filesListed
         self.bytesTransferred = bytesTransferred
         self.fraction = fraction
         self.bytesPerSecond = bytesPerSecond
@@ -32,6 +42,9 @@ public struct TransferProgress: Codable, Equatable, Sendable {
         self.itemsTotal = itemsTotal
         self.isEstimating = isEstimating
     }
+
+    /// Kopyalama başlamadan dosya listesi çıkarılıyor (yalnızca liste sayacı var).
+    public var isListing: Bool { filesListed != nil && fraction == nil }
 
     /// Denetlenen öğe sayısı (toplam − kalan).
     public var itemsChecked: Int? {

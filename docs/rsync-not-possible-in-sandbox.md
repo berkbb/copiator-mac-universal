@@ -1,8 +1,8 @@
 # rsync: What Is Not Possible Inside the Sandbox
 
-Copiator runs rsync in a `sandbox-exec` sandbox: networking is off, rsync can write only to the destination, the
-source is read-only, and personal folders that were not chosen (`~/.ssh`, the Keychain, browser profiles, …) cannot be
-read.
+Copiator runs rsync in a `sandbox-exec` sandbox: networking is off, rsync can write only to the destination (and to
+log, batch, old-version or `--link-dest` previous-backup paths you explicitly choose in a job), the source is read-only,
+and personal folders that were not chosen (`~/.ssh`, the Keychain, browser profiles, …) cannot be read.
 
 The rsync features in this document cannot be offered without deliberately changing at least one of these rules. What
 is possible inside the sandbox is in a separate document: [rsync-possible-in-sandbox.md](rsync-possible-in-sandbox.md).

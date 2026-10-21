@@ -186,10 +186,12 @@ final class AppSettings {
         static let sandboxEngine = "sandboxEngine"
         static let queueHeld = "queueHeld"
         static let customShortcuts = "customShortcuts"
+        static let keepDisplayAwake = "keepDisplayAwake"
+        static let defaultAdvanced = "defaultAdvancedOptions"
         static let all = [
             language, appearance, notifyOnFinish, resumeInterruptedAtLaunch, defaultCopyMode, defaultPreservePermissions,
             defaultPreserveXattrs, defaultExcludeSystemFolders, customEnginePath, checkUpdatesAtLaunch, updateConsentAsked,
-            sandboxEngine, queueHeld, customShortcuts,
+            sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, defaultAdvanced,
         ]
     }
 
@@ -225,6 +227,14 @@ final class AppSettings {
     var sandboxEngine: Bool { didSet { defaults.set(sandboxEngine, forKey: Key.sandboxEngine) } }
     /// Kuyruk bekletiliyor: bekleyen işler başlamaz (çalışan iş sürer).
     var queueHeld: Bool { didSet { defaults.set(queueHeld, forKey: Key.queueHeld) } }
+    /// İş sürerken ekranı da açık tut (`caffeinate -d` karşılığı); varsayılan kapalı, yalnızca sistem uykusu engellenir.
+    var keepDisplayAwake: Bool { didSet { defaults.set(keepDisplayAwake, forKey: Key.keepDisplayAwake) } }
+    /// Yeni işlerin gelişmiş rsync seçenekleri (Ayarlar › rsync); her iş Yeni İş sayfasında değiştirebilir.
+    var defaultAdvanced: AdvancedOptions {
+        didSet {
+            if let data = try? JSONEncoder().encode(defaultAdvanced) { defaults.set(data, forKey: Key.defaultAdvanced) }
+        }
+    }
     /// Kullanıcının özelleştirdiği kısayollar; varsayılandan farklı olanlar saklanır.
     var customShortcuts: [String: KeyboardShortcutData] {
         didSet {
@@ -250,6 +260,9 @@ final class AppSettings {
         updateConsentAsked = defaults.object(forKey: Key.updateConsentAsked) as? Bool ?? false
         sandboxEngine = defaults.object(forKey: Key.sandboxEngine) as? Bool ?? true
         queueHeld = defaults.object(forKey: Key.queueHeld) as? Bool ?? false
+        keepDisplayAwake = defaults.object(forKey: Key.keepDisplayAwake) as? Bool ?? false
+        defaultAdvanced = defaults.data(forKey: Key.defaultAdvanced)
+            .flatMap { try? JSONDecoder().decode(AdvancedOptions.self, from: $0) } ?? AdvancedOptions()
         if let data = defaults.data(forKey: Key.customShortcuts),
            let decoded = try? JSONDecoder().decode([String: KeyboardShortcutData].self, from: data) {
             customShortcuts = decoded
@@ -263,7 +276,7 @@ final class AppSettings {
         CopyOptions(
             copyMode: defaultCopyMode, preservePermissions: defaultPreservePermissions,
             preserveExtendedAttributes: defaultPreserveXattrs, deleteExtraneous: false,
-            excludeSystemFolders: defaultExcludeSystemFolders
+            excludeSystemFolders: defaultExcludeSystemFolders, advanced: defaultAdvanced
         )
     }
 
@@ -281,6 +294,8 @@ final class AppSettings {
         updateConsentAsked = false
         sandboxEngine = true
         queueHeld = false
+        keepDisplayAwake = false
+        defaultAdvanced = AdvancedOptions()
         customShortcuts = [:]
         // Özellik gözlemcileri değerleri yeniden yazdı; ilk kurulumdaki gibi hiçbir tercih kalmasın.
         // "AppleLanguages" en sonda silinir: dil atanırken yeniden yazılıyordu.
@@ -343,6 +358,40 @@ final class AppSettings {
 
     func t(_ key: LKey, _ arguments: any CVarArg...) -> String {
         String(format: t(key), locale: locale, arguments: arguments)
+    }
+
+    /// Biçim değişkenleri metin olarak saklanan (ör. günlük satırları) bir anahtarı biçimler.
+    func t(_ key: LKey, arguments: [String]) -> String {
+        guard !arguments.isEmpty else { return t(key) }
+        return String(format: t(key), locale: locale, arguments: arguments.map { $0 as CVarArg })
+    }
+
+    /// Gelişmiş seçeneklerdeki bir sorunun açıklaması.
+    func problem(_ problem: AdvancedOptions.Problem) -> String {
+        func field(_ name: String) -> String {
+            let key: LKey = switch name {
+            case "includeFromFile": .advIncludeFrom
+            case "excludeFromFile": .advExcludeFrom
+            case "filesFromFile": .advFilesFrom
+            case "referenceDirectory": .advReferenceDirectory
+            case "backupDirectory": .advBackupDirectory
+            case "logFile": .advLogFile
+            default: .advBatchFile
+            }
+            return t(key)
+        }
+        return switch problem {
+        case .invalidPattern(let pattern): t(.problemPattern, OpenSafety.visibleName(pattern))
+        case .invalidChmod: t(.problemChmod)
+        case .invalidIconv: t(.problemIconv)
+        case .invalidSuffix: t(.problemSuffix)
+        case .invalidNumber: t(.problemNumber)
+        case .pathNotAbsolute(let name): t(.problemPath, field(name))
+        case .writesInsideSource(let name): t(.problemWritesInsideSource, field(name))
+        case .missingReferenceDirectory: t(.problemReference)
+        case .missingBatchFile: t(.problemBatch)
+        case .stopAtInPast: t(.problemStopAt)
+        }
     }
 
     func bytes(_ value: Int64) -> String {
