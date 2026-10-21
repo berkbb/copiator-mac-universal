@@ -175,3 +175,33 @@ struct ViewRenderTests {
         #expect(SandboxLimitsSection.items.count == 5)
     }
 }
+
+/// Ayrıntılar paneli iş yokken görünmez (karşılama ekranını daraltmasın); kullanıcının tercihi korunur.
+@Suite(.serialized)
+@MainActor
+struct InspectorTests {
+    @Test func inspectorIsHiddenWithoutJobsAndKeepsThePreference() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        model.showInspector = true
+        #expect(!model.isInspectorVisible)
+        // İş yokken açma/kapama hiçbir şey yapmaz; sistemin kapatma isteği tercihi silmez.
+        model.toggleInspector()
+        model.isInspectorVisible = false
+        #expect(model.showInspector)
+
+        model.toggleQueueHold()
+        fixture.addJob()
+        #expect(model.isInspectorVisible)
+        model.toggleInspector()
+        #expect(!model.showInspector && !model.isInspectorVisible)
+        model.isInspectorVisible = true
+        #expect(model.showInspector)
+
+        // Son iş kaldırılınca panel kaybolur; tercih yine korunur.
+        model.remove(Set(model.jobs.map(\.id)))
+        #expect(!model.isInspectorVisible)
+        #expect(model.showInspector)
+    }
+}

@@ -379,8 +379,9 @@ struct WelcomeView: View {
             .frame(maxWidth: .infinity)
         }
         .background {
+            // Arka plan yalnızca kendi sütununu kaplar: güvenli alanın dışına taşsaydı yan paneller açılıp kapanırken
+            // yeniden boyutlanıp karşılama ekranının üzerinde kayardı.
             LinearGradient(colors: [Color.accentColor.opacity(0.10), .clear], startPoint: .top, endPoint: .center)
-                .ignoresSafeArea()
         }
     }
 }

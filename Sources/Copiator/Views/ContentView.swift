@@ -29,7 +29,7 @@ struct ContentView: View {
                 }
             }
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: model.jobs.isEmpty)
-            .inspector(isPresented: $model.showInspector) {
+            .inspector(isPresented: $model.isInspectorVisible) {
                 JobDetailView()
                     .inspectorColumnWidth(min: 260, ideal: 320, max: 440)
             }
@@ -183,11 +183,12 @@ struct ContentView: View {
             .help(settings.t(settings.queueHeld ? .toolbarReleaseQueue : .toolbarHoldQueue))
 
             Button {
-                model.showInspector.toggle()
+                model.toggleInspector()
             } label: {
                 Label(settings.t(.toolbarInspector), systemImage: "sidebar.trailing")
             }
             .help(settings.t(.menuInspector))
+            .disabled(model.jobs.isEmpty)
         }
     }
 }

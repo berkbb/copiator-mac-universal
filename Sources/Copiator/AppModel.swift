@@ -144,7 +144,21 @@ final class AppModel {
     /// Doğrulama türü seçimi (hızlı / sağlama) bekleyen iş.
     var verifyChoice: TransferJob.ID?
     var verifyPresentation: VerifyPresentation?
+    /// Kullanıcının ayrıntılar paneli tercihi (açık/kapalı).
     var showInspector = true
+
+    /// Panel yalnızca iş varken görünür: iş yokken gösterecek bir şeyi yoktur ve karşılama ekranını daraltırdı.
+    /// Tercih (`showInspector`) korunur; ilk iş eklenince panel tercihe göre geri gelir.
+    var isInspectorVisible: Bool {
+        get { showInspector && !jobs.isEmpty }
+        set { if !jobs.isEmpty { showInspector = newValue } }
+    }
+
+    /// Ayrıntılar panelini açar ya da kapatır (iş yokken bir şey yapmaz).
+    func toggleInspector() {
+        guard !jobs.isEmpty else { return }
+        showInspector.toggle()
+    }
     var isDropTargeted = false
 
     @ObservationIgnored private let store: JobStore

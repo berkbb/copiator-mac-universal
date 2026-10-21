@@ -130,8 +130,9 @@ struct AppCommands: Commands {
 
         CommandGroup(before: .toolbar) {
             let inspector = settings.shortcut(for: .inspector)
-            Button(settings.t(.menuInspector)) { model.showInspector.toggle() }
+            Button(settings.t(.menuInspector)) { model.toggleInspector() }
                 .keyboardShortcut(inspector.keyEquivalent, modifiers: inspector.eventModifiers)
+                .disabled(model.jobs.isEmpty)
             Divider()
         }
 
