@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+import Foundation
+
+/// Çalışan bir işin bildirdiği olaylar. Olaylar arka plandan gelir; çağıran ana iş parçacığına taşır.
+public enum TransferEvent: Sendable, Equatable {
+    /// Kaynak taranıyor (boyut, boş alan ön denetimi) ya da kopyalama başladı.
+    case phase(JobStatus)
+    case progress(TransferProgress)
+    case log(JobLogEntry)
+}
+
+/// Motoru çalıştırmak için gereken ortam: hangi ikili, hangi yetenekler, kum havuzu.
+public struct EngineContext: Sendable {
+    public var executable: URL
+    public var info: EngineInfo
+    /// Motor sandbox-exec altında çalışsın mı (Ayarlar › Gelişmiş).
+    public var sandboxed: Bool
+    public var home: URL
+
+    public init(executable: URL, info: EngineInfo, sandboxed: Bool = true, home: URL = FileManager.default.homeDirectoryForCurrentUser) {
+        self.executable = executable
+        self.info = info
+        self.sandboxed = sandboxed
+        self.home = home
+    }
+}
+
+/// Doğrulamanın sonucu: farklar ve motorun çıkış durumu.
+public struct VerifyReport: Sendable, Equatable {
+    public var entries: [DiffEntry]
+    public var result: JobResult
+    public var checksum: Bool
+
+    public init(entries: [DiffEntry], result: JobResult, checksum: Bool) {
+        self.entries = entries
+        self.result = result
+        self.checksum = checksum
+    }
+
+    public func count(_ kind: DiffEntry.Kind) -> Int { entries.lazy.filter { $0.kind == kind }.count }
+
+    /// İçerik farkı (eksik, değişmiş ya da fazla öğe) yok: hedef kaynağın tam kopyası.
+    public var isIdentical: Bool { !entries.contains { $0.kind != .attributes } }
+}
+
+/// Bir iş türünü (`JobKind`) yürüten motor. İkinci bir motor (uzak rsync, aria2) bu protokolü uygulayıp
+/// `TransferEngines.engine(for:)` kaydına eklenir; kuyruk, kayıt ve arayüz değişmez.
+public protocol TransferEngine: Sendable {
+    var kind: JobKind { get }
+
+    /// İşi çalıştırır. İptal (Task.cancel) `.cancelled` sonucuyla döner; kesilen iş aynı çağrıyla sürdürülür.
+    func run(_ job: TransferJob, context: EngineContext, onEvent: @escaping @Sendable (TransferEvent) -> Void) async -> JobResult
+
+    /// İşi değişiklik yapmadan çalıştırıp hedefle kaynak arasındaki farkları listeler.
+    func verify(_ job: TransferJob, context: EngineContext, checksum: Bool) async -> VerifyReport
+}
+
+public enum TransferEngines {
+    public static func engine(for kind: JobKind) -> any TransferEngine {
+        switch kind {
+        case .rsync: RsyncEngine()
+        }
+    }
+}

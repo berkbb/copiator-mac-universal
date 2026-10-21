@@ -1,0 +1,3 @@
+# Üçüncü taraf dosyaları (rsync) olduğu gibi saklanır; satır sonları değiştirilmez.
+Vendor/** -text
+*.icns binary

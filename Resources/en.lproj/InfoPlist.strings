@@ -1,0 +1,4 @@
+/* App Info.plist strings */
+"CFBundleDisplayName" = "Copiator";
+"CFBundleName" = "Copiator";
+"NSHumanReadableCopyright" = "Babadogan Tech and Edu. GPL-3.0-or-later. rsync © Andrew Tridgell, Wayne Davison and others.";

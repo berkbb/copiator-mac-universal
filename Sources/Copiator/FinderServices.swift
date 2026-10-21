@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+import AppKit
+
+/// Info.plist'teki NSServices girdisinin hedefi. Finder'da seçili öğeler panodan okunur.
+final class FinderServices: NSObject {
+    /// "Copiator ile Yedekle": Yeni İş sayfasını seçili öğe kaynak olarak doldurulmuş açar.
+    @objc func backUp(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        guard let url = Self.fileURLs(from: pasteboard).first else { return }
+        AppModel.shared.presentMainWindow()
+        AppModel.shared.beginNewJob(source: url)
+    }
+
+    static func fileURLs(from pasteboard: NSPasteboard) -> [URL] {
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        return pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] ?? []
+    }
+}
