@@ -158,7 +158,8 @@ public struct SandboxProfile: Sendable, Equatable {
             lines.append("(allow file-read* \(directories.joined(separator: " ")))")
         }
         // Ele geçirilmiş bir rsync başka program çalıştıramaz ve mach servislerine (AppleEvents, launchd) ulaşamaz.
-        // Yerel kopyalamada rsync kendini çatallar (fork), yeniden çalıştırmaz (exec); yalnızca kendisi izinlidir.
+        // Yerel kopyalamada rsync 3.x kendini çatallar (fork); openrsync kendini yeniden çalıştırır (exec), bu yüzden ona
+        // kendi yolu `--rsync-path` ile verilir. Her iki durumda da yalnızca motorun kendisi izinlidir.
         lines.append("(deny mach-lookup)")
         lines.append("(deny process-exec)")
         lines.append("(allow process-exec (literal (param \"E\")))")

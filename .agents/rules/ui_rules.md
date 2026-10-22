@@ -34,3 +34,9 @@
 ## 5. macOS MenuBar & In-App Language Switching Restart Warning Standard
 
 - Changing the language shows the `restartWarningTitle` alert and the `restartMenuBarNotice` footer, and writes `AppleLanguages` so Cocoa menus and panels follow at the next launch.
+
+## 6. Split-View Column Size Stability
+
+- Content placed directly in a `NavigationSplitView` column or inspector (not inside a `ScrollView`, `List` or `Form`), and content in `.safeAreaInset` of such a column, must not have a minimum height that depends on its width. Do not use `.fixedSize(horizontal: false, vertical: true)` on wrapping text there; use `.lineLimit(1)` with truncation and put the full text in `.help`.
+- Otherwise the column's minimum size changes on every layout pass, the split view recomputes constraints in a loop and AppKit terminates the app ("more Update Constraints in Window passes than there are views in the window").
+- `PowerStatusBanner(wrapsText: false)` above the job list is the reference case; `WindowLayoutTests` runs the main window in an `NSHostingController` window with toolbar bridging and a running job, and crashes if the loop returns.

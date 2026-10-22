@@ -499,3 +499,8 @@
 "shortcutResumeAll" = "Tümünü Sürdür";
 "settingsShortcutsAppSection" = "Kestirmeler ve Siri";
 "settingsShortcutsAppNote" = "Kestirmeler uygulamasında Copiator “Kopyalama İşini Çalıştır”, “Tüm İşleri Duraklat” ve “Tüm İşleri Sürdür” eylemlerini sunar. Siri'ye de söyleyebilirsiniz; örneğin “Copiator ile Fotoğraflar işini çalıştır”.";
+"toolbarClear" = "Temizle";
+"menuRemoveAll" = "Tüm İşleri Kaldır…";
+"removeAllConfirmTitle" = "Tüm işler kaldırılsın mı?";
+"removeAllConfirmMessage" = "%ld iş, geçmişleriyle birlikte kuyruktan kaldırılır. Kopyalanmış dosyalara ve anlık görüntülere dokunulmaz; çalışan iş kalır.";
+"removeAllConfirmButton" = "Tümünü Kaldır";

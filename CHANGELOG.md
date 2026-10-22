@@ -16,6 +16,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 - **Verify after copying** (off, quick or checksum; default in Settings › Copying): differences or an incomplete verification end the job as "not verified" and the differences are logged.
 - **Preview** in the New Job sheet: a dry run listing what will be copied, updated and deleted, with deletions highlighted.
 - **Edit and duplicate** existing jobs (Job menu and context menu); **run history** with result, duration, bytes, files and snapshot per run (last 100 runs).
+- **Clear the queue:** a **Clear** toolbar menu (also in the Job menu and the job context menu) with "Remove Finished Jobs" and "Remove All Jobs…" (confirmed; a running job stays, copied files and snapshots are not touched).
 - **Ready-made exclude lists:** developer, version control, caches and macOS helper files, in Settings › rsync and per job.
 - **Menu bar icon** (progress, pause/resume all, open, quit; Copiator keeps running without a window while it is shown) and **Dock progress** with a badge for pending jobs; both can be turned off in Settings › General.
 - **Shortcuts and Siri:** "Run Copy Job" (choose a job), "Pause All Jobs", "Resume All Jobs", with phrases in Turkish, English and Romanian. `Scripts/build_app.sh` generates the App Intents metadata with `appintentsmetadataprocessor`.
@@ -23,6 +24,8 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ### Fixed
 
+- **Crash when a job starts:** adding a job (for example the first one, from the New Job sheet) could terminate the app with "more Update Constraints in Window passes than there are views in the window". The sleep and power banner above the job list wrapped its text, so its height depended on the column width and the split view recomputed its layout in a loop. The banner above the list is now one line per item (full text in the tooltip); the inspector still shows it wrapped.
+- **macOS's own rsync (limited mode) works again under the sandbox:** openrsync starts its receiving side as a separate `rsync` found through `PATH`; with another rsync earlier in `PATH` (e.g. Homebrew's) the sandbox refused it ("exec on 'rsync': Operation not permitted"). Copiator now passes `--rsync-path` with the engine's own path, does not ask openrsync to copy extended attributes (it writes temporary AppleDouble files to `/private/tmp` and breaks dry runs; the quarantine flag is still carried over and the dropped option is logged), and reads openrsync's 9-column `-i` output for verify, preview and the change log.
 - **No orphaned rsync after a crash:** child processes are recorded; on a crash or termination signal Copiator stops them before exiting, and an rsync left running by a killed session (matched by process ID, exact start time and a dead parent) is stopped at the next launch and noted in the interrupted job's log.
 
 ### Security

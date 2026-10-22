@@ -617,6 +617,26 @@ final class AppModel {
         remove(finished)
     }
 
+    /// Çalışmayan tüm işler (geçmişleriyle). Kopyalanmış dosyalara ve anlık görüntülere dokunulmaz.
+    var removableJobs: [TransferJob] { jobs.filter(JobQueue.canRemove) }
+
+    /// Tüm işleri kaldırmadan önce onay ister; çalışan iş kuyrukta kalır.
+    func requestRemoveAll() {
+        let count = removableJobs.count
+        guard count > 0 else { return }
+        alert = AlertItem(
+            title: t(.removeAllConfirmTitle),
+            message: t(.removeAllConfirmMessage, count),
+            actionTitle: t(.removeAllConfirmButton),
+            action: { [weak self] in self?.removeAll() },
+            isDestructive: true
+        )
+    }
+
+    func removeAll() {
+        remove(Set(removableJobs.map(\.id)))
+    }
+
     func move(from source: IndexSet, to destination: Int) {
         JobQueue.move(&jobs, from: source, to: destination)
         save()
@@ -906,7 +926,7 @@ final class AppModel {
             : []
         let environment = RsyncCommand.Environment(
             engine: info, destinationFileSystem: FileSystemKind.of(job.destination), sourceIsDirectory: sourceIsDirectory,
-            protectedPaths: protected
+            protectedPaths: protected, enginePath: engineURL.map { SandboxProfile.resolved($0).path }
         )
         return RsyncCommand.displayString(arguments: RsyncCommand.transfer(job, environment: environment))
     }

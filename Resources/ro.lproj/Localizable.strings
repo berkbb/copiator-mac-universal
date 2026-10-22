@@ -499,3 +499,8 @@
 "shortcutResumeAll" = "Reia tot";
 "settingsShortcutsAppSection" = "Scurtături și Siri";
 "settingsShortcutsAppNote" = "În aplicația Scurtături, Copiator oferă acțiunile „Rulează lucrarea de copiere”, „Întrerupe toate lucrările” și „Reia toate lucrările”. Puteți cere și lui Siri, de exemplu „Rulează Fotografii în Copiator”.";
+"toolbarClear" = "Curăță";
+"menuRemoveAll" = "Elimină toate lucrările…";
+"removeAllConfirmTitle" = "Eliminați toate lucrările?";
+"removeAllConfirmMessage" = "%ld lucrări sunt eliminate din coadă, împreună cu istoricul lor. Fișierele copiate și instantaneele nu sunt atinse; o lucrare în curs rămâne.";
+"removeAllConfirmButton" = "Elimină tot";

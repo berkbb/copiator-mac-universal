@@ -67,8 +67,11 @@ struct JobListView: View {
         .safeAreaInset(edge: .top) {
             VStack(spacing: 0) {
                 if settings.queueHeld {
+                    // Tek satır: liste üstündeki bandın yüksekliği genişliğe bağlı olmasın (bkz. PowerStatusBanner).
                     Label(settings.t(.queueHeldNotice), systemImage: "pause.circle.fill")
                         .font(.callout)
+                        .lineLimit(1)
+                        .help(settings.t(.queueHeldNotice))
                         .foregroundStyle(.orange)
                         .padding(8)
                         .frame(maxWidth: .infinity)
@@ -76,7 +79,8 @@ struct JobListView: View {
                 }
                 // İş sürerken: uyku engeli (sistemde doğrulandı mı) ve güç, pil, ekran önerileri.
                 if model.runningJobID != nil, let status = model.sleepStatus {
-                    PowerStatusBanner(status: status, advice: model.powerAdvice, snapshot: model.powerSnapshot, settings: settings)
+                    PowerStatusBanner(status: status, advice: model.powerAdvice, snapshot: model.powerSnapshot, settings: settings,
+                                      wrapsText: false)
                 }
             }
         }
@@ -107,6 +111,10 @@ struct JobListView: View {
         Divider()
         Button(settings.t(.menuRemoveJob), systemImage: "trash", role: .destructive) { model.remove(ids) }
             .disabled(!JobQueue.canRemove(job))
+        Button(settings.t(.menuRemoveFinished), systemImage: "checkmark.circle") { model.removeFinished() }
+            .disabled(!model.jobs.contains { $0.status == .finished })
+        Button(settings.t(.menuRemoveAll), systemImage: "trash.slash", role: .destructive) { model.requestRemoveAll() }
+            .disabled(model.removableJobs.isEmpty)
     }
 }
 

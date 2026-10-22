@@ -19,7 +19,7 @@
 | `RsyncOutputCollector.swift` | `RsyncOutputCollector` | Output records → progress, names, list counter, batched change lines, statistics |
 | `PowerAdvisor.swift` | `PowerSnapshot`, `PowerAdvice`, `PowerAdvisor`, `SleepGuard` | Power source/battery/Low Power Mode, advice rules, verified sleep assertions |
 | `RsyncOutcome.swift` | `RsyncOutcome` (`classify`, `errorLines`, `messageBody`, `endsWithErrno`) | Exit code + stderr → `JobResult` |
-| `ItemizeParser.swift` | `DiffEntry`, `ItemizeParser` | `-i` parsing, `\#ooo` unescaping |
+| `ItemizeParser.swift` | `DiffEntry`, `ItemizeParser` (`Format`: rsync 3.x 11 columns, openrsync 9 columns) | `-i` parsing, `\#ooo` unescaping |
 | `Engine.swift` | `EngineInfo`, `EngineLocator`, `EngineUpdateResult`, `EngineUpdater` | Candidates, version/capability parsing, choice, updater wrapper |
 | `TransferEngine.swift` | `TransferEngine`, `TransferEvent`, `EngineContext`, `VerifyReport`, `TransferEngines` | Engine-independent contract and registry |
 | `RsyncEngine.swift` | `RsyncEngine` (`run`, `verify`, `compare`, `verifyAfterCopy`, `finishSnapshot`), `ProgressThrottle` | Preflight, snapshots, sandbox, disk guard, run, classify, quarantine, verify after copy |

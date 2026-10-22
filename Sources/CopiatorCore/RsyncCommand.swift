@@ -27,12 +27,19 @@ public enum RsyncCommand {
         /// Kaynağın içinde kalan, kum havuzunun okutmadığı kişisel klasörler (kaynağa göre göreli; bkz.
         /// `SandboxProfile.protectedPaths`). rsync'e dışlama olarak verilir.
         public var protectedPaths: [String]
+        /// Motorun gerçek (bağlantıları çözülmüş) mutlak yolu. openrsync yerel kopyada da karşı tarafı ayrı bir süreç
+        /// olarak başlatır; yol verilmezse "rsync" adını PATH'te arar (bkz. `rsyncPathFlags`).
+        public var enginePath: String?
 
-        public init(engine: EngineInfo, destinationFileSystem: FileSystemKind, sourceIsDirectory: Bool, protectedPaths: [String] = []) {
+        public init(
+            engine: EngineInfo, destinationFileSystem: FileSystemKind, sourceIsDirectory: Bool, protectedPaths: [String] = [],
+            enginePath: String? = nil
+        ) {
             self.engine = engine
             self.destinationFileSystem = destinationFileSystem
             self.sourceIsDirectory = sourceIsDirectory
             self.protectedPaths = protectedPaths
+            self.enginePath = enginePath
         }
     }
 
@@ -42,6 +49,7 @@ public enum RsyncCommand {
         var arguments = baseFlags(job.options, environment)
         arguments += infoFlags(advanced, environment)
         arguments.append("--partial")
+        arguments += rsyncPathFlags(environment)
         arguments += metadataFlags(job.options, environment)
         arguments += advancedFlags(job.options, environment, forVerify: false)
         if job.options.deleteExtraneous { arguments += deleteFlags(advanced, forVerify: false) }
@@ -59,6 +67,7 @@ public enum RsyncCommand {
     public static func verify(_ job: TransferJob, environment: Environment, checksum: Bool) -> [String] {
         var arguments = baseFlags(job.options, environment)
         arguments += ["-n", "-i"]
+        arguments += rsyncPathFlags(environment)
         if checksum { arguments.append("-c") }
         arguments += metadataFlags(job.options, environment)
         arguments += advancedFlags(job.options, environment, forVerify: true)
@@ -68,6 +77,16 @@ public enum RsyncCommand {
         arguments += ["--", sourceArgument(job, environment), destinationArgument(job)]
         assertSafe(arguments)
         return arguments
+    }
+
+    /// openrsync (macOS'un /usr/bin/rsync'i) yerel kopyada da alıcı tarafı `rsync --server …` olarak yeniden çalıştırır ve
+    /// "rsync" adını PATH'te arar. PATH'te önce başka bir rsync (ör. Homebrew'unki) varsa o çalışırdı; kum havuzu bunu
+    /// engellediği için iş "exec on 'rsync': Operation not permitted" hatasıyla biterdi. Motorun kendi yolu verilir: karşı
+    /// taraf da aynı program olur, kum havuzunun çalıştırmaya izin verdiği tek program odur. rsync 3.x yerel kopyada
+    /// yalnızca çatallanır (fork); ona verilmez.
+    static func rsyncPathFlags(_ environment: Environment) -> [String] {
+        guard environment.engine.isOpenrsync, let path = environment.enginePath, path.hasPrefix("/") else { return [] }
+        return ["--rsync-path=\(path)"]
     }
 
     /// macOS'un openrsync'inin desteklemediği seçenekler. Bu motorla bunlar verilmez ve iş günlüğünde bildirilir.
@@ -81,8 +100,9 @@ public enum RsyncCommand {
         var full = environment
         full.engine = EngineInfo(version: "3.5.1", isOpenrsync: false, supportsACLs: true, supportsXattrs: true)
         let wanted = advancedFlags(job.options, full, forVerify: false) + infoFlags(job.options.advanced, full)
-        return wanted.filter { flag in unsupportedByOpenrsync.contains { flag == $0 || flag.hasPrefix($0 + "=") } || flag.hasPrefix("--info=") }
+        let dropped = wanted.filter { flag in unsupportedByOpenrsync.contains { flag == $0 || flag.hasPrefix($0 + "=") } || flag.hasPrefix("--info=") }
             .map { $0.split(separator: "=", maxSplits: 1).first.map(String.init) ?? $0 }
+        return (job.options.preserveExtendedAttributes ? ["-X"] : []) + dropped
     }
 
     /// `--info=…`: ilerleme ayrıntısı, dosya adları, liste sayacı ve istatistikler; değişiklik günlüğü (`-i`) ve kesin
@@ -194,12 +214,13 @@ public enum RsyncCommand {
         return flags
     }
 
-    /// `-rltDh` + `X` (öznitelikler). openrsync `-X` kısa bayrağını tanımaz; uzun adı kullanılır.
+    /// `-rltDh` + `X` (öznitelikler). openrsync'e öznitelik seçeneği hiç verilmez: `--extended-attributes` ile
+    /// öznitelikleri paylaşılan /private/tmp'de tahmin edilebilir adlı geçici AppleDouble dosyalarıyla ("/tmp/.<pid>._ad")
+    /// taşır. Kum havuzu bu yazmayı (doğru olarak) engeller ve kuru çalıştırma (doğrulama, önizleme) olmayan "._" dosyalarını
+    /// açmaya çalışıp hata verir. Bu kipte karantina işareti `Quarantine.propagate` ile ayrıca aktarılır; seçenek
+    /// `droppedOptions` ile günlüğe yazılır.
     static func baseFlags(_ options: CopyOptions, _ environment: Environment) -> [String] {
-        let xattrs = options.preserveExtendedAttributes && (environment.engine.supportsXattrs || environment.engine.isOpenrsync)
-        if environment.engine.isOpenrsync {
-            return ["-rltDh"] + (xattrs ? ["--extended-attributes"] : [])
-        }
+        let xattrs = options.preserveExtendedAttributes && environment.engine.supportsXattrs && !environment.engine.isOpenrsync
         return [xattrs ? "-rltDhX" : "-rltDh"]
     }
 

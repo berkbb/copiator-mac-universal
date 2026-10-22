@@ -18,7 +18,8 @@ public struct DiffEntry: Equatable, Hashable, Sendable, Identifiable {
     /// Aktarım köküne göre göreli yol; klasörlerde sonda "/" yok.
     public var path: String
     public var isDirectory: Bool
-    /// rsync'in 11 karakterlik özet kodu (">f.st......"); "fark yok" satırları listeye girmez.
+    /// rsync'in özet kodu (rsync 3.x: 11 karakter ">f.st......", openrsync: 9 karakter ">f.st...."); "fark yok"
+    /// satırları listeye girmez.
     public var code: String
 
     public var id: String { kind.rawValue + "\u{0}" + path }
@@ -37,26 +38,41 @@ public struct DiffEntry: Equatable, Hashable, Sendable, Identifiable {
 /// `.` içerik aynı, `*` ileti (`*deleting`). X: f dosya, d klasör, L bağlantı, D aygıt, S özel. Yeni öğede öznitelik
 /// sütunları `+`, değişmeyenler `.` (ya da boşluk). Yazdırılamayan karakterler `\#ooo` (sekizlik) olarak kaçışlanır.
 public enum ItemizeParser {
-    public static func parse(_ output: String) -> [DiffEntry] {
-        output.split(omittingEmptySubsequences: true, whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap(parseLine)
+    /// Özet kodunun genişliği motora göre değişir; ad, kodun ardından gelen tek boşluktan sonra başlar.
+    public enum Format: Sendable {
+        /// rsync 3.x: `YXcstpoguax` (11 karakter); "*deleting" 11 sütuna doldurulur.
+        case rsync3
+        /// macOS'un openrsync'i (rsync 2.6.9 uyumlu): `YXcstpogz` (9 karakter); "*deleting" doldurulmaz.
+        case openrsync
+
+        public var codeWidth: Int { self == .rsync3 ? 11 : 9 }
+
+        public init(engine: EngineInfo) {
+            self = engine.isOpenrsync ? .openrsync : .rsync3
+        }
     }
 
-    public static func parseLine<S: StringProtocol>(_ line: S) -> DiffEntry? {
+    public static func parse(_ output: String, format: Format = .rsync3) -> [DiffEntry] {
+        output.split(omittingEmptySubsequences: true, whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { parseLine($0, format: format) }
+    }
+
+    public static func parseLine<S: StringProtocol>(_ line: S, format: Format = .rsync3) -> DiffEntry? {
         let characters = Array(line)
-        // "*deleting   ad" — ileti 11 sütuna doldurulur.
+        let width = format.codeWidth
+        // "*deleting   ad" (rsync 3.x, 11 sütuna doldurulur) ya da "*deleting ad" (openrsync).
         if line.hasPrefix("*deleting") {
-            guard characters.count > 12 else { return nil }
-            let rawName = String(characters[12...])
+            guard characters.count > width + 1 else { return nil }
+            let rawName = String(characters[(width + 1)...])
             return entry(kind: .extra, rawName: rawName, code: "*deleting", typeCharacter: nil)
         }
-        guard characters.count > 12, characters[11] == " " else { return nil }
-        let code = String(characters[0..<11])
+        guard characters.count > width + 1, characters[width] == " " else { return nil }
+        let code = String(characters[0..<width])
         let update = characters[0]
         let type = characters[1]
         guard "<>ch.".contains(update), "fdLDS".contains(type) else { return nil }
-        // Öznitelik sütunları: c (sağlama), s (boyut), t (zaman), p, o, g, u, a, x.
-        let attributes = Array(characters[2..<11])
-        let rawName = String(characters[12...])
+        // Öznitelik sütunları: c (sağlama), s (boyut), t (zaman), p, o, g, ardından u, a, x (rsync 3.x) ya da z (openrsync).
+        let attributes = Array(characters[2..<width])
+        let rawName = String(characters[(width + 1)...])
         let kind: DiffEntry.Kind
         if attributes.allSatisfy({ $0 == "+" }) {
             kind = .missing

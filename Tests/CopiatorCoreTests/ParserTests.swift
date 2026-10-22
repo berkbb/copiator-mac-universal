@@ -254,3 +254,24 @@ func classifiesOtherExitCodes(code: Int32, kind: JobResultKind) {
     let updater = EngineUpdater(scriptURL: URL(fileURLWithPath: "/a/update-rsync.sh"), currentVersion: "3.5.1")
     #expect(updater.arguments(command: "check") == ["/a/update-rsync.sh", "check", "--current", "3.5.1"])
 }
+
+/// macOS'un openrsync'i 9 karakterlik kod yazar ve "*deleting" satırını doldurmaz (gerçek çıktı).
+@Test func parsesOpenrsyncItemizeOutput() {
+    let output = """
+    *deleting eski/
+    *deleting fazla.txt
+    .f..t.... a.txt
+    cL+++++++ bag -> a.txt
+    >f+++++++ yeni.txt
+    >fcs..... alt/b.txt
+    .f        ayni.txt
+    """
+    let entries = ItemizeParser.parse(output, format: .openrsync)
+    #expect(entries.map(\.kind) == [.extra, .extra, .attributes, .missing, .missing, .changed])
+    #expect(entries.map(\.path) == ["eski", "fazla.txt", "a.txt", "bag", "yeni.txt", "alt/b.txt"])
+    #expect(entries[0].isDirectory)
+    #expect(entries[5].code == ">fcs.....")
+    // Aynı satırlar rsync 3.x biçimiyle okunursa yanlış ayrılırdı: biçim motora göre seçilir.
+    #expect(ItemizeParser.Format(engine: openrsyncEngine) == .openrsync && ItemizeParser.Format(engine: fullEngine) == .rsync3)
+    #expect(ItemizeParser.parse(">f+++++++ yeni.txt", format: .rsync3).isEmpty)
+}

@@ -83,6 +83,9 @@ Copiator/
 - **Persistence:** `JobStore` writes `~/Library/Application Support/Copiator/jobs.json` atomically. Decoding is tolerant (missing fields get defaults; unknown kinds, statuses or result kinds fall back). An unreadable file is renamed to `jobs.corrupt-<time>.json` and reported. On quit the running job is stopped and saved as interrupted; at launch it comes back paused (or waiting with "Resume interrupted jobs at launch").
 - **Disk space:** before copying, the source size minus the matching data already at the destination must fit, leaving a reserve of 1 GB (at most 2 % of the volume, so small USB sticks stay usable). While copying, `DiskSpaceGuard` stops rsync when free space drops below 512 MB (half the reserve for small volumes); the job can be resumed after freeing space.
 - **Engine selection:** candidates are the custom rsync (Settings), the bundled one, `~/Library/Application Support/Copiator/engine`, Homebrew and `/usr/bin/rsync`. A working custom rsync always wins; otherwise the newest full rsync wins, and macOS's openrsync (no `--info=progress2`, no `-X`/ACLs) is used only as a last resort in a limited mode.
+  - openrsync starts its receiving side with `execvp("rsync")` even for local copies, so it gets `--rsync-path=<its own resolved path>` (`RsyncCommand.rsyncPathFlags`): the receiver is the same binary and the only program the sandbox lets it run.
+  - It is never asked to copy extended attributes: `--extended-attributes` makes it write temporary AppleDouble files as `/private/tmp/.<pid>.<name>` and breaks dry runs. `Quarantine.propagate` still carries the quarantine flag; `-X` is listed in the job log as a dropped option.
+  - Its `-i` codes are 9 columns wide and `*deleting` is not padded; `ItemizeParser.Format(engine:)` picks the right layout for verify, preview and the change log.
 
 ## Bundled rsync
 

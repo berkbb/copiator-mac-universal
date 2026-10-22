@@ -19,6 +19,7 @@ public final class RsyncOutputCollector: @unchecked Sendable {
     private let perFile: Bool
     private let trackNames: Bool
     private let logChanges: Bool
+    private let itemizeFormat: ItemizeParser.Format
     private let onProgress: @Sendable (TransferProgress) -> Void
     private let onChanges: @Sendable ([String]) -> Void
 
@@ -42,12 +43,14 @@ public final class RsyncOutputCollector: @unchecked Sendable {
 
     public init(
         advanced: AdvancedOptions,
+        itemizeFormat: ItemizeParser.Format = .rsync3,
         onProgress: @escaping @Sendable (TransferProgress) -> Void,
         onChanges: @escaping @Sendable ([String]) -> Void
     ) {
         perFile = advanced.progressDetail == .perFile
         trackNames = advanced.showFileNames
         logChanges = advanced.logChanges
+        self.itemizeFormat = itemizeFormat
         self.onProgress = onProgress
         self.onChanges = onChanges
     }
@@ -75,7 +78,7 @@ public final class RsyncOutputCollector: @unchecked Sendable {
             if Self.noise.contains(where: { line.hasPrefix($0) }) || line.hasPrefix("created directory ") || line.hasSuffix(" files to consider") {
                 return
             }
-            if let change = ItemizeParser.parseLine(line) ?? (line.hasPrefix("*") ? DiffEntry(kind: .extra, path: line, isDirectory: false, code: "") : nil) {
+            if let change = ItemizeParser.parseLine(line, format: itemizeFormat) ?? (line.hasPrefix("*") ? DiffEntry(kind: .extra, path: line, isDirectory: false, code: "") : nil) {
                 if logChanges {
                     pendingChanges.append(OpenSafety.visibleName(line))
                     if pendingChanges.count > Self.maxBufferedChanges { pendingChanges.removeFirst(pendingChanges.count - Self.maxBufferedChanges) }

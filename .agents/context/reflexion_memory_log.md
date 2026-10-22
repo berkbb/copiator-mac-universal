@@ -70,3 +70,12 @@
 ## Episode 16: App Intents Metadata Is Not Produced by SwiftPM
 - **Root Cause:** SwiftPM's build emits `*.swiftconstvalues` but, unlike Xcode, never runs `appintentsmetadataprocessor`, so Shortcuts would not see the actions.
 - **Guardrail:** `Scripts/build_app.sh` runs the processor and bundles `Metadata.appintents`; `verify_bundle.sh` fails if an action or the Siri phrases are missing. `@Parameter` properties cannot live in a `nonisolated struct` under default MainActor isolation; keep that intent main-actor and mark its static metadata `nonisolated`.
+
+## Episode 17: A Wrapping Banner in `safeAreaInset` Crashed the App When a Job Started
+- **Root Cause:** `PowerStatusBanner` (shown above the job list while a job runs) used `.fixedSize(horizontal: false, vertical: true)`, so the detail column's minimum height depended on its width. In the real window (min size taken from the content, toolbar bridged) the split view re-evaluated column sizes on every pass until AppKit raised `NSGenericException` ("more Update Constraints in Window passes than there are views"). Plain `NSHostingView` render tests never ran that path, and an on-screen check was not possible without Accessibility permission. Introduced with the power banner in commit 3b96b34; found when the user added a single-file job.
+- **Guardrail:** `ui_rules.md` §6; `WindowLayoutTests` hosts `ContentView` in an `NSHostingController` window (toolbar bridging, off-screen, display cycle running) and adds and runs jobs. Verified to crash without the fix and pass with it.
+- **Side finding:** macOS's own `/usr/bin/rsync` failed under the sandbox; fixed in Episode 18.
+
+## Episode 18: macOS's openrsync Never Worked Under the Sandbox
+- **Root Cause:** openrsync runs its local receiver with `execvp("rsync")`; Homebrew's rsync came first in `PATH`, and the sandbox only allows the engine itself (`EPERM` → "exec on 'rsync'"). After that, `--extended-attributes` made it create `/private/tmp/.<pid>.._name` AppleDouble files (denied) and made `-n` runs open nonexistent `._` files. Its `-i` output is 9 columns, so verify found nothing. Earlier tests only checked openrsync's arguments, never a live run.
+- **Guardrail:** `--rsync-path=<resolved engine path>` for openrsync only; no xattr flag for openrsync (quarantine still propagated, `-X` logged as dropped); `ItemizeParser.Format`. `SystemRsyncTests` copies, verifies and checks quarantine with `/usr/bin/rsync`, sandboxed and not, with a decoy `rsync` first in `PATH`.

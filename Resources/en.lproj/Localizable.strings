@@ -499,3 +499,8 @@
 "shortcutResumeAll" = "Resume All";
 "settingsShortcutsAppSection" = "Shortcuts and Siri";
 "settingsShortcutsAppNote" = "In the Shortcuts app, Copiator offers the actions “Run Copy Job”, “Pause All Jobs” and “Resume All Jobs”. You can also ask Siri, for example “Run Photos in Copiator”.";
+"toolbarClear" = "Clear";
+"menuRemoveAll" = "Remove All Jobs…";
+"removeAllConfirmTitle" = "Remove all jobs?";
+"removeAllConfirmMessage" = "%ld jobs are removed from the queue together with their history. Copied files and snapshots are not touched; a running job stays.";
+"removeAllConfirmButton" = "Remove All";

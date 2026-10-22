@@ -20,7 +20,7 @@ The sandbox blocks every connection with `(deny network*)`.
 | `-z`, `--compress-level`, `--compress-choice` | Compresses during transfer (only useful for remote transfers) |
 | `--timeout`, `--contimeout` | Connection time limits |
 | `--address`, `--sockopts`, `-4`, `-6` | Network address and socket settings |
-| `--rsync-path` | Path of rsync on the remote side |
+| `--rsync-path` | Path of rsync on the remote side (Copiator sets it itself only for macOS's own rsync, to its own path, because openrsync starts its local receiver as a separate program) |
 
 Remote transfers are not planned: remote (SSH) jobs were declined on 2026-10-21, so Copiator stays a local copy and sync
 app and the sandbox keeps the network closed. (They would need a separate job kind, a sandbox profile that allows only that

@@ -103,13 +103,16 @@ func fatLikeDestinationsDropPermissionFlags(fs: FileSystemKind) {
     #expect(arguments.last == "/Volumes/host:share/")
 }
 
-/// macOS'un openrsync'i: --info=progress2 ve -X yok, öznitelikler uzun adla, ACL yok.
+/// macOS'un openrsync'i: --info=progress2, öznitelikler ve ACL yok; öznitelik seçeneği "düşürülen" olarak bildirilir.
 @Test func openrsyncRestrictedMode() {
     let arguments = RsyncCommand.transfer(job(options: CopyOptions(preservePermissions: true)), environment: env(engine: openrsyncEngine))
-    #expect(arguments.prefix(4) == ["-rltDh", "--extended-attributes", "--partial", "-pog"])
+    #expect(arguments.prefix(3) == ["-rltDh", "--partial", "-pog"])
     #expect(!arguments.contains("--info=progress2"))
-    let noXattr = RsyncCommand.transfer(job(options: CopyOptions(preserveExtendedAttributes: false)), environment: env(engine: openrsyncEngine))
-    #expect(!noXattr.contains("--extended-attributes"))
+    #expect(!arguments.contains { $0 == "--extended-attributes" || $0.hasPrefix("-") && !$0.hasPrefix("--") && $0.contains("X") })
+    #expect(RsyncCommand.droppedOptions(job(), environment: env(engine: openrsyncEngine)).first == "-X")
+    let noXattr = job(options: CopyOptions(preserveExtendedAttributes: false))
+    #expect(!RsyncCommand.droppedOptions(noXattr, environment: env(engine: openrsyncEngine)).contains("-X"))
+    #expect(!RsyncCommand.verify(job(), environment: env(engine: openrsyncEngine), checksum: false).contains("--extended-attributes"))
 }
 
 @Test func verifyIsADryRunWithItemizeAndDeleteListing() {

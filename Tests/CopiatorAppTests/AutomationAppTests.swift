@@ -229,6 +229,43 @@ struct AutomationAppTests {
         #expect(await IntentTarget.resumeAll() == fixture.settings.t(.intentResumeAllDone))
     }
 
+    /// Kuyruğu temizleme: bitmiş işler hemen, tüm işler onaydan sonra kaldırılır; çalışan iş ve diskteki dosyalar kalır.
+    @Test func clearFinishedAndClearAll() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try fixture.writeLargeFile("Kaynak/buyuk.bin", megabytes: 256)
+        let model = fixture.model
+        await model.refreshEngine()
+        model.toggleQueueHold()
+        let finished = try #require(fixture.addJob(options: CopyOptions(copyMode: .contents)))
+        let running = try #require(fixture.addJob())
+        let paused = try #require(fixture.addJob(options: CopyOptions(preservePermissions: true)))
+        model.pause([running, paused])
+        model.toggleQueueHold()
+        await model.waitUntilIdle()
+        #expect(model.job(finished)?.status == .finished)
+
+        model.removeFinished()
+        #expect(model.job(finished) == nil && model.jobs.count == 2)
+        #expect(fixture.read("Hedef/not.txt") == "merhaba\n")
+
+        model.resume([running])
+        for _ in 0..<100 where model.job(running)?.status.isActive != true { try await Task.sleep(for: .milliseconds(20)) }
+        model.requestRemoveAll()
+        let alert = try #require(model.alert)
+        #expect(alert.isDestructive)
+        #expect(alert.message.contains("1"))
+        alert.action?()
+        #expect(model.jobs.map(\.id) == [running])
+        model.pause([running])
+        await model.waitUntilIdle()
+        model.removeAll()
+        #expect(model.jobs.isEmpty)
+        model.alert = nil
+        model.requestRemoveAll()
+        #expect(model.alert == nil)
+    }
+
     /// Dock ve menü çubuğu sayaçları; etkinlik değişince bildirim gelir.
     @Test func activityCountersFollowTheQueue() async throws {
         let fixture = try Fixture()

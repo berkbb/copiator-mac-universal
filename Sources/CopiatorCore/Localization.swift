@@ -205,6 +205,8 @@ public enum LKey: String, CaseIterable, Sendable {
     case intentJobNotFound, intentJobCannotRun, intentPauseAllTitle, intentPauseAllDescription, intentPauseAllDone
     case intentResumeAllTitle, intentResumeAllDescription, intentResumeAllDone, shortcutRunJob, shortcutPauseAll, shortcutResumeAll
     case settingsShortcutsAppSection, settingsShortcutsAppNote
+    // Kuyruğu temizleme
+    case toolbarClear, menuRemoveAll, removeAllConfirmTitle, removeAllConfirmMessage, removeAllConfirmButton
 }
 
 extension StringTable {

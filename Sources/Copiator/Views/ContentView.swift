@@ -167,6 +167,19 @@ struct ContentView: View {
             }
             .help(settings.t(.menuRemoveJob))
             .disabled(!selected.contains(where: JobQueue.canRemove))
+
+            // Kuyruğu temizleme: bitmiş işler hemen, tüm işler onayla kaldırılır (çalışan iş kalır).
+            Menu {
+                Button(settings.t(.menuRemoveFinished), systemImage: "checkmark.circle") { model.removeFinished() }
+                    .disabled(!model.jobs.contains { $0.status == .finished })
+                Button(settings.t(.menuRemoveAll), systemImage: "trash", role: .destructive) { model.requestRemoveAll() }
+                    .disabled(model.removableJobs.isEmpty)
+            } label: {
+                Label(settings.t(.toolbarClear), systemImage: "eraser")
+            }
+            .help(settings.t(.toolbarClear))
+            .disabled(model.removableJobs.isEmpty)
+            .accessibilityIdentifier("copiator.toolbar.clear")
         }
 
         ToolbarSpacer(.fixed, placement: .primaryAction)

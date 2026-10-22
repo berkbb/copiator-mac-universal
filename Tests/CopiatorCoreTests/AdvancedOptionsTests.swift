@@ -266,7 +266,7 @@ private func env(_ fs: FileSystemKind = .apfs, engine: EngineInfo = fullEngine, 
     #expect(!arguments.contains("-N") && !arguments.contains { $0.hasPrefix("--iconv") || $0.hasPrefix("--stop-after") || $0.hasPrefix("--log-file") || $0.hasPrefix("--info") })
     #expect(arguments.contains("-H"))
     let dropped = RsyncCommand.droppedOptions(job(o), environment: env(engine: openrsyncEngine))
-    #expect(Set(dropped) == ["-N", "--iconv", "--stop-after", "--log-file", "--info"])
+    #expect(Set(dropped) == ["-X", "-N", "--iconv", "--stop-after", "--log-file", "--info"])
     #expect(RsyncCommand.droppedOptions(job(o), environment: env()).isEmpty)
 }
 

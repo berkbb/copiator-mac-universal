@@ -92,7 +92,7 @@ public struct RsyncEngine: TransferEngine {
         }
         let environment = RsyncCommand.Environment(
             engine: context.info, destinationFileSystem: fileSystem, sourceIsDirectory: sourceIsDirectory,
-            protectedPaths: protectedPaths
+            protectedPaths: protectedPaths, enginePath: SandboxProfile.resolved(context.executable).path
         )
         let arguments = RsyncCommand.transfer(job, environment: environment)
         let dropped = RsyncCommand.droppedOptions(job, environment: environment)
@@ -108,7 +108,8 @@ public struct RsyncEngine: TransferEngine {
 
         let runner = CommandRunner(executableURL: context.executable).sandboxed(profile)
         let throttle = ProgressThrottle(interval: Self.progressInterval, onEvent: onEvent)
-        let collector = RsyncOutputCollector(advanced: advanced, onProgress: { throttle.offer($0) }) { lines in
+        let collector = RsyncOutputCollector(advanced: advanced, itemizeFormat: ItemizeParser.Format(engine: context.info),
+                                             onProgress: { throttle.offer($0) }) { lines in
             onEvent(.logBatch(lines.map { JobLogEntry(level: .info, raw: $0) }))
         }
         let started = Date()
@@ -148,7 +149,7 @@ public struct RsyncEngine: TransferEngine {
         }
 
         // Öznitelikler taşınmadıysa karantina işareti ayrıca aktarılır (Gatekeeper koruması kaybolmasın).
-        let xattrsCopied = job.options.preserveExtendedAttributes && (context.info.supportsXattrs || context.info.isOpenrsync)
+        let xattrsCopied = job.options.preserveExtendedAttributes && context.info.supportsXattrs && !context.info.isOpenrsync
         if !xattrsCopied, result.kind != .cancelled, advanced.batchMode != .onlyWrite {
             let target = job.target(sourceIsDirectory: sourceIsDirectory)
             let marked = Quarantine.propagate(from: job.source, to: target, since: started, isCancelled: { Task.isCancelled })
@@ -302,7 +303,7 @@ public struct RsyncEngine: TransferEngine {
         profile?.writableFiles = []
         let environment = RsyncCommand.Environment(
             engine: context.info, destinationFileSystem: fileSystem, sourceIsDirectory: sourceIsDirectory,
-            protectedPaths: protectedPaths
+            protectedPaths: protectedPaths, enginePath: SandboxProfile.resolved(context.executable).path
         )
         let arguments = RsyncCommand.verify(job, environment: environment, checksum: checksum)
         let runner = CommandRunner(executableURL: context.executable).sandboxed(profile)
@@ -310,7 +311,8 @@ public struct RsyncEngine: TransferEngine {
             let processResult = try await runner.run(arguments)
             if Task.isCancelled { return report(.cancelled) }
             let result = RsyncOutcome.classify(exitCode: processResult.exitCode, stderr: processResult.stderr, destinationFileSystem: fileSystem)
-            return VerifyReport(entries: ItemizeParser.parse(processResult.stdout), result: result, checksum: checksum)
+            let entries = ItemizeParser.parse(processResult.stdout, format: ItemizeParser.Format(engine: context.info))
+            return VerifyReport(entries: entries, result: result, checksum: checksum)
         } catch EngineError.cancelled, is CancellationError {
             return report(.cancelled)
         } catch EngineError.engineNotFound {

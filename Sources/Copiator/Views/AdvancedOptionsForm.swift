@@ -318,6 +318,11 @@ struct PowerStatusBanner: View {
     let advice: [PowerAdvice]
     let snapshot: PowerSnapshot?
     let settings: AppSettings
+    /// Satırlar sarılır (kaydırılabilir bir alanda, ör. ayrıntılar paneli). Kapalıyken her satır tek satırdır, uzun metin
+    /// kısaltılır ve tamamı ipucunda görünür: bant iş listesinin üstündeyken (`safeAreaInset`) yüksekliği sütun
+    /// genişliğine bağlı olmamalı. Bağlı olursa bölünmüş görünüm sütun boyutlarını sonsuz döngüde yeniden hesaplar ve
+    /// AppKit uygulamayı sonlandırır ("more Update Constraints in Window passes than there are views").
+    var wrapsText = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -325,12 +330,23 @@ struct PowerStatusBanner: View {
                   systemImage: status.systemSleepPrevented ? "cup.and.saucer.fill" : "exclamationmark.triangle.fill")
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(status.systemSleepPrevented ? Color.green : Color.orange)
+                .lineLimit(wrapsText ? nil : 1)
                 .help(settings.t(.sleepBadgeHelp))
             ForEach(advice, id: \.self) { item in
-                Label(settings.t(item.titleKey, arguments: snapshot.map { item.arguments($0, settings) } ?? []), systemImage: item.systemImage)
-                    .font(.caption)
-                    .foregroundStyle(item.isWarning ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
-                    .fixedSize(horizontal: false, vertical: true)
+                let text = settings.t(item.titleKey, arguments: snapshot.map { item.arguments($0, settings) } ?? [])
+                if wrapsText {
+                    Label(text, systemImage: item.systemImage)
+                        .font(.caption)
+                        .foregroundStyle(item.isWarning ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label(text, systemImage: item.systemImage)
+                        .font(.caption)
+                        .foregroundStyle(item.isWarning ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help(text)
+                }
             }
         }
         .padding(10)
