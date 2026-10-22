@@ -87,3 +87,11 @@
 ## Episode 20: `--link-dest` Made Absent Files Look Present
 - **Root Cause:** with a reference directory, `rsync -n -ii` reports files matching the previous backup as unchanged even though the destination is empty, so the conflict check saw "same-name files" that did not exist.
 - **Guardrail:** `RsyncCommand.conflictCheck` drops reference-directory options.
+
+## Episode 21: Spotlight Folds Case With the System Locale
+- **Root Cause:** the content criterion relied on the `c` modifier of `kMDItemTextContent == "*text*"cd`. On a Mac set to Turkish, Spotlight indexes and folds "I" as "ı" and "İ" as "i", so "isparta" did not find a file containing "Isparta" and an uppercase search with "I" missed lowercase text. Unit tests only checked the query string; the gap showed up in the first test against a real index (`mdimport` + `MDQuery`).
+- **Guardrail:** `Spotlight.query(for:)` searches each i-like letter as both "i" and "ı"; `SpotlightContentTests` indexes a real folder under `build/` (temporary folders are not indexed) and checks the dotted/dotless variants. It runs only when `mdutil` reports indexing enabled.
+
+## Episode 22: Jobs Saved Before a New "Ask" Default Asked Every Time
+- **Root Cause:** the same-name policy defaults to Ask, so jobs and routines saved before the setting existed suddenly asked on every run, although their users never chose that.
+- **Guardrail:** `CopyOptions.suggestsRememberingConflictChoice` is decoded as true when the saved options have no `conflictPolicy`; the conflict sheet pre-checks "Remember" for them and `AppModel.resolveConflicts` clears the flag on the job and its routine. Covered by `conflictOptionsDecodeWithAskAsDefault` and `legacyJobsSuggestRememberingOnce`.

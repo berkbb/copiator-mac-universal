@@ -55,6 +55,14 @@ import Testing
 @Test func conflictOptionsDecodeWithAskAsDefault() throws {
     let options = try JSONDecoder().decode(CopyOptions.self, from: Data(#"{"copyMode": "contents"}"#.utf8))
     #expect(options.conflictPolicy == .ask)
+    // Bu ayardan önce kaydedilmiş seçenekler: ilk karar sayfasında "hatırla" önerilir; yenilerde önerilmez.
+    #expect(options.suggestsRememberingConflictChoice)
+    #expect(!CopyOptions().suggestsRememberingConflictChoice)
+    let saved = try JSONDecoder().decode(CopyOptions.self, from: JSONEncoder().encode(CopyOptions(conflictPolicy: .ask)))
+    #expect(!saved.suggestsRememberingConflictChoice)
+    var legacy = options
+    legacy.suggestsRememberingConflictChoice = true
+    #expect(try JSONDecoder().decode(CopyOptions.self, from: JSONEncoder().encode(legacy)).suggestsRememberingConflictChoice)
     let unknown = try JSONDecoder().decode(CopyOptions.self, from: Data(#"{"conflictPolicy": "merge"}"#.utf8))
     #expect(unknown.conflictPolicy == .ask)
     #expect(ConflictPolicy.allCases.compactMap(\.decision) == [.replace, .keepBoth, .skip])

@@ -78,6 +78,12 @@ struct ConflictSheet: View {
         .frame(width: 720, height: 540)
     }
 
+    /// Eski (bu ayardan önce kurulmuş) iş ya da rutinde "hatırla" önceden işaretlenir.
+    private func suggestsRemembering(_ job: TransferJob) -> Bool {
+        job.options.suggestsRememberingConflictChoice
+            || job.routineID.flatMap(model.routine)?.options.suggestsRememberingConflictChoice == true
+    }
+
     private func content(_ job: TransferJob, _ report: ConflictReport) -> some View {
         let identical = report.items.lazy.filter(\.identical).count
         return VStack(alignment: .leading, spacing: 12) {
@@ -159,6 +165,7 @@ struct ConflictSheet: View {
             }
         }
         .padding(20)
+        .onAppear { remember = suggestsRemembering(job) }
     }
 
     private func binding(for item: FileConflict) -> Binding<ConflictDecision?> {

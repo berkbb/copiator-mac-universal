@@ -397,13 +397,40 @@ public enum RuleScanner {
 /// Spotlight dizininden içerik araması (`kMDItemTextContent`). Dizini olmayan birimlerde (ör. Spotlight'ı kapalı harici
 /// diskler, geçici klasörler) sonuç boştur.
 enum Spotlight {
-    /// Sorgu metni: "*sözcük*" büyük/küçük harf ve aksan duyarsız (`cd`); tırnak ve ters bölü kaçışlanır.
+    /// Tam açılımda en çok bu kadar i benzeri harf (2^6 = 64 seçenek).
+    static let maxExpandedLetters = 6
+
+    /// Sorgu metni: "*sözcük*" büyük/küçük harf ve aksan duyarsız (`cd`); tırnak, ters bölü ve yıldız kaçışlanır.
+    ///
+    /// Spotlight büyük/küçük harfi sistem diline göre katlar: Türkçe bir Mac'te dizindeki "I" "ı", "İ" "i" olur;
+    /// "isparta" araması "Isparta" geçen belgeyi bulmaz. Kurallar I/ı/İ/i farkını gözetmediği için her i benzeri harf
+    /// hem "i" hem "ı" olarak aranır (seçenekler `||` ile). Çok i'li uzun metinlerde seçenek sayısı patlamasın diye
+    /// i benzeri harflerin arasındaki parçaların hepsinin geçmesi aranır (`&&`).
     static func query(for text: String) -> String {
-        let escaped = text.precomposedStringWithCanonicalMapping
+        let segments = text.precomposedStringWithCanonicalMapping
+            .split(omittingEmptySubsequences: false, whereSeparator: { "iıIİ".contains($0) })
+            .map(String.init)
+        let parts = segments.filter { !$0.isEmpty }
+        if segments.count - 1 > maxExpandedLetters, !parts.isEmpty {
+            return combined(parts.map(term), "&&")
+        }
+        var variants = [segments[0]]
+        for segment in segments.dropFirst() {
+            variants = variants.flatMap { [$0 + "i" + segment, $0 + "ı" + segment] }
+        }
+        return combined(variants.map(term), "||")
+    }
+
+    private static func term(_ text: String) -> String {
+        let escaped = text
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "*", with: "\\*")
         return "kMDItemTextContent == \"*\(escaped)*\"cd"
+    }
+
+    private static func combined(_ terms: [String], _ separator: String) -> String {
+        terms.count == 1 ? terms[0] : "(" + terms.joined(separator: " \(separator) ") + ")"
     }
 
     /// İçinde metnin geçtiği öğelerin kaynağa göre (NFC) göreli yolları.

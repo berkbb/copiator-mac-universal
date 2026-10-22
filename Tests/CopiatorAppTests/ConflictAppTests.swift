@@ -83,6 +83,32 @@ struct ConflictAppTests {
         #expect(model.job(job.id)?.status == .finished && model.job(job.id)?.isAwaitingDecision == false)
     }
 
+    /// Bu sürümden önce kaydedilmiş iş: ilk kararda "hatırla" önerilir; karar verilince öneri kalkar.
+    @Test func legacyJobsSuggestRememberingOnce() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try prepare(fixture)
+        let json = """
+        {"version": 1, "jobs": [{"id": "8B0F5C9E-3E1B-4D57-9D44-2D1D7C1D2A41", "source": "\(fixture.url("Kaynak").absoluteString)",
+          "destination": "\(fixture.url("Hedef").absoluteString)", "status": "finished", "options": {"copyMode": "folder"}}]}
+        """
+        try FileManager.default.createDirectory(at: fixture.store.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(json.utf8).write(to: fixture.store.url)
+        let model = fixture.relaunch()
+        await model.refreshEngine()
+        let id = try #require(model.jobs.first?.id)
+        #expect(model.job(id)?.options.suggestsRememberingConflictChoice == true)
+        model.resume([id])
+        await model.waitUntilIdle()
+        #expect(model.job(id)?.isAwaitingDecision == true)
+        model.resolveConflicts(id, resolution: ConflictResolution(others: .replace), remember: .replace)
+        await model.waitUntilIdle()
+        let job = try #require(model.job(id))
+        #expect(job.status == .finished && job.options.conflictPolicy == .replace && !job.options.suggestsRememberingConflictChoice)
+        // Kaydedildikten sonra yeniden açılınca da öneri yok.
+        #expect(fixture.relaunch().job(id)?.options.suggestsRememberingConflictChoice == false)
+    }
+
     /// "Disk takılınca başla" seçili rutin hiç çalıştırılmamış olsa da hedef diski takılınca çalışır.
     @Test func diskTriggeredRoutineRunsWithoutAPriorRun() async throws {
         let fixture = try Fixture()

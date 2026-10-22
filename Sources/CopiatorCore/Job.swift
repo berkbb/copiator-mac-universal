@@ -49,6 +49,9 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     public var runWhenConnected: Bool
     /// Hedefte aynı adlı dosya varken ne yapılacağı (varsayılan: sor).
     public var conflictPolicy: ConflictPolicy
+    /// Bu ayar gelmeden önce kurulmuş iş ya da rutin: ilk karar sayfasında "hatırla" önceden işaretli gelir; böylece eski
+    /// bir yedekleme işi her çalıştırmada aynı dosyaları yeniden sormaz. İlk karardan sonra kalkar.
+    public var suggestsRememberingConflictChoice: Bool
     /// Dosya seçme kuralları (rutin rotaları); nil ise kaynağın tamamı kopyalanır. Kurallar her çalıştırmada kaynakta
     /// değerlendirilir (bkz. `RuleSelection`).
     public var rules: RuleGroup?
@@ -57,7 +60,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         copyMode: CopyMode = .folder, preservePermissions: Bool = false, preserveExtendedAttributes: Bool = true,
         deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions(),
         snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false,
-        rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask
+        rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask, suggestsRememberingConflictChoice: Bool = false
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -70,11 +73,12 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.runWhenConnected = runWhenConnected
         self.rules = rules
         self.conflictPolicy = conflictPolicy
+        self.suggestsRememberingConflictChoice = suggestsRememberingConflictChoice
     }
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
-        case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy
+        case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy, suggestsRememberingConflictChoice
     }
 
     public init(from decoder: Decoder) throws {
@@ -92,6 +96,9 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         runWhenConnected = (try? container.decodeIfPresent(Bool.self, forKey: .runWhenConnected)) ?? defaults.runWhenConnected
         rules = (try? container.decodeIfPresent(RuleGroup.self, forKey: .rules)) ?? nil
         conflictPolicy = (try? container.decodeIfPresent(ConflictPolicy.self, forKey: .conflictPolicy)) ?? defaults.conflictPolicy
+        // Ayarı hiç olmayan (bu sürümden önce kaydedilmiş) seçenekler eski kabul edilir.
+        suggestsRememberingConflictChoice = (try? container.decodeIfPresent(Bool.self, forKey: .suggestsRememberingConflictChoice))
+            ?? !container.contains(.conflictPolicy)
     }
 
     /// Seçeneklerdeki sorunlar (gelişmiş seçenekler ve saklama kuralları). Anlık görüntü kipinde "önceki yedek"

@@ -91,6 +91,11 @@ private func matches(_ rules: RuleGroup, _ path: String = "a/b.dat", metadata: R
     #expect(try matches(content, "2026/Ocak/belge.pdf", content: [id: ["2026/Ocak/belge.pdf"]]))
     #expect(try !matches(content, "2026/Ocak/öteki.pdf", content: [id: ["2026/Ocak/belge.pdf"]]))
     #expect(Spotlight.query(for: #"a "b" \ *"#) == #"kMDItemTextContent == "*a \"b\" \\ \**"cd"#)
+    // Türkçe bir Mac'te Spotlight "I"yı "ı" katlar: her i benzeri harf iki biçimde de aranır.
+    #expect(Spotlight.query(for: "Isparta") == #"(kMDItemTextContent == "*isparta*"cd || kMDItemTextContent == "*ısparta*"cd)"#)
+    #expect(Spotlight.query(for: "İİİİİİ").components(separatedBy: " || ").count == 64)
+    let long = Spotlight.query(for: "Mississippi İzmir'i")
+    #expect(!long.contains("||") && long.components(separatedBy: " && ").count == 7)
 }
 
 @Test func advancedConditionsValidateAndDecode() throws {

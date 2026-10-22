@@ -665,12 +665,14 @@ final class AppModel {
         update(id) {
             $0.conflictResolution = resolution
             $0.pendingConflicts = nil
+            $0.options.suggestsRememberingConflictChoice = false
             if let remember { $0.options.conflictPolicy = remember }
             JobQueue.requeue(&$0)
             $0.appendLog(JobLogEntry(level: .info, key: .logConflictsDecided))
         }
-        if let remember, let routineID = job.routineID, let index = routines.firstIndex(where: { $0.id == routineID }) {
-            routines[index].options.conflictPolicy = remember
+        if let routineID = job.routineID, let index = routines.firstIndex(where: { $0.id == routineID }) {
+            if let remember { routines[index].options.conflictPolicy = remember }
+            routines[index].options.suggestsRememberingConflictChoice = false
             saveRoutines()
         }
         if conflictPrompt?.id == id { conflictPrompt = nil }
