@@ -431,6 +431,7 @@ struct RoutineEditorSheet: View {
                     Toggle(settings.t(.optionPreservePermissions), isOn: $routine.options.preservePermissions)
                     Toggle(settings.t(.optionXattrs), isOn: $routine.options.preserveExtendedAttributes)
                     Toggle(settings.t(.optionExcludeSystem), isOn: $routine.options.excludeSystemFolders)
+                    ConflictPolicyPicker(selection: $routine.options.conflictPolicy)
                 }
                 SnapshotSection(options: $routine.options.snapshots)
                 AutomationSection(options: $routine.options)

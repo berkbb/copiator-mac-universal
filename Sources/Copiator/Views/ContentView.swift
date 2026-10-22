@@ -64,6 +64,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.35), value: model.operation != nil || finishingOperation != nil)
         .sheet(item: $model.newJobRequest) { NewJobSheet(request: $0) }
         .sheet(item: $model.routineEditor) { RoutineEditorSheet(request: $0) }
+        .sheet(item: $model.conflictPrompt) { ConflictSheet(prompt: $0) }
         .sheet(item: $model.verifyPresentation) { VerifyResultSheet(presentation: $0) }
         .confirmationDialog(
             settings.t(.verifyChooseTitle),

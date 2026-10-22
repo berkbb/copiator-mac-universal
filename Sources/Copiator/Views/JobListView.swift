@@ -120,6 +120,9 @@ struct JobListView: View {
         if JobQueue.canPause(job) {
             Button(settings.t(.menuPauseJob), systemImage: "pause.fill") { model.pause(ids) }
         }
+        if job.isAwaitingDecision {
+            Button(settings.t(.menuResolveConflicts), systemImage: "doc.on.doc") { model.conflictPrompt = ConflictPrompt(id: job.id) }
+        }
         Divider()
         Button(settings.t(.menuEditJob), systemImage: "pencil") { model.beginEdit(job.id) }
             .disabled(!JobQueue.canEdit(job))
@@ -226,11 +229,11 @@ struct JobRow: View {
     }
 
     private var detailIsWarning: Bool {
-        job.status == .failed || job.progress?.isEstimating == true && job.status == .copying
+        job.isAwaitingDecision || job.status == .failed || job.progress?.isEstimating == true && job.status == .copying
     }
 
     private var detailLine: String {
-        if job.status == .failed || job.status == .finished, let result = job.result {
+        if job.status == .failed || job.status == .finished || job.isAwaitingDecision, let result = job.result {
             return settings.result(result)
         }
         guard let progress = job.progress else {
@@ -286,7 +289,8 @@ struct StatusBadge: View {
     }
 
     private var titleKey: LKey {
-        isWaitingForDisk ? .statusWaitingForDisk : job.status.titleKey
+        if job.isAwaitingDecision { return .statusAwaitingDecision }
+        return isWaitingForDisk ? .statusWaitingForDisk : job.status.titleKey
     }
 
     private var color: Color {
@@ -330,6 +334,10 @@ struct JobDetailView: View {
 
                     if job.id == model.runningJobID, let status = model.sleepStatus {
                         PowerStatusBanner(status: status, advice: model.powerAdvice, snapshot: model.powerSnapshot, settings: settings)
+                    }
+                    if job.isAwaitingDecision {
+                        Button(settings.t(.menuResolveConflicts), systemImage: "doc.on.doc") { model.conflictPrompt = ConflictPrompt(id: job.id) }
+                            .buttonStyle(.glassProminent)
                     }
                     Divider()
                     CommandPreview(command: model.commandPreview(for: job))
@@ -387,6 +395,7 @@ struct JobDetailView: View {
         if options.deleteExtraneous { parts.append(settings.t(.optionDelete)) }
         if options.snapshots.enabled { parts.append(settings.t(.optionSnapshots)) }
         if options.runWhenConnected { parts.append(settings.t(.optionRunWhenConnected)) }
+        parts.append(settings.t(.optionConflictPolicy) + ": " + settings.title(options.conflictPolicy))
         switch options.verifyAfterCopy {
         case .off: break
         case .quick: parts.append(settings.t(.optionVerifyAfterCopy) + ": " + settings.t(.verifyAfterQuick))

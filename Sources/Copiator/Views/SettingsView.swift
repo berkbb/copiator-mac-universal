@@ -143,6 +143,7 @@ private struct CopyingSettingsView: View {
                 note(.optionXattrs, .optionXattrsNote, $settings.defaultPreserveXattrs)
                 note(.optionExcludeSystem, .optionExcludeSystemNote, $settings.defaultExcludeSystemFolders)
                 VerifyAfterCopyPicker(selection: $settings.defaultVerifyAfterCopy)
+                ConflictPolicyPicker(selection: $settings.defaultConflictPolicy)
             } header: {
                 Text(settings.t(.settingsDefaultsSection))
             } footer: {

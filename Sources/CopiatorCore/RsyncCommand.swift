@@ -90,6 +90,33 @@ public enum RsyncCommand {
         return ["--rsync-path=\(path)"]
     }
 
+    /// Çakışma denetimi: iş kuru çalıştırılır (`-n`) ve `-ii` ile değişmeyenler dahil her dosya listelenir; hedefte
+    /// bulunan dosyalar çakışmadır (bkz. `ConflictDetector`). Hiçbir şey silinmez ya da yazılmaz.
+    /// Önceki yedek seçenekleri (`--link-dest` vb.) verilmez: oradaki dosyalar hedefte olmadığı hâlde "değişmemiş" görünürdü.
+    public static func conflictCheck(_ job: TransferJob, environment: Environment) -> [String] {
+        var options = job.options
+        options.advanced.referenceMode = .none
+        var arguments = baseFlags(options, environment)
+        arguments += ["-n", "-ii"]
+        arguments += rsyncPathFlags(environment)
+        arguments += metadataFlags(options, environment)
+        arguments += advancedFlags(options, environment, forVerify: true)
+        arguments += exclusions(job, environment)
+        arguments += ["--", sourceArgument(job, environment), destinationArgument(job)]
+        assertSafe(arguments)
+        return arguments
+    }
+
+    /// "İkisini de sakla": tek bir dosyayı hedefte verilen (numaralı) ada kopyalar.
+    public static func singleFile(_ job: TransferJob, environment: Environment, source: String, destination: String) -> [String] {
+        var arguments = baseFlags(job.options, environment)
+        arguments += rsyncPathFlags(environment)
+        arguments += metadataFlags(job.options, environment)
+        arguments += ["--", source, destination]
+        assertSafe(arguments)
+        return arguments
+    }
+
     /// macOS'un openrsync'inin desteklemediği seçenekler. Bu motorla bunlar verilmez ve iş günlüğünde bildirilir.
     static let unsupportedByOpenrsync: Set<String> = [
         "-N", "-U", "--iconv", "--stop-after", "--stop-at", "--log-file", "--append-verify", "--no-inc-recursive",
@@ -251,8 +278,15 @@ public enum RsyncCommand {
             patterns.append(sourceRootPrefix(job, environment) + escapePattern(path))
         }
         if job.options.excludeSystemFolders { patterns += systemExclusions }
-        var arguments = patterns.map { "--exclude=\($0)" }
         let a = job.options.advanced
+        // `--from0` liste seçeneklerinden önce gelmeli: rsync `--exclude-from` dosyasını seçeneği okuduğu anda işler; sonra
+        // gelen `--from0` o listeye uygulanmaz (NUL ile ayrılmış listede yalnızca ilk kalıp geçerli olurdu).
+        let generatedLists = !(a.filesFromFile ?? "").isEmpty || !(a.conflictExcludeFile ?? "").isEmpty
+        var arguments = generatedLists && a.filesFromZeroTerminated && !environment.engine.isOpenrsync ? ["--from0"] : []
+        arguments += patterns.map { "--exclude=\($0)" }
+        // Çakışma kararları: atlanan ve numaralı kopyalanan dosyalar ana kopyadan dışlanır; kullanıcının ekleme kuralları
+        // onları geri alamaz.
+        if let file = a.conflictExcludeFile, !file.isEmpty { arguments.append("--exclude-from=\(file)") }
         arguments += a.filterRules.map { "--filter=\($0)" }
         arguments += a.includePatterns.map { "--include=\($0)" }
         arguments += a.excludePatterns.map { "--exclude=\($0)" }
@@ -262,10 +296,7 @@ public enum RsyncCommand {
         if a.useFilterFiles { arguments.append("-F") }
         if let file = a.includeFromFile, !file.isEmpty { arguments.append("--include-from=\(file)") }
         if let file = a.excludeFromFile, !file.isEmpty { arguments.append("--exclude-from=\(file)") }
-        if let file = a.filesFromFile, !file.isEmpty {
-            arguments.append("--files-from=\(file)")
-            if a.filesFromZeroTerminated, !environment.engine.isOpenrsync { arguments.append("--from0") }
-        }
+        if let file = a.filesFromFile, !file.isEmpty { arguments.append("--files-from=\(file)") }
         return arguments
     }
 

@@ -88,7 +88,9 @@ struct AdvancedEngineTests {
         options.batchMode = .write
         options.batchFile = workspace.url("Gunluk/degisiklik").path
         try workspace.mkdir("Gunluk")
-        let job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"), options: CopyOptions(advanced: options))
+        // Hedefteki eski sürümün üzerine yazılır (çakışma sorusu olmadan; eski sürüm yedek klasörüne gider).
+        let job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"),
+                              options: CopyOptions(advanced: options, conflictPolicy: .replace))
         let (result, _) = try await run(job)
         #expect(result.kind == .succeeded, "\(result)")
         #expect(workspace.read("Hedef/Kaynak/not.txt") == "ikinci sürüm\n")

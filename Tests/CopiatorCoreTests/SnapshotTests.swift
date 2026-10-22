@@ -287,7 +287,8 @@ struct VerifyAfterCopyTests {
         try workspace.mkdir("Hedef")
         try workspace.write("Hedef/Kaynak/fazla.txt", "hedefte kalır\n")
         for mode in [VerifyAfterCopy.quick, .checksum] {
-            let job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"), options: CopyOptions(verifyAfterCopy: mode))
+            let job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"),
+                                  options: CopyOptions(verifyAfterCopy: mode, conflictPolicy: .replace))
             let events = Collected<TransferEvent>()
             let result = await RsyncEngine().run(job, context: try await engineContext()) { events.add($0) }
             #expect(result.kind == .succeeded, "\(result)")

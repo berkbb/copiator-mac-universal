@@ -277,7 +277,8 @@ struct AppModelTests {
         defer { fixture.cleanUp() }
         let model = fixture.model
         await model.refreshEngine()
-        let id = try #require(fixture.addJob(options: CopyOptions(deleteExtraneous: true)))
+        // Eşitleme işi: yeniden çalıştırmada hedefteki dosyalar güncellenir (çakışma sorusu olmadan).
+        let id = try #require(fixture.addJob(options: CopyOptions(deleteExtraneous: true, conflictPolicy: .replace)))
         await model.waitUntilIdle()
         try FileManager.default.removeItem(at: fixture.url("Kaynak/not.txt"))
         try fixture.write("Kaynak/yeni.txt", "yeni\n")

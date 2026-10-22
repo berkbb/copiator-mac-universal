@@ -237,6 +237,13 @@ public enum LKey: String, CaseIterable, Sendable {
     case unitPixels, unitLevels
     case ruleListPlaceholder, ruleTagPlaceholder, ruleConditionFormatNoValue, routineSampleAdvancedNote
     case problemRuleNumber, problemRuleDate, ruleWithinFormat, ruleNotWithinFormat
+    // Aynı adlı dosyalar
+    case logAwaitingDecision, logConflictsResolved, logKeptBoth, logKeepBothFailed, resultAwaitingDecision
+    case statusAwaitingDecision, conflictTitle, conflictSubtitle, conflictIdenticalCount, conflictApplyAll
+    case conflictReplace, conflictKeepBoth, conflictSkip, conflictFile, conflictDecisionColumn, conflictIdentical
+    case conflictTruncated, conflictRememberJob, conflictRememberRoutine, conflictLater, conflictContinue, conflictKeepBothNote
+    case menuResolveConflicts, notifyDecisionTitle, notifyDecisionBody, optionConflictPolicy, optionConflictPolicyNote
+    case conflictPolicyAsk, conflictPolicyReplace, conflictPolicyKeepBoth, conflictPolicySkip, logConflictsDecided, menuBarAwaiting
 }
 
 extension StringTable {
@@ -254,6 +261,7 @@ extension StringTable {
         case .partial: return format(.resultPartial, result.noteCount)
         case .cancelled: return string(.resultCancelled, language: code)
         case .stoppedAtLimit: return string(.resultStoppedAtLimit, language: code)
+        case .awaitingDecision: return format(.resultAwaitingDecision, result.noteCount)
         case .destinationFull:
             if let required = result.requiredBytes, let available = result.availableBytes {
                 return format(.resultDestinationFullDetail, bytes(required), bytes(available))

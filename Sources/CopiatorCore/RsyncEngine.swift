@@ -117,6 +117,30 @@ public struct RsyncEngine: TransferEngine {
             engine: context.info, destinationFileSystem: fileSystem, sourceIsDirectory: sourceIsDirectory,
             protectedPaths: protectedPaths, enginePath: SandboxProfile.resolved(context.executable).path
         )
+        let runner = CommandRunner(executableURL: context.executable).sandboxed(profile)
+
+        // Hedefte aynı adlı dosyalar: kararlar uygulanır ya da iş karar için duraklar.
+        let conflicts: ConflictPlan
+        do {
+            conflicts = try await planConflicts(&job, environment: environment, runner: runner, context: context, snapshot: preparation != nil)
+        } catch EngineError.cancelled, is CancellationError {
+            return JobResult(kind: .cancelled)
+        } catch {
+            return JobResult(kind: .failed, detail: (error as? EngineError).map(String.init(describing:)) ?? error.localizedDescription)
+        }
+        defer { if let folder = conflicts.folder { try? FileManager.default.removeItem(at: folder) } }
+        if let report = conflicts.undecided {
+            onEvent(.conflicts(report))
+            onEvent(.log(JobLogEntry(level: .warning, key: .logAwaitingDecision, arguments: [String(report.total)])))
+            return JobResult(kind: .awaitingDecision, noteCount: report.total)
+        }
+        if conflicts.checked { onEvent(.conflictsSettled) }
+        if conflicts.total > 0 {
+            onEvent(.log(JobLogEntry(level: .info, key: .logConflictsResolved, arguments: [
+                String(conflicts.total), String(conflicts.replaced), String(conflicts.keepBoth.count), String(conflicts.skipped),
+            ])))
+        }
+
         let arguments = RsyncCommand.transfer(job, environment: environment)
         let dropped = RsyncCommand.droppedOptions(job, environment: environment)
         if !dropped.isEmpty {
@@ -129,7 +153,6 @@ public struct RsyncEngine: TransferEngine {
             onEvent(.log(JobLogEntry(level: .warning, key: .logLimitedProgress, arguments: [context.info.version])))
         }
 
-        let runner = CommandRunner(executableURL: context.executable).sandboxed(profile)
         let throttle = ProgressThrottle(interval: Self.progressInterval, onEvent: onEvent)
         let collector = RsyncOutputCollector(advanced: advanced, itemizeFormat: ItemizeParser.Format(engine: context.info),
                                              onProgress: { throttle.offer($0) }) { lines in
@@ -177,6 +200,16 @@ public struct RsyncEngine: TransferEngine {
             let target = job.target(sourceIsDirectory: sourceIsDirectory)
             let marked = Quarantine.propagate(from: job.source, to: target, since: started, isCancelled: { Task.isCancelled })
             if marked > 0 { onEvent(.log(JobLogEntry(level: .info, key: .logQuarantineApplied, arguments: [String(marked)]))) }
+        }
+
+        // "İkisini de sakla": çakışan dosyalar numaralı adlarla ayrıca kopyalanır.
+        if !conflicts.keepBoth.isEmpty, result.kind.isSuccess || result.kind == .partial, !Task.isCancelled {
+            let failures = await copyKeepingBoth(conflicts.keepBoth, job: job, environment: environment, runner: runner,
+                                                 sourceIsDirectory: sourceIsDirectory, onEvent: onEvent)
+            if failures > 0, result.kind.isSuccess {
+                result.kind = .partial
+                result.noteCount += failures
+            }
         }
 
         // Kopyalama sonrası doğrulama: hedef kaynakla yeniden karşılaştırılır (yalnızca toplu iş dosyası yazıldıysa hedef
@@ -231,6 +264,120 @@ public struct RsyncEngine: TransferEngine {
             onEvent(.logBatch(differences.prefix(Self.maxLoggedDifferences).map { JobLogEntry(level: .error, raw: "\($0.code) \($0.path)") }))
         }
         return result
+    }
+
+    /// Çakışma planı: kararı verilmemiş çakışmalar (varsa iş durur), numaralı kopyalanacaklar ve sayılar.
+    struct ConflictPlan {
+        var undecided: ConflictReport?
+        /// Denetim yapıldı (kararlar uygulanacak ya da çakışma yok).
+        var checked = false
+        var keepBoth: [FileConflict] = []
+        var total = 0
+        var replaced = 0
+        var skipped = 0
+        /// Dışlama listesinin geçici klasörü.
+        var folder: URL?
+    }
+
+    /// Hedefte aynı adla bulunan dosyaları kuru çalıştırmayla bulur ve kararları uygular: "değiştir" rsync'in olağan
+    /// davranışıdır; "atla" ve "ikisini de sakla" dosyaları ana kopyadan dışlanır. Karar her dosya için önce verilen
+    /// kararlardan (`TransferJob.conflictResolution`), yoksa işin ayarından (`CopyOptions.conflictPolicy`) gelir; ikisi de
+    /// yoksa karar beklenir. Anlık görüntüde (her çalıştırma yeni bir klasöre yazar), `--ignore-existing` ile (var olan
+    /// dosyaya hiç dokunulmaz) ve yalnızca toplu iş dosyası yazılırken denetim yapılmaz; "değiştir" ayarında da gerekmez.
+    func planConflicts(
+        _ job: inout TransferJob, environment: RsyncCommand.Environment, runner: CommandRunner, context: EngineContext, snapshot: Bool
+    ) async throws -> ConflictPlan {
+        var plan = ConflictPlan()
+        let a = job.options.advanced
+        let resolution = job.conflictResolution ?? ConflictResolution()
+        let mayAsk = job.options.conflictPolicy != .replace || !resolution.decisions.isEmpty || resolution.others != nil
+        guard mayAsk, !snapshot, !a.ignoreExisting, a.batchMode != .onlyWrite else { return plan }
+
+        let format = ItemizeParser.Format(engine: context.info)
+        let collected = ConflictCollector(format: format)
+        let result = try await runner.run(RsyncCommand.conflictCheck(job, environment: environment), retainStdout: false) { collected.consume($0) }
+        let conflicts = collected.conflicts
+        guard result.exitCode == 0 || result.exitCode == 23 || result.exitCode == 24 else {
+            throw EngineError.failed(code: result.exitCode, message: EngineError.diagnostic(from: result.stderr))
+        }
+        plan.total = conflicts.count
+        plan.checked = true
+        guard !conflicts.isEmpty else { return plan }
+
+        var undecided = false
+        var excluded: [String] = []
+        for conflict in conflicts {
+            switch resolution.decision(for: conflict.path) ?? job.options.conflictPolicy.decision {
+            case nil: undecided = true
+            case .replace?: plan.replaced += 1
+            case .skip?:
+                plan.skipped += 1
+                excluded.append(conflict.path)
+            case .keepBoth?:
+                plan.keepBoth.append(conflict)
+                excluded.append(conflict.path)
+            }
+        }
+        if undecided {
+            plan.checked = false
+            plan.undecided = ConflictReport(items: Array(conflicts.prefix(ConflictDetector.maxListed)), total: conflicts.count)
+            return plan
+        }
+        guard !excluded.isEmpty else { return plan }
+
+        // Dışlama listesi NUL ile ayrılır (`--from0`); motor desteklemiyorsa ya da kullanıcının satır sonuyla ayrılmış bir
+        // liste dosyası varsa satır sonuyla. O durumda adında satır sonu olan bir dosya dışlanamaz: üzerine yazılmasın diye
+        // iş durdurulur.
+        let ownLists = !(a.includeFromFile ?? "").isEmpty || !(a.excludeFromFile ?? "").isEmpty
+            || (!(a.filesFromFile ?? "").isEmpty && !a.filesFromZeroTerminated)
+        let zeroTerminated = !context.info.isOpenrsync && !ownLists
+        if !zeroTerminated, excluded.contains(where: { $0.contains { $0 == "\n" || $0 == "\r" } }) {
+            throw EngineError.failed(code: 1, message: "A conflicting file name contains a line break and cannot be excluded with this rsync.")
+        }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Copiator-conflicts-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        plan.folder = folder
+        let list = folder.appendingPathComponent("dislananlar.txt")
+        let separator = zeroTerminated ? "\u{0}" : "\n"
+        try Data(ConflictDetector.excludePatterns(for: excluded).map { $0 + separator }.joined().utf8).write(to: list)
+        job.options.advanced.conflictExcludeFile = SandboxProfile.resolved(list).path
+        if zeroTerminated { job.options.advanced.filesFromZeroTerminated = true }
+        return plan
+    }
+
+    /// "İkisini de sakla": her dosya hedefte numaralı bir adla ("rapor 2.xlsx") ayrıca kopyalanır; hedefteki dosyaya
+    /// dokunulmaz. - Returns: Kopyalanamayan dosya sayısı.
+    func copyKeepingBoth(
+        _ conflicts: [FileConflict], job: TransferJob, environment: RsyncCommand.Environment, runner: CommandRunner,
+        sourceIsDirectory: Bool, onEvent: @escaping @Sendable (TransferEvent) -> Void
+    ) async -> Int {
+        // Aktarım kökü: rsync'in yazdığı yollar buna göredir ("klasörün kendisi" kipinde kaynağın adı da yolun başındadır).
+        let root = sourceIsDirectory && job.options.copyMode == .contents ? job.source : job.source.deletingLastPathComponent()
+        var planned = Set<String>()
+        var failures = 0
+        var lines: [JobLogEntry] = []
+        for conflict in conflicts {
+            if Task.isCancelled { break }
+            let source = root.appendingPathComponent(conflict.path)
+            let directory = job.destination.appendingPathComponent((conflict.path as NSString).deletingLastPathComponent, isDirectory: true)
+            let name = ConflictDetector.numberedName(for: source.lastPathComponent) { candidate in
+                let path = directory.appendingPathComponent(candidate).path
+                var info = stat()
+                return planned.contains(path) || lstat(path, &info) == 0
+            }
+            let target = directory.appendingPathComponent(name)
+            planned.insert(target.path)
+            let arguments = RsyncCommand.singleFile(job, environment: environment, source: source.path, destination: target.path)
+            let exitCode = (try? await runner.run(arguments))?.exitCode
+            if exitCode == 0 {
+                lines.append(JobLogEntry(level: .info, key: .logKeptBoth, arguments: [conflict.path, name]))
+            } else {
+                failures += 1
+                lines.append(JobLogEntry(level: .error, key: .logKeepBothFailed, arguments: [conflict.path]))
+            }
+        }
+        if !lines.isEmpty { onEvent(.logBatch(Array(lines.suffix(TransferJob.maxLogEntries)))) }
+        return failures
     }
 
     /// Doğrulamanın günlüğe yazdığı en çok fark satırı.

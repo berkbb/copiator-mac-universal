@@ -38,11 +38,14 @@ struct PowerAndOptionsTests {
         try fixture.writeLargeFile("Kaynak/buyuk.bin", megabytes: 512)
         let model = fixture.model
         await model.refreshEngine()
-        let id = try #require(fixture.addJob())
+        // Hız sınırı: kopya, duraklatma gelmeden bitmesin (tam test yükünde 512 MB çok hızlı kopyalanabiliyordu).
+        var options = CopyOptions()
+        options.advanced.bandwidthLimitKiB = 50_000
+        let id = try #require(fixture.addJob(options: options))
         for _ in 0..<100 where model.job(id)?.status != .copying { try await Task.sleep(for: .milliseconds(20)) }
         model.pause([id])
         await model.waitUntilIdle()
-        #expect(model.job(id)?.status == .paused)
+        #expect(model.job(id)?.status == .paused, "\(String(describing: model.job(id)?.result)) \(model.job(id)?.log.map { fixture.settings.log($0) } ?? [])")
         #expect(model.sleepStatus == nil)
         #expect(!SleepAssertion.activeAssertionNames().contains(model.sleepReason))
         #expect(model.job(id)?.log.contains { $0.key == LKey.sleepRestored.rawValue } == true)

@@ -29,7 +29,7 @@ struct RoutineAppTests {
         return Routine(name: "Ofis yedeği", routes: [
             RoutineRoute(source: fixture.url("Ofis"), destination: fixture.url("Raporlar"), rules: reports),
             RoutineRoute(source: fixture.url("Ofis"), destination: fixture.url("Fotograflar"), rules: photos),
-        ], options: CopyOptions(verifyAfterCopy: .quick))
+        ], options: CopyOptions(verifyAfterCopy: .quick, conflictPolicy: .replace))
     }
 
     @Test func createRunRerunEditAndDelete() async throws {

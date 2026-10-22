@@ -87,10 +87,15 @@ struct EngineIntegrationTests {
         let first = Task { try await run(job) }
         try await Task.sleep(for: .milliseconds(400))
         first.cancel()
-        let (cancelled, _) = try await first.value
+        let (cancelled, firstEvents) = try await first.value
         #expect(cancelled.kind == .cancelled)
 
-        let (resumed, events) = try await run(job)
+        // Uygulamadaki gibi olaylar işe uygulanır: bu geçişin hedefe yazdığı (yarım) dosyalar sürdürmede yeniden sorulmaz.
+        var resuming = job
+        firstEvents.forEach { JobQueue.apply($0, to: &resuming) }
+        JobQueue.finish(&resuming, with: cancelled)
+        #expect(resuming.conflictResolution?.others == .replace)
+        let (resumed, events) = try await run(resuming)
         #expect(resumed.kind == .succeeded, "\(resumed)")
         #expect(try snapshot(workspace.url("Kaynak")) == snapshot(workspace.url("Hedef/Kaynak")))
         // Kaldığı yerden: ikinci çalıştırmada aktarılan dosya sayısı tüm dosyalardan azdır ya da eşittir.

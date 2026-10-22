@@ -47,6 +47,8 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     public var verifyAfterCopy: VerifyAfterCopy
     /// Hedef disk takılınca iş kendiliğinden başlar; disk takılı değilken bekler (hata vermez).
     public var runWhenConnected: Bool
+    /// Hedefte aynı adlı dosya varken ne yapılacağı (varsayılan: sor).
+    public var conflictPolicy: ConflictPolicy
     /// Dosya seçme kuralları (rutin rotaları); nil ise kaynağın tamamı kopyalanır. Kurallar her çalıştırmada kaynakta
     /// değerlendirilir (bkz. `RuleSelection`).
     public var rules: RuleGroup?
@@ -55,7 +57,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         copyMode: CopyMode = .folder, preservePermissions: Bool = false, preserveExtendedAttributes: Bool = true,
         deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions(),
         snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false,
-        rules: RuleGroup? = nil
+        rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -67,11 +69,12 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.verifyAfterCopy = verifyAfterCopy
         self.runWhenConnected = runWhenConnected
         self.rules = rules
+        self.conflictPolicy = conflictPolicy
     }
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
-        case snapshots, verifyAfterCopy, runWhenConnected, rules
+        case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy
     }
 
     public init(from decoder: Decoder) throws {
@@ -88,6 +91,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         verifyAfterCopy = (try? container.decodeIfPresent(VerifyAfterCopy.self, forKey: .verifyAfterCopy)) ?? defaults.verifyAfterCopy
         runWhenConnected = (try? container.decodeIfPresent(Bool.self, forKey: .runWhenConnected)) ?? defaults.runWhenConnected
         rules = (try? container.decodeIfPresent(RuleGroup.self, forKey: .rules)) ?? nil
+        conflictPolicy = (try? container.decodeIfPresent(ConflictPolicy.self, forKey: .conflictPolicy)) ?? defaults.conflictPolicy
     }
 
     /// Seçeneklerdeki sorunlar (gelişmiş seçenekler ve saklama kuralları). Anlık görüntü kipinde "önceki yedek"
@@ -126,6 +130,8 @@ public enum JobResultKind: String, Codable, Sendable, CaseIterable {
     case cancelled
     /// `--stop-at` / `--stop-after` sınırına ulaşıldı (rsync 30, "stopping at requested limit"); iş sürdürülebilir.
     case stoppedAtLimit
+    /// Hedefte aynı adlı dosyalar var ve ne yapılacağı sorulmalı: iş kopyalamadan duraklar (`noteCount` çakışma sayısı).
+    case awaitingDecision
     case destinationFull
     case destinationReadOnly
     case permissionDenied
@@ -277,6 +283,10 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
     public var routineID: UUID?
     public var routeID: UUID?
     public var routineName: String?
+    /// Karar bekleyen çakışmalar (iş "karar bekliyor" olarak duraklatıldı).
+    public var pendingConflicts: ConflictReport?
+    /// Bir sonraki çalıştırmada uygulanacak kararlar; iş bitince silinir.
+    public var conflictResolution: ConflictResolution?
 
     /// Günlükte tutulan en çok satır; uzun süreli işlerde kayıt dosyası şişmesin.
     public static let maxLogEntries = 500
@@ -305,11 +315,13 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         self.routineID = nil
         self.routeID = nil
         self.routineName = nil
+        self.pendingConflicts = nil
+        self.conflictResolution = nil
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, kind, source, destination, options, status, progress, result, log, createdAt, startedAt, finishedAt, wasInterrupted
-        case suspendedForDisk, history, routineID, routeID, routineName
+        case suspendedForDisk, history, routineID, routeID, routineName, pendingConflicts, conflictResolution
     }
 
     public init(from decoder: Decoder) throws {
@@ -333,7 +345,12 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         routineID = (try? container.decodeIfPresent(UUID.self, forKey: .routineID)) ?? nil
         routeID = (try? container.decodeIfPresent(UUID.self, forKey: .routeID)) ?? nil
         routineName = (try? container.decodeIfPresent(String.self, forKey: .routineName)) ?? nil
+        pendingConflicts = (try? container.decodeIfPresent(ConflictReport.self, forKey: .pendingConflicts)) ?? nil
+        conflictResolution = (try? container.decodeIfPresent(ConflictResolution.self, forKey: .conflictResolution)) ?? nil
     }
+
+    /// Hedefte aynı adlı dosyalar için kullanıcının kararı bekleniyor.
+    public var isAwaitingDecision: Bool { pendingConflicts != nil && status == .paused }
 
     /// Kaynağın hedefteki karşılığı: "klasörün kendisi" kipinde hedef/Ad, "içeriği" kipinde hedefin kendisi.
     /// Kaynak bir dosyaysa her zaman hedef/Ad.

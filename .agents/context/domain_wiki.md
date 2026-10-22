@@ -58,3 +58,8 @@ Version 1.0 scope: local disk → local disk. Planned job kinds: other engines (
 - Rules work like Finder smart folders: All / Any / None groups that can nest; conditions on name, extension, any folder name in the path, relative path (contains, is, begins with, ends with, regex) and file kind. Text matching ignores case (Turkish I/ı/İ/i alike); regexes are applied as written.
 - Running a routine queues one job per route; the same jobs are requeued on later runs. Routines never delete at the destination and are not scheduled (time-based scheduling is rejected); they start manually, from the menu bar, from Shortcuts, or when the destination disk is connected.
 - Advanced criteria (added on 2026-10-22 at the user's request, shown under "Advanced"): size, date modified/created/added, Finder tags, visibility, folder depth, extension lists, photo/video date taken, resolution, duration, camera model, and text inside files via Spotlight. Metadata is read only when a condition needs it; content search finds nothing on volumes without a Spotlight index.
+
+## Same-Name Files at the Destination
+
+- Decided with the user on 2026-10-22: every copy asks when a file with the same name already exists at the destination, even if the contents are identical. Choices: 1 · Replace, 2 · Keep Both (the incoming file gets a Finder-style number: "report 2.xlsx"), 3 · Skip; for all files or file by file; "remember for this job/routine" turns the choice into the job's or routine's policy.
+- Unattended runs (e.g. a routine started by connecting a disk) pause as "Needs decision", notify and let the next jobs run.

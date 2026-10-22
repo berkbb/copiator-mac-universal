@@ -35,6 +35,17 @@ struct MenuBarContent: View {
                 Label(settings.t(.menuBarIdle), systemImage: "checkmark.circle")
                     .foregroundStyle(.secondary)
             }
+            let awaiting = model.jobsAwaitingDecision
+            if let first = awaiting.first {
+                Button {
+                    model.presentMainWindow()
+                    model.conflictPrompt = ConflictPrompt(id: first.id)
+                } label: {
+                    Label(settings.t(.menuBarAwaiting, awaiting.count), systemImage: "doc.on.doc.fill")
+                        .foregroundStyle(.orange)
+                }
+                .buttonStyle(.borderless)
+            }
             let waiting = model.jobs.lazy.filter { $0.status == .waiting }.count
             if waiting > 0 {
                 Text(settings.t(.menuBarWaiting, waiting))

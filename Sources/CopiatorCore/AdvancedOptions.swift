@@ -123,8 +123,12 @@ public struct AdvancedOptions: Codable, Equatable, Sendable {
     public var includeFromFile: String?
     public var excludeFromFile: String?
     public var filesFromFile: String?
-    /// `--from0`: liste dosyaları NUL ile ayrılmış (rutin kurallarının ürettiği listede; adında satır sonu olabilir).
+    /// `--from0`: liste dosyaları NUL ile ayrılmış (rutin kurallarının ve çakışma kararlarının ürettiği listelerde;
+    /// adında satır sonu olabilir).
     public var filesFromZeroTerminated = false
+    /// Çakışma kararlarının ürettiği dışlama listesi (atlanan ve numaralı kopyalanan dosyalar); yalnızca çalıştırma
+    /// sırasında vardır, kaydedilmez.
+    public var conflictExcludeFile: String?
     /// `--max-size`, `--min-size` (bayt).
     public var maxSizeBytes: Int64?
     public var minSizeBytes: Int64?

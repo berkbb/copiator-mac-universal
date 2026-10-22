@@ -34,6 +34,7 @@
 14. **No Orphaned Engine:** every child process goes through `CommandRunner`, which registers it with `ChildProcessGuard`. The crash handler may only call async-signal-safe functions (`kill`, `raise`). Orphan reaping at launch kills a process only if its PID, exact start time and launchd parent all match the record.
 15. **User-Rejected Scope:** scheduled (time-based) jobs and remote (SSH) jobs are rejected (`context/user_rejected_spec.md`); jobs start manually, from the Finder service, from Shortcuts or when the destination disk is connected.
 16. **Routines Only Add:** rule-based jobs (`CopyOptions.rules`) never produce `--delete`; `Routine.jobOptions(for:)` and `RuleSelection.prepare` both force it off, and the rule scanner never enters protected personal folders when sandboxed. Rules are evaluated by the app, never translated into rsync glob patterns.
+17. **Never Overwrite Silently by Default:** `ConflictPolicy.ask` is the default for every job and routine. A run that finds same-name files without a decision must stop with `.awaitingDecision` before rsync writes anything; "skip" and "keep both" paths must be excluded from the main transfer (and `--from0` must precede any `*-from` option). Keep-both never touches the existing destination file.
 
 ---
 

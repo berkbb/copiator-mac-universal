@@ -130,6 +130,9 @@ the previous backup and get no write access.
 matching paths as a private list (with `--from0`). No extra permission is needed; protected personal folders are not
 scanned.
 
+**Same-name decisions** ("Skip" and "Keep Both") are passed the same way, as a private `--exclude-from` list anchored at
+the transfer root; numbered copies are then made by separate single-file rsync runs inside the same sandbox.
+
 **Automatic snapshots** (New Job › Snapshots) use the same mechanism without an extra permission: the snapshot root is the
 job's destination, so the previous snapshot is already writable. Copiator creates the dated `….partial` folder itself,
 passes `--link-dest` to the newest complete snapshot and renames the folder when the run succeeds; retention (pruning old

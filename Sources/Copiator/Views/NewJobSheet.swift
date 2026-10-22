@@ -62,6 +62,7 @@ struct NewJobSheet: View {
                         .disabled(destinationFileSystem.lacksPosixMetadata)
                     option(.optionXattrs, note: settings.t(.optionXattrsNote), isOn: $options.preserveExtendedAttributes)
                     option(.optionExcludeSystem, note: settings.t(.optionExcludeSystemNote), isOn: $options.excludeSystemFolders)
+                    ConflictPolicyPicker(selection: $options.conflictPolicy)
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle(settings.t(.optionDelete), isOn: $options.deleteExtraneous)
                             .accessibilityIdentifier("copiator.newjob.delete")

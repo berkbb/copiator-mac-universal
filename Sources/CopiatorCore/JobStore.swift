@@ -108,6 +108,14 @@ public enum JobQueue {
             job.appendLog(entry)
         case .logBatch(let entries):
             entries.forEach { job.appendLog($0) }
+        case .conflicts(let report):
+            job.pendingConflicts = report
+        case .conflictsSettled:
+            // Sürdürmede yeni görünen aynı adlı dosyalar bu geçişin yazdıklarıdır: olağan güncelleme (değiştir).
+            var resolution = job.conflictResolution ?? ConflictResolution()
+            resolution.others = resolution.others ?? .replace
+            job.conflictResolution = resolution
+            job.pendingConflicts = nil
         }
     }
 
@@ -121,9 +129,16 @@ public enum JobQueue {
         job.result = result
         job.wasInterrupted = false
         switch result.kind {
-        case .cancelled, .stoppedAtLimit:
+        case .awaitingDecision:
+            // Çakışma listesi olaydan gelir (`.conflicts`); karar verilince iş yeniden sıraya girer.
             job.status = .paused
+        case .cancelled, .stoppedAtLimit:
+            // Verilen kararlar, iş sürdürülünce de geçerlidir.
+            job.status = .paused
+            job.pendingConflicts = nil
         case let kind where kind.isSuccess:
+            job.pendingConflicts = nil
+            job.conflictResolution = nil
             job.status = .finished
             job.finishedAt = date
             if var progress = job.progress {
@@ -136,6 +151,8 @@ public enum JobQueue {
         default:
             job.status = .failed
             job.finishedAt = date
+            job.pendingConflicts = nil
+            job.conflictResolution = nil
         }
     }
 

@@ -192,13 +192,14 @@ final class AppSettings {
         static let keepDisplayAwake = "keepDisplayAwake"
         static let defaultAdvanced = "defaultAdvancedOptions"
         static let defaultVerifyAfterCopy = "defaultVerifyAfterCopy"
+        static let defaultConflictPolicy = "defaultConflictPolicy"
         static let showMenuBarIcon = "showMenuBarIcon"
         static let showDockProgress = "showDockProgress"
         static let all = [
             language, appearance, notifyOnFinish, resumeInterruptedAtLaunch, defaultCopyMode, defaultPreservePermissions,
             defaultPreserveXattrs, defaultExcludeSystemFolders, customEnginePath, checkUpdatesAtLaunch, updateConsentAsked,
             sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, defaultAdvanced, defaultVerifyAfterCopy,
-            showMenuBarIcon, showDockProgress,
+            showMenuBarIcon, showDockProgress, defaultConflictPolicy,
         ]
     }
 
@@ -246,6 +247,10 @@ final class AppSettings {
     var defaultVerifyAfterCopy: VerifyAfterCopy {
         didSet { defaults.set(defaultVerifyAfterCopy.rawValue, forKey: Key.defaultVerifyAfterCopy) }
     }
+    /// Yeni işlerde hedefte aynı adlı dosya varken ne yapılacağı (varsayılan: sor).
+    var defaultConflictPolicy: ConflictPolicy {
+        didSet { defaults.set(defaultConflictPolicy.rawValue, forKey: Key.defaultConflictPolicy) }
+    }
     /// Menü çubuğu simgesi (ilerleme, tümünü duraklat/sürdür). Açıkken son pencere kapanınca uygulama çalışmayı sürdürür.
     var showMenuBarIcon: Bool { didSet { defaults.set(showMenuBarIcon, forKey: Key.showMenuBarIcon) } }
     /// Dock simgesinde çalışan işin ilerlemesi ve bekleyen işlerin sayısı.
@@ -279,6 +284,7 @@ final class AppSettings {
         defaultAdvanced = defaults.data(forKey: Key.defaultAdvanced)
             .flatMap { try? JSONDecoder().decode(AdvancedOptions.self, from: $0) } ?? AdvancedOptions()
         defaultVerifyAfterCopy = VerifyAfterCopy(rawValue: defaults.string(forKey: Key.defaultVerifyAfterCopy) ?? "") ?? .off
+        defaultConflictPolicy = ConflictPolicy(rawValue: defaults.string(forKey: Key.defaultConflictPolicy) ?? "") ?? .ask
         showMenuBarIcon = defaults.object(forKey: Key.showMenuBarIcon) as? Bool ?? true
         showDockProgress = defaults.object(forKey: Key.showDockProgress) as? Bool ?? true
         if let data = defaults.data(forKey: Key.customShortcuts),
@@ -294,7 +300,8 @@ final class AppSettings {
         CopyOptions(
             copyMode: defaultCopyMode, preservePermissions: defaultPreservePermissions,
             preserveExtendedAttributes: defaultPreserveXattrs, deleteExtraneous: false,
-            excludeSystemFolders: defaultExcludeSystemFolders, advanced: defaultAdvanced, verifyAfterCopy: defaultVerifyAfterCopy
+            excludeSystemFolders: defaultExcludeSystemFolders, advanced: defaultAdvanced, verifyAfterCopy: defaultVerifyAfterCopy,
+            conflictPolicy: defaultConflictPolicy
         )
     }
 
@@ -315,6 +322,7 @@ final class AppSettings {
         keepDisplayAwake = false
         defaultAdvanced = AdvancedOptions()
         defaultVerifyAfterCopy = .off
+        defaultConflictPolicy = .ask
         showMenuBarIcon = true
         showDockProgress = true
         customShortcuts = [:]

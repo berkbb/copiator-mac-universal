@@ -79,3 +79,11 @@
 ## Episode 18: macOS's openrsync Never Worked Under the Sandbox
 - **Root Cause:** openrsync runs its local receiver with `execvp("rsync")`; Homebrew's rsync came first in `PATH`, and the sandbox only allows the engine itself (`EPERM` → "exec on 'rsync'"). After that, `--extended-attributes` made it create `/private/tmp/.<pid>.._name` AppleDouble files (denied) and made `-n` runs open nonexistent `._` files. Its `-i` output is 9 columns, so verify found nothing. Earlier tests only checked openrsync's arguments, never a live run.
 - **Guardrail:** `--rsync-path=<resolved engine path>` for openrsync only; no xattr flag for openrsync (quarantine still propagated, `-X` logged as dropped); `ItemizeParser.Format`. `SystemRsyncTests` copies, verifies and checks quarantine with `/usr/bin/rsync`, sandboxed and not, with a decoy `rsync` first in `PATH`.
+
+## Episode 19: `--from0` After `--exclude-from` Silently Used Only the First Pattern
+- **Root Cause:** rsync parses an `--exclude-from` file when it reads that option; `--from0` placed later did not apply, so the NUL-separated list was read as one line and only its first pattern (up to the first NUL) excluded anything. `--files-from` is read later, so routines were unaffected, which hid the problem.
+- **Guardrail:** `RsyncCommand.exclusions` emits `--from0` first; `from0PrecedesListOptions` checks transfer, verify and conflict-check arguments; live tests check that skipped files keep their old contents.
+
+## Episode 20: `--link-dest` Made Absent Files Look Present
+- **Root Cause:** with a reference directory, `rsync -n -ii` reports files matching the previous backup as unchanged even though the destination is empty, so the conflict check saw "same-name files" that did not exist.
+- **Guardrail:** `RsyncCommand.conflictCheck` drops reference-directory options.

@@ -35,6 +35,7 @@
 | `Rules.swift` | `RuleMatch`, `RuleAttribute` (basic/advanced, `valueKind`, `operators`, `units`), `RuleOperator` (`input(for:)`), `RuleUnit`, `FileKind`, `RuleCondition` (`starting`), `RuleGroup` (`problems`, `allConditions`, `maxDepth`) | Finder-style rule model |
 | `RuleEvaluation.swift` | `RuleItem` (lazy metadata), `MediaInfo`, `RuleEvaluator`, `RuleScanner` (async), `Spotlight` | Evaluation, metadata reading, source scanning |
 | `Routines.swift` | `Routine` (`jobOptions(for:)`, `problems`), `RoutineRoute`, `RoutineStore`, `RuleSelection` | Routine model, persistence, `--files-from` list preparation |
+| `Conflicts.swift` | `ConflictPolicy`, `ConflictDecision`, `FileConflict`, `ConflictReport`, `ConflictResolution`, `ConflictDetector`, `ConflictCollector` | Same-name file detection, decisions, numbered names |
 | `ChildProcessGuard.swift` | `ChildProcessGuard` (`register`, `unregister`, `configure`, `installCrashHandlers`, `reapOrphans`, `Record`) | Signal-safe child table, crash/termination handlers, orphan reaping at launch |
 
 ### Target: `Copiator` (`Sources/Copiator/`)
@@ -47,6 +48,7 @@
 | `FinderServices.swift` | `FinderServices.backUp` |
 | `Intents.swift` | `IntentTarget`, `JobEntity`, `JobEntityQuery`, `RunJobIntent`, `PauseAllJobsIntent`, `ResumeAllJobsIntent`, `CopiatorShortcuts`, `AppModel.runFromShortcut` |
 | `StatusItems.swift` | `MenuBarContent`, `MenuBarLabel`, `DockProgress`, `VolumeWatcher` |
+| `Views/ConflictViews.swift` | `ConflictSheet`, `ConflictPolicyPicker` |
 | `Views/RoutineViews.swift` | `RuleConditionRow`, `RuleGroupEditor`, `FolderChooserRow`, `RoutineEditorSheet`, `RoutineDetailView`, `AppSettings.describe(_:)` |
 | `Views/JobOptionsSections.swift` | `VerifyAfterCopyPicker`, `SnapshotSection`, `CountField`, `AutomationSection`, `ExcludePresetsSection`, `PreviewSheet`, `JobHistoryList` |
 | `Views/ContentView.swift` | `ContentView`, `OverlayTiming`, `ProgressOverlay`, `ToastView` |

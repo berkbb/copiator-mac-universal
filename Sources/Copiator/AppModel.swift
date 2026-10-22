@@ -84,6 +84,11 @@ struct RoutineEditorRequest: Identifiable {
     var isExisting: Bool
 }
 
+/// Çakışma kararı sayfası (hedefte aynı adlı dosyalar).
+struct ConflictPrompt: Identifiable, Equatable {
+    let id: TransferJob.ID
+}
+
 /// Kenar çubuğunun seçimi: bir iş süzgeci ya da bir rutin.
 enum SidebarItem: Hashable {
     case filter(JobFilter)
@@ -159,6 +164,8 @@ final class AppModel {
     /// Kenar çubuğunda seçili rutin (yoksa iş listesi görünür).
     var selectedRoutineID: Routine.ID?
     var routineEditor: RoutineEditorRequest?
+    /// Karar bekleyen işin çakışma sayfası.
+    var conflictPrompt: ConflictPrompt?
 
     /// Kenar çubuğunun seçimi: süzgeç ya da rutin.
     var sidebarSelection: SidebarItem {
@@ -651,6 +658,29 @@ final class AppModel {
         return nil
     }
 
+    /// Çakışma kararlarını kaydeder ve işi yeniden sıraya alır. `remember` verilirse karar işin (rutin işinde rutinin)
+    /// ayarı olur; sonraki çalıştırmalarda sorulmaz.
+    func resolveConflicts(_ id: TransferJob.ID, resolution: ConflictResolution, remember: ConflictPolicy?) {
+        guard let job = job(id) else { return }
+        update(id) {
+            $0.conflictResolution = resolution
+            $0.pendingConflicts = nil
+            if let remember { $0.options.conflictPolicy = remember }
+            JobQueue.requeue(&$0)
+            $0.appendLog(JobLogEntry(level: .info, key: .logConflictsDecided))
+        }
+        if let remember, let routineID = job.routineID, let index = routines.firstIndex(where: { $0.id == routineID }) {
+            routines[index].options.conflictPolicy = remember
+            saveRoutines()
+        }
+        if conflictPrompt?.id == id { conflictPrompt = nil }
+        save()
+        scheduleNext()
+    }
+
+    /// Karar bekleyen işler.
+    var jobsAwaitingDecision: [TransferJob] { jobs.filter(\.isAwaitingDecision) }
+
     /// Rotanın güncel ayarlarını işe yazar (kaynak, hedef, seçenekler, rutin adı).
     private func apply(_ route: RoutineRoute, of routine: Routine, to job: inout TransferJob) {
         if let source = route.source { job.source = source }
@@ -793,6 +823,11 @@ final class AppModel {
     func resume(_ ids: Set<TransferJob.ID>) {
         for id in ids {
             guard let job = job(id), JobQueue.canResume(job) || JobQueue.canRunAgain(job) else { continue }
+            // Karar bekleyen iş kararsız yeniden çalışmaz: karar sayfası açılır.
+            if job.isAwaitingDecision, job.conflictResolution == nil {
+                conflictPrompt = ConflictPrompt(id: id)
+                continue
+            }
             update(id) { JobQueue.requeue(&$0) }
         }
         save()
@@ -909,7 +944,7 @@ final class AppModel {
                     $0.appendLog(JobLogEntry(level: .info, key: .logResumedAfterDisk))
                 }
                 changed = true
-            } else if job.options.runWhenConnected, job.usesAsDestination(volume: volume),
+            } else if job.options.runWhenConnected, job.routineID == nil, job.usesAsDestination(volume: volume),
                       job.status == .finished || job.status == .failed {
                 update(job.id) {
                     JobQueue.requeue(&$0)
@@ -919,6 +954,14 @@ final class AppModel {
             }
         }
         if changed { save() }
+        // "Disk takılınca başla" seçili rutinler: hiç çalıştırılmamış olsalar da her rotası kuyruğa girer (bekleyen ya da
+        // çalışan rota işi olduğu gibi kalır).
+        for routine in routines where routine.options.runWhenConnected {
+            let onVolume = routine.routes.contains { route in
+                route.destination.map { TransferJob(source: route.source ?? $0, destination: $0).usesAsDestination(volume: volume) } ?? false
+            }
+            if onVolume { runRoutine(routine.id) }
+        }
         scheduleNext()
     }
 
@@ -955,7 +998,7 @@ final class AppModel {
     private func apply(_ event: TransferEvent, to id: TransferJob.ID) {
         update(id) { JobQueue.apply(event, to: &$0) }
         switch event {
-        case .phase, .log, .logBatch:
+        case .phase, .log, .logBatch, .conflicts, .conflictsSettled:
             save()
         case .progress:
             if Date().timeIntervalSince(lastProgressSave) > 5 {
@@ -994,6 +1037,7 @@ final class AppModel {
                 job.suspendedForDisk = true
                 job.appendLog(JobLogEntry(level: .info, key: .logSuspendedForDisk))
             case .cancelled, .stoppedAtLimit: job.appendLog(JobLogEntry(level: .info, key: .logPaused))
+            case .awaitingDecision: break
             case let kind where kind.isSuccess: job.appendLog(JobLogEntry(level: .info, key: .logFinished))
             default: job.appendLog(JobLogEntry(level: .error, key: .logFailed, arguments: [settings.result(result)]))
             }
@@ -1009,6 +1053,11 @@ final class AppModel {
         } else if let job = job(id), result.kind != .cancelled || !pausedByUser {
             notify(job)
         }
+        // Hedefte aynı adlı dosyalar: karar sayfası açılır (başka bir sayfa açıksa o kapanınca kullanıcı listeden açar);
+        // kuyruk beklemeden sıradaki işe geçer.
+        if result.kind == .awaitingDecision, conflictPrompt == nil, newJobRequest == nil, routineEditor == nil {
+            conflictPrompt = ConflictPrompt(id: id)
+        }
         scheduleNext()
     }
 
@@ -1017,6 +1066,8 @@ final class AppModel {
         let name = job.source.lastPathComponent
         if result.kind == .stoppedAtLimit {
             notifier(t(.notifyStoppedTitle), t(.notifyStoppedBody, name))
+        } else if result.kind == .awaitingDecision {
+            notifier(t(.notifyDecisionTitle), t(.notifyDecisionBody, name, result.noteCount))
         } else if result.kind.isSuccess {
             notifier(t(.notifyFinishedTitle), t(.notifyFinishedBody, name))
         } else {
