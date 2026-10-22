@@ -199,11 +199,11 @@ public enum RuleSelection {
     ///   - skippedPaths: Taranmayacak göreli yollar (kum havuzunun okutmadığı kişisel klasörler).
     public static func prepare(
         _ job: inout TransferJob, zeroTerminated: Bool, skippedPaths: Set<String>, isCancelled: () -> Bool
-    ) throws -> Prepared? {
+    ) async throws -> Prepared? {
         guard let rules = job.options.rules else { return nil }
         let skippedNames = job.options.excludeSystemFolders ? Set(RsyncCommand.systemExclusions) : []
-        let result = try RuleScanner.scan(job.source, rules: rules, skippedPaths: skippedPaths, skippedNames: skippedNames,
-                                          isCancelled: isCancelled)
+        let result = try await RuleScanner.scan(job.source, rules: rules, skippedPaths: skippedPaths, skippedNames: skippedNames,
+                                                isCancelled: isCancelled)
         var paths = result.paths
         var skipped = 0
         if !zeroTerminated {

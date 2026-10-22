@@ -105,7 +105,7 @@ private func matches(_ path: String, _ rules: RuleGroup, directory: Bool = false
 
 // MARK: - Tarama
 
-@Test func scannerFindsMatchingFilesAndSkipsFoldersAndPackages() throws {
+@Test func scannerFindsMatchingFilesAndSkipsFoldersAndPackages() async throws {
     let workspace = try Workspace()
     for path in ["Kaynak/2026/Ocak/satis_raporu_2026-01-31_v1.xlsx", "Kaynak/2026/Ocak/notlar.txt", "Kaynak/eski.xlsx",
                  "Kaynak/.Spotlight-V100/kayit.xlsx", "Kaynak/Gizli/.gizli.xlsx", "Kaynak/Araç.app/Contents/Info.xlsx",
@@ -113,12 +113,12 @@ private func matches(_ path: String, _ rules: RuleGroup, directory: Bool = false
         try workspace.write(path, "x")
     }
     let rules = RuleGroup(match: .any, conditions: [condition(.fileExtension, .equals, "xlsx"), condition(.kind, .equals, "application")])
-    let result = try RuleScanner.scan(workspace.url("Kaynak"), rules: rules, skippedPaths: ["Kişisel"],
+    let result = try await RuleScanner.scan(workspace.url("Kaynak"), rules: rules, skippedPaths: ["Kişisel"],
                                       skippedNames: Set(RsyncCommand.systemExclusions))
     #expect(Set(result.paths) == ["2026/Ocak/satis_raporu_2026-01-31_v1.xlsx", "eski.xlsx", "Gizli/.gizli.xlsx", "Araç.app"])
     #expect(result.scanned >= 8)
-    #expect(throws: CancellationError.self) {
-        try RuleScanner.scan(workspace.url("Kaynak"), rules: rules, isCancelled: { true })
+    await #expect(throws: CancellationError.self) {
+        try await RuleScanner.scan(workspace.url("Kaynak"), rules: rules, isCancelled: { true })
     }
 }
 

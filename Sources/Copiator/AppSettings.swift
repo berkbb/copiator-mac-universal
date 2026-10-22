@@ -423,6 +423,8 @@ final class AppSettings {
         case .emptyValue: t(.problemRuleEmpty)
         case .invalidRegex(let pattern): t(.problemRuleRegex, OpenSafety.visibleName(pattern))
         case .unknownKind: t(.problemRuleKind)
+        case .invalidNumber: t(.problemRuleNumber)
+        case .missingDate: t(.problemRuleDate)
         case .tooDeep: t(.problemRuleDepth, RuleGroup.maxDepth)
         }
     }

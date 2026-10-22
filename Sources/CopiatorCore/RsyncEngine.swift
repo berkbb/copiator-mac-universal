@@ -46,7 +46,7 @@ public struct RsyncEngine: TransferEngine {
         // kullanır; kaynak yeniden taranmaz.
         let selection: RuleSelection.Prepared?
         do {
-            selection = try Self.prepareRules(&job, context: context)
+            selection = try await Self.prepareRules(&job, context: context)
         } catch is CancellationError {
             return JobResult(kind: .cancelled)
         } catch {
@@ -304,7 +304,7 @@ public struct RsyncEngine: TransferEngine {
         var job = job
         let selection: RuleSelection.Prepared?
         do {
-            selection = try Self.prepareRules(&job, context: context)
+            selection = try await Self.prepareRules(&job, context: context)
         } catch is CancellationError {
             return report(.cancelled)
         } catch {
@@ -357,7 +357,7 @@ public struct RsyncEngine: TransferEngine {
     /// Kurallı işin dosya listesini hazırlar (kural yoksa nil). Kum havuzunda okunamayan kişisel klasörler taranmaz.
     /// Liste NUL ile ayrılır (`--from0`); motor desteklemiyorsa ya da işin başka bir liste dosyası varsa (`--from0` onları da
     /// etkilerdi) satır sonuyla.
-    static func prepareRules(_ job: inout TransferJob, context: EngineContext) throws -> RuleSelection.Prepared? {
+    static func prepareRules(_ job: inout TransferJob, context: EngineContext) async throws -> RuleSelection.Prepared? {
         guard job.options.rules != nil else { return nil }
         let skipped = context.sandboxed
             ? Set(SandboxProfile.forTransfer(sources: [job.source], destination: job.destination, home: context.home)
@@ -365,7 +365,7 @@ public struct RsyncEngine: TransferEngine {
             : []
         let a = job.options.advanced
         let zeroTerminated = !context.info.isOpenrsync && (a.includeFromFile ?? "").isEmpty && (a.excludeFromFile ?? "").isEmpty
-        return try RuleSelection.prepare(&job, zeroTerminated: zeroTerminated, skippedPaths: skipped, isCancelled: { Task.isCancelled })
+        return try await RuleSelection.prepare(&job, zeroTerminated: zeroTerminated, skippedPaths: skipped, isCancelled: { Task.isCancelled })
     }
 
     /// Liste dosyalarını kullanıcıya özel (0700) geçici bir klasöre kopyalar ve seçenekleri kopyalara çevirir.

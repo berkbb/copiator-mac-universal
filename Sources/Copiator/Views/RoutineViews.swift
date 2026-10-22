@@ -13,16 +13,58 @@ extension AppSettings {
         case .folderName: t(.ruleAttrFolder)
         case .path: t(.ruleAttrPath)
         case .kind: t(.ruleAttrKind)
+        case .size: t(.ruleAttrSize)
+        case .modified: t(.ruleAttrModified)
+        case .created: t(.ruleAttrCreated)
+        case .added: t(.ruleAttrAdded)
+        case .tag: t(.ruleAttrTag)
+        case .hidden: t(.ruleAttrHidden)
+        case .depth: t(.ruleAttrDepth)
+        case .captureDate: t(.ruleAttrCaptureDate)
+        case .resolution: t(.ruleAttrResolution)
+        case .duration: t(.ruleAttrDuration)
+        case .cameraModel: t(.ruleAttrCamera)
+        case .content: t(.ruleAttrContent)
         }
     }
 
-    func title(_ op: RuleOperator) -> String {
+    /// Karşılaştırmanın adı; "var/yok" özelliğe göre okunur ("gizli", "herhangi bir etiketi var").
+    func title(_ op: RuleOperator, for attribute: RuleAttribute = .name) -> String {
         switch op {
         case .contains: t(.ruleOpContains)
         case .equals: t(.ruleOpEquals)
         case .beginsWith: t(.ruleOpBegins)
         case .endsWith: t(.ruleOpEnds)
         case .matchesRegex: t(.ruleOpRegex)
+        case .isOneOf: t(.ruleOpOneOf)
+        case .greaterThan: t(.ruleOpGreater)
+        case .lessThan: t(.ruleOpLess)
+        case .atMost: t(.ruleOpAtMost)
+        case .atLeast: t(.ruleOpAtLeast)
+        case .withinLast: t(.ruleOpWithinLast)
+        case .notWithinLast: t(.ruleOpNotWithinLast)
+        case .before: t(.ruleOpBefore)
+        case .after: t(.ruleOpAfter)
+        case .isTrue: t(attribute == .hidden ? .ruleOpHidden : .ruleOpHasTag)
+        case .isFalse: t(attribute == .hidden ? .ruleOpVisible : .ruleOpNoTag)
+        }
+    }
+
+    func title(_ unit: RuleUnit) -> String {
+        switch unit {
+        case .kilobytes: t(.unitKB)
+        case .megabytes: t(.unitMB)
+        case .gigabytes: t(.unitGB)
+        case .terabytes: t(.unitTB)
+        case .seconds: t(.unitSeconds)
+        case .minutes: t(.unitMinutes)
+        case .hours: t(.unitHours)
+        case .days: t(.unitDays)
+        case .weeks: t(.unitWeeks)
+        case .months: t(.unitMonths)
+        case .years: t(.unitYears)
+        case .pixels: t(.unitPixels)
+        case .levels: t(.unitLevels)
         }
     }
 
@@ -54,8 +96,22 @@ extension AppSettings {
     func describe(_ group: RuleGroup) -> String {
         guard !group.isEmpty else { return t(.rulesEverything) }
         let conditions = group.conditions.map { condition in
-            let value = condition.attribute == .kind ? FileKind(rawValue: condition.value).map(title) ?? condition.value : condition.value
-            return t(.ruleConditionFormat, title(condition.attribute), title(condition.op).lowercased(with: locale), value)
+            let attribute = title(condition.attribute)
+            let op = title(condition.op, for: condition.attribute).lowercased(with: locale)
+            let value: String
+            switch condition.op.input(for: condition.attribute) {
+            case .none: return t(.ruleConditionFormatNoValue, attribute, op)
+            case .number:
+                let number = condition.number.formatted(.number.precision(.fractionLength(0...2)).locale(locale))
+                value = number + (condition.unit.map { " " + title($0) } ?? "")
+                // "son 7 gün içinde": dilde karşılaştırma sayının iki yanına düşebilir.
+                if condition.op == .withinLast { return t(.ruleWithinFormat, attribute, value) }
+                if condition.op == .notWithinLast { return t(.ruleNotWithinFormat, attribute, value) }
+            case .date: value = condition.date.map { $0.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(locale)) } ?? ""
+            case .text:
+                value = condition.attribute == .kind ? FileKind(rawValue: condition.value).map(title) ?? condition.value : condition.value
+            }
+            return t(.ruleConditionFormat, attribute, op, value)
         }
         let parts = conditions + group.groups.filter { !$0.isEmpty }.map { "(" + describe($0) + ")" }
         switch group.match {
@@ -77,31 +133,20 @@ struct RuleConditionRow: View {
     var body: some View {
         HStack(spacing: 6) {
             Picker(settings.t(.ruleAttrName), selection: attribute) {
-                ForEach(RuleAttribute.allCases) { Text(settings.title($0)).tag($0) }
+                ForEach(RuleAttribute.basic) { Text(settings.title($0)).tag($0) }
+                Section(settings.t(.ruleAdvancedSection)) {
+                    ForEach(RuleAttribute.advanced) { Text(settings.title($0)).tag($0) }
+                }
             }
             .labelsHidden()
             .fixedSize()
             Picker(settings.t(.ruleOpContains), selection: $condition.op) {
-                ForEach(condition.attribute.operators) { Text(settings.title($0)).tag($0) }
+                ForEach(condition.attribute.operators) { Text(settings.title($0, for: condition.attribute)).tag($0) }
             }
             .labelsHidden()
             .fixedSize()
-            if condition.attribute == .kind {
-                Picker(settings.t(.ruleAttrKind), selection: $condition.value) {
-                    ForEach(FileKind.allCases) { Text(settings.title($0)).tag($0.rawValue) }
-                }
-                .labelsHidden()
-            } else {
-                TextField(settings.t(condition.op == .matchesRegex ? .ruleRegexPlaceholder : .ruleValuePlaceholder), text: $condition.value)
-                    .font(condition.op == .matchesRegex ? .body.monospaced() : .body)
-                    .labelsHidden()
-                if let error = regexError {
-                    Image(systemName: "exclamationmark.octagon.fill")
-                        .foregroundStyle(.red)
-                        .help(settings.t(.ruleRegexInvalid) + "\n" + error)
-                        .accessibilityLabel(settings.t(.ruleRegexInvalid))
-                }
-            }
+            valueEditor
+            Spacer(minLength: 0)
             Button(action: onRemove) {
                 Image(systemName: "minus.circle")
             }
@@ -111,16 +156,81 @@ struct RuleConditionRow: View {
         }
     }
 
-    /// Özellik değişince karşılaştırma ve değer uygun hâle gelir (tür seçilince değer bir tür olur).
+    /// Karşılaştırmaya göre değer alanı: metin, tür, sayı ve birim, gün ya da hiçbiri.
+    @ViewBuilder
+    private var valueEditor: some View {
+        switch condition.op.input(for: condition.attribute) {
+        case .none:
+            EmptyView()
+        case .number:
+            TextField(settings.t(.ruleValuePlaceholder), value: $condition.number, format: .number)
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .frame(width: 80)
+            let units = condition.attribute.units
+            if units.count > 1 {
+                Picker(settings.t(.ruleValuePlaceholder), selection: unit) {
+                    ForEach(units) { Text(settings.title($0)).tag($0) }
+                }
+                .labelsHidden()
+                .fixedSize()
+            } else if let unit = units.first {
+                Text(settings.title(unit)).foregroundStyle(.secondary)
+            }
+        case .date:
+            DatePicker(settings.t(.ruleValuePlaceholder), selection: day, displayedComponents: .date)
+                .labelsHidden()
+                .fixedSize()
+        case .text where condition.attribute == .kind:
+            Picker(settings.t(.ruleAttrKind), selection: $condition.value) {
+                ForEach(FileKind.allCases) { Text(settings.title($0)).tag($0.rawValue) }
+            }
+            .labelsHidden()
+        case .text:
+            TextField(settings.t(placeholder), text: $condition.value)
+                .font(condition.op == .matchesRegex ? .body.monospaced() : .body)
+                .labelsHidden()
+            if let error = regexError {
+                Image(systemName: "exclamationmark.octagon.fill")
+                    .foregroundStyle(.red)
+                    .help(settings.t(.ruleRegexInvalid) + "\n" + error)
+                    .accessibilityLabel(settings.t(.ruleRegexInvalid))
+            }
+        }
+    }
+
+    private var placeholder: LKey {
+        switch (condition.attribute, condition.op) {
+        case (_, .matchesRegex): .ruleRegexPlaceholder
+        case (_, .isOneOf): .ruleListPlaceholder
+        case (.tag, _): .ruleTagPlaceholder
+        default: .ruleValuePlaceholder
+        }
+    }
+
+    private var unit: Binding<RuleUnit> {
+        Binding(get: { condition.unit ?? condition.attribute.units.first ?? .days }, set: { condition.unit = $0 })
+    }
+
+    /// "Önce/sonra" günü; seçilmemişse bugün gösterilir ve seçilince kaydedilir.
+    private var day: Binding<Date> {
+        Binding(get: { condition.date ?? Calendar.current.startOfDay(for: Date()) }, set: { condition.date = Calendar.current.startOfDay(for: $0) })
+    }
+
+    /// Özellik değişince karşılaştırma ve değer o özelliğe uygun bir başlangıca döner; iki metin özelliği arasında yazılan
+    /// değer ve (uygunsa) karşılaştırma korunur.
     private var attribute: Binding<RuleAttribute> {
         Binding(
             get: { condition.attribute },
             set: { newValue in
-                let wasKind = condition.attribute == .kind
-                condition.attribute = newValue
-                if !newValue.operators.contains(condition.op) { condition.op = newValue.operators[0] }
-                if newValue == .kind, FileKind(rawValue: condition.value) == nil { condition.value = FileKind.image.rawValue }
-                if wasKind, newValue != .kind { condition.value = "" }
+                let old = condition
+                var fresh = RuleCondition.starting(newValue)
+                fresh.id = old.id
+                if old.attribute.valueKind == .text, newValue.valueKind == .text {
+                    fresh.value = old.value
+                    if newValue.operators.contains(old.op) { fresh.op = old.op }
+                }
+                condition = fresh
             }
         )
     }
@@ -307,7 +417,14 @@ struct RoutineEditorSheet: View {
                 } header: {
                     Text(settings.t(.routineSampleTitle))
                 } footer: {
-                    Text(settings.t(.routineSampleNote)).font(.footnote).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(settings.t(.routineSampleNote))
+                        if routine.routes.contains(where: { $0.rules.allConditions.contains { $0.attribute.isAdvanced } }) {
+                            Text(settings.t(.routineSampleAdvancedNote))
+                        }
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 }
 
                 Section(settings.t(.routineOptions)) {

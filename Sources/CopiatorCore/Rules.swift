@@ -17,7 +17,8 @@ public enum RuleMatch: String, Codable, CaseIterable, Identifiable, Sendable {
     public var id: String { rawValue }
 }
 
-/// Koşulun baktığı özellik.
+/// Koşulun baktığı özellik. İlk beşi temel ölçütlerdir; ötekiler arayüzde "Gelişmiş" başlığı altında sunulur ve dosyanın
+/// üst verisini okur (yalnızca bir koşul gerçekten ona baktığında).
 public enum RuleAttribute: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Dosyanın adı, uzantısıyla ("satis_raporu_v3.xlsx").
     case name
@@ -30,11 +31,77 @@ public enum RuleAttribute: String, Codable, CaseIterable, Identifiable, Sendable
     /// Dosya türü (resim, tablo, PDF…).
     case kind
 
+    // MARK: Gelişmiş
+    case size
+    /// Değiştirilme, oluşturulma ve Finder'daki eklenme tarihi.
+    case modified
+    case created
+    case added
+    /// Finder etiketleri (renkler ve özel etiketler).
+    case tag
+    /// Gizli: adı nokta ile başlayan (kendisi ya da bulunduğu bir klasör) ya da gizli işaretli.
+    case hidden
+    /// Kaynağın altındaki klasör düzeyi (kökteki dosya 0).
+    case depth
+    /// Fotoğraf ve video: çekim tarihi, uzun kenarın piksel sayısı, süre, kamera modeli.
+    case captureDate
+    case resolution
+    case duration
+    case cameraModel
+    /// Dosyanın içinde geçen metin (Spotlight dizininden).
+    case content
+
     public var id: String { rawValue }
 
-    /// Bu özellikte kullanılabilen karşılaştırmalar.
+    public static let basic: [RuleAttribute] = [.name, .fileExtension, .folderName, .path, .kind]
+    public static let advanced: [RuleAttribute] = allCases.filter { !basic.contains($0) }
+
+    /// Arayüzde "Gelişmiş" başlığı altında sunulur.
+    public var isAdvanced: Bool { !Self.basic.contains(self) }
+
+    /// Değerin biçimi.
+    public enum ValueKind: Sendable {
+        case text, kind, number, date, flag
+    }
+
+    public var valueKind: ValueKind {
+        switch self {
+        case .name, .fileExtension, .folderName, .path, .tag, .cameraModel, .content: .text
+        case .kind: .kind
+        case .size, .depth, .resolution, .duration: .number
+        case .modified, .created, .added, .captureDate: .date
+        case .hidden: .flag
+        }
+    }
+
+    /// Fotoğraf ya da video üst verisi gerekir (tarama sırasında ayrıca okunur).
+    public var needsMedia: Bool { [.captureDate, .resolution, .duration, .cameraModel].contains(self) }
+
+    /// Bu özellikte kullanılabilen karşılaştırmalar (ilki varsayılandır).
     public var operators: [RuleOperator] {
-        self == .kind ? [.equals] : [.contains, .equals, .beginsWith, .endsWith, .matchesRegex]
+        switch self {
+        case .name, .folderName, .path, .cameraModel: [.contains, .equals, .beginsWith, .endsWith, .matchesRegex]
+        case .fileExtension: [.equals, .isOneOf, .contains, .beginsWith, .endsWith, .matchesRegex]
+        case .kind: [.equals]
+        case .size, .resolution, .duration: [.greaterThan, .lessThan]
+        case .depth: [.atMost, .atLeast, .equals]
+        case .modified, .created, .added, .captureDate: [.withinLast, .notWithinLast, .before, .after]
+        case .tag: [.equals, .contains, .isTrue, .isFalse]
+        case .hidden: [.isTrue, .isFalse]
+        case .content: [.contains]
+        }
+    }
+
+    /// Sayı ve göreli tarih karşılaştırmalarında kullanılabilen birimler (ilki varsayılandır).
+    public var units: [RuleUnit] {
+        switch self {
+        case .size: [.megabytes, .kilobytes, .gigabytes, .terabytes]
+        case .duration: [.minutes, .seconds, .hours]
+        case .resolution: [.pixels]
+        case .depth: [.levels]
+        case .modified, .created, .added, .captureDate: [.days, .weeks, .months, .years]
+        default: []
+        }
     }
 }
 
@@ -47,8 +114,69 @@ public enum RuleOperator: String, Codable, CaseIterable, Identifiable, Sendable 
     case beginsWith
     case endsWith
     case matchesRegex
+    /// Virgülle ayrılmış listeden biri ("jpg, heic, png").
+    case isOneOf
+    case greaterThan
+    case lessThan
+    case atMost
+    case atLeast
+    /// Son N gün/hafta/ay/yıl içinde (ya da değil).
+    case withinLast
+    case notWithinLast
+    /// Seçilen günden önce / sonra.
+    case before
+    case after
+    /// Var / yok (gizli, etiketli).
+    case isTrue
+    case isFalse
 
     public var id: String { rawValue }
+
+    /// Değer alanı: metin, sayı ve birim, tarih ya da hiçbiri.
+    public enum Input: Sendable { case text, number, date, none }
+
+    public func input(for attribute: RuleAttribute) -> Input {
+        switch self {
+        case .isTrue, .isFalse: .none
+        case .before, .after: .date
+        case .withinLast, .notWithinLast, .greaterThan, .lessThan, .atMost, .atLeast: .number
+        case .equals where attribute.valueKind == .number: .number
+        default: .text
+        }
+    }
+}
+
+/// Birim. Boyutlar Finder gibi 1000 tabanlıdır.
+public enum RuleUnit: String, Codable, CaseIterable, Identifiable, Sendable {
+    case kilobytes, megabytes, gigabytes, terabytes
+    case seconds, minutes, hours
+    case days, weeks, months, years
+    case pixels, levels
+
+    public var id: String { rawValue }
+
+    /// Bayt ya da saniye karşılığı (göreli tarihlerde takvim kullanılır).
+    var multiplier: Double {
+        switch self {
+        case .kilobytes: 1e3
+        case .megabytes: 1e6
+        case .gigabytes: 1e9
+        case .terabytes: 1e12
+        case .seconds, .pixels, .levels, .days, .weeks, .months, .years: 1
+        case .minutes: 60
+        case .hours: 3600
+        }
+    }
+
+    var calendarComponent: (Calendar.Component, Int)? {
+        switch self {
+        case .days: (.day, 1)
+        case .weeks: (.day, 7)
+        case .months: (.month, 1)
+        case .years: (.year, 1)
+        default: nil
+        }
+    }
 }
 
 /// Dosya türleri (Uniform Type Identifiers'a göre; uzantıdan belirlenir, dosya açılmaz).
@@ -78,30 +206,69 @@ public enum FileKind: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Tek bir koşul: "Uzantı eşittir xlsx", "Ad düzenli ifadeye uyar ^rapor_\d+".
+/// Tek bir koşul: "Uzantı eşittir xlsx", "Boyut büyüktür 100 MB", "Değiştirilme son 7 gün içinde".
 public struct RuleCondition: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
     public var attribute: RuleAttribute
     public var op: RuleOperator
-    /// Karşılaştırılan metin; türde `FileKind` ham değeri.
+    /// Metin, liste ("jpg, heic") ya da türde `FileKind` ham değeri.
     public var value: String
+    /// Sayı (boyut, süre, piksel, düzey ya da "son N …").
+    public var number: Double
+    public var unit: RuleUnit?
+    /// "Önce" ve "sonra" karşılaştırmalarının günü.
+    public var date: Date?
 
-    public init(id: UUID = UUID(), attribute: RuleAttribute = .name, op: RuleOperator = .contains, value: String = "") {
+    public init(
+        id: UUID = UUID(), attribute: RuleAttribute = .name, op: RuleOperator = .contains, value: String = "",
+        number: Double = 0, unit: RuleUnit? = nil, date: Date? = nil
+    ) {
         self.id = id
         self.attribute = attribute
         self.op = attribute.operators.contains(op) ? op : attribute.operators[0]
         self.value = value
+        self.number = number
+        self.unit = unit.flatMap { attribute.units.contains($0) ? $0 : nil } ?? attribute.units.first
+        self.date = date
     }
 
-    private enum CodingKeys: String, CodingKey { case id, attribute, op, value }
+    /// Arayüzde özellik seçilince başlanan koşul (anlamlı bir varsayılanla).
+    public static func starting(_ attribute: RuleAttribute, now: Date = Date()) -> RuleCondition {
+        switch attribute {
+        case .kind: RuleCondition(attribute: .kind, op: .equals, value: FileKind.image.rawValue)
+        case .size: RuleCondition(attribute: .size, op: .greaterThan, number: 100, unit: .megabytes)
+        case .modified, .created, .added: RuleCondition(attribute: attribute, op: .withinLast, number: 7, unit: .days)
+        case .captureDate: RuleCondition(attribute: .captureDate, op: .withinLast, number: 30, unit: .days)
+        case .resolution: RuleCondition(attribute: .resolution, op: .greaterThan, number: 1920, unit: .pixels)
+        case .duration: RuleCondition(attribute: .duration, op: .greaterThan, number: 1, unit: .minutes)
+        case .depth: RuleCondition(attribute: .depth, op: .atMost, number: 0, unit: .levels)
+        case .hidden: RuleCondition(attribute: .hidden, op: .isTrue)
+        case .tag: RuleCondition(attribute: .tag, op: .equals)
+        default: RuleCondition(attribute: attribute)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, attribute, op, value, number, unit, date }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = (try? c.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID()
-        attribute = (try? c.decodeIfPresent(RuleAttribute.self, forKey: .attribute)) ?? .name
-        let op = (try? c.decodeIfPresent(RuleOperator.self, forKey: .op)) ?? .contains
-        self.op = attribute.operators.contains(op) ? op : attribute.operators[0]
-        value = (try? c.decodeIfPresent(String.self, forKey: .value)) ?? ""
+        let attribute = (try? c.decodeIfPresent(RuleAttribute.self, forKey: .attribute)) ?? .name
+        self.init(
+            id: (try? c.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID(),
+            attribute: attribute,
+            op: (try? c.decodeIfPresent(RuleOperator.self, forKey: .op)) ?? attribute.operators[0],
+            value: (try? c.decodeIfPresent(String.self, forKey: .value)) ?? "",
+            number: (try? c.decodeIfPresent(Double.self, forKey: .number)) ?? 0,
+            unit: (try? c.decodeIfPresent(RuleUnit.self, forKey: .unit)) ?? nil,
+            date: (try? c.decodeIfPresent(Date.self, forKey: .date)) ?? nil
+        )
+    }
+
+    /// "jpg, .HEIC; png" → ["jpg", "heic", "png"].
+    var listItems: [String] {
+        value.split(whereSeparator: { $0 == "," || $0 == ";" || $0.isWhitespace })
+            .map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: ".")) }
+            .filter { !$0.isEmpty }
     }
 }
 
@@ -125,6 +292,15 @@ public struct RuleGroup: Codable, Equatable, Identifiable, Sendable {
     /// İç içe grupların en çok derinliği (kötü niyetli ya da bozuk bir kayıt yığını taşırmasın).
     public static let maxDepth = 8
 
+    /// Tüm koşullar (alt gruplarınkiler dahil, derinlik sınırına kadar).
+    public var allConditions: [RuleCondition] {
+        func collect(_ group: RuleGroup, _ depth: Int) -> [RuleCondition] {
+            guard depth < Self.maxDepth else { return [] }
+            return group.conditions + group.groups.flatMap { collect($0, depth + 1) }
+        }
+        return collect(self, 0)
+    }
+
     private enum CodingKeys: String, CodingKey { case id, match, conditions, groups }
 
     public init(from decoder: Decoder) throws {
@@ -141,9 +317,13 @@ public struct RuleGroup: Codable, Equatable, Identifiable, Sendable {
     public enum Problem: Equatable, Sendable {
         /// Değeri boş bir koşul.
         case emptyValue
-        /// Geçersiz düzenli ifade (ifade ve hata açıklaması).
+        /// Geçersiz düzenli ifade.
         case invalidRegex(String)
         case unknownKind(String)
+        /// Eksi ya da sayı olmayan bir değer.
+        case invalidNumber
+        /// "Önce" ya da "sonra" için gün seçilmemiş.
+        case missingDate
         case tooDeep
     }
 
@@ -151,15 +331,24 @@ public struct RuleGroup: Codable, Equatable, Identifiable, Sendable {
         var problems: [Problem] = depth >= Self.maxDepth ? [.tooDeep] : []
         for condition in conditions {
             let value = condition.value.trimmingCharacters(in: .whitespaces)
-            if value.isEmpty {
-                problems.append(.emptyValue)
-            } else if condition.attribute == .kind {
-                if FileKind(rawValue: value) == nil { problems.append(.unknownKind(value)) }
-            } else if condition.op == .matchesRegex {
-                do {
-                    _ = try NSRegularExpression(pattern: condition.value)
-                } catch {
-                    problems.append(.invalidRegex(condition.value))
+            switch condition.op.input(for: condition.attribute) {
+            case .none:
+                break
+            case .number:
+                if !condition.number.isFinite || condition.number < 0 { problems.append(.invalidNumber) }
+            case .date:
+                if condition.date == nil { problems.append(.missingDate) }
+            case .text:
+                if value.isEmpty || (condition.op == .isOneOf && condition.listItems.isEmpty) {
+                    problems.append(.emptyValue)
+                } else if condition.attribute == .kind {
+                    if FileKind(rawValue: value) == nil { problems.append(.unknownKind(value)) }
+                } else if condition.op == .matchesRegex {
+                    do {
+                        _ = try NSRegularExpression(pattern: condition.value)
+                    } catch {
+                        problems.append(.invalidRegex(condition.value))
+                    }
                 }
             }
         }
@@ -174,145 +363,4 @@ public struct RuleGroup: Codable, Equatable, Identifiable, Sendable {
 struct Lossy<T: Decodable>: Decodable {
     let value: T?
     init(from decoder: Decoder) throws { value = try? T(from: decoder) }
-}
-
-// MARK: - Değerlendirme
-
-/// Kurala sorulan öğe: ad ve yol karşılaştırma için Unicode NFC biçiminde (macOS adları ayrık biçimde de saklayabilir).
-public struct RuleItem: Sendable {
-    public var name: String
-    public var fileExtension: String
-    public var folders: [String]
-    public var relativePath: String
-    public var type: UTType?
-
-    /// - Parameter relativePath: Kaynağa göre göreli yol ("2026/Raporlar/satis.xlsx").
-    public init(relativePath: String, isDirectory: Bool = false) {
-        let normalized = relativePath.precomposedStringWithCanonicalMapping
-        let components = normalized.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
-        name = components.last ?? normalized
-        folders = Array(components.dropLast())
-        self.relativePath = normalized
-        let ext = (name as NSString).pathExtension
-        fileExtension = ext
-        if isDirectory {
-            type = ext.isEmpty ? .folder : UTType(filenameExtension: ext, conformingTo: .package) ?? UTType(filenameExtension: ext)
-        } else {
-            type = ext.isEmpty ? .data : UTType(filenameExtension: ext) ?? .data
-        }
-    }
-}
-
-/// Derlenmiş kurallar: düzenli ifadeler bir kez derlenir.
-public struct RuleEvaluator: @unchecked Sendable {
-    public let rules: RuleGroup
-    private let regexes: [UUID: NSRegularExpression]
-
-    public init(_ rules: RuleGroup) throws {
-        self.rules = rules
-        var regexes: [UUID: NSRegularExpression] = [:]
-        func compile(_ group: RuleGroup, depth: Int) throws {
-            guard depth < RuleGroup.maxDepth else { return }
-            for condition in group.conditions where condition.op == .matchesRegex && condition.attribute != .kind {
-                regexes[condition.id] = try NSRegularExpression(pattern: condition.value.precomposedStringWithCanonicalMapping)
-            }
-            for child in group.groups { try compile(child, depth: depth + 1) }
-        }
-        try compile(rules, depth: 0)
-        self.regexes = regexes
-    }
-
-    public func matches(_ item: RuleItem) -> Bool { matches(item, rules, depth: 0) }
-
-    private func matches(_ item: RuleItem, _ group: RuleGroup, depth: Int) -> Bool {
-        guard depth < RuleGroup.maxDepth else { return false }
-        let results = group.conditions.lazy.map { matches(item, $0) }
-            + group.groups.lazy.filter { !$0.isEmpty }.map { matches(item, $0, depth: depth + 1) }
-        switch group.match {
-        case .all: return results.allSatisfy { $0 }
-        case .any: return results.isEmpty || results.contains(true)
-        case .none: return !results.contains(true)
-        }
-    }
-
-    private func matches(_ item: RuleItem, _ condition: RuleCondition) -> Bool {
-        switch condition.attribute {
-        case .name: return compare(item.name, condition)
-        case .fileExtension: return compare(item.fileExtension, condition, stripDot: true)
-        case .folderName: return item.folders.contains { compare($0, condition) }
-        case .path: return compare(item.relativePath, condition)
-        case .kind: return FileKind(rawValue: condition.value.trimmingCharacters(in: .whitespaces))?.matches(item.type) ?? false
-        }
-    }
-
-    private func compare(_ text: String, _ condition: RuleCondition, stripDot: Bool = false) -> Bool {
-        if condition.op == .matchesRegex {
-            guard let regex = regexes[condition.id] else { return false }
-            return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
-        }
-        var value = Self.fold(condition.value.precomposedStringWithCanonicalMapping.trimmingCharacters(in: .whitespaces))
-        if stripDot { while value.hasPrefix(".") { value.removeFirst() } }
-        guard !value.isEmpty else { return false }
-        let text = Self.fold(text)
-        switch condition.op {
-        case .contains: return text.range(of: value, options: .caseInsensitive) != nil
-        case .equals: return text.compare(value, options: .caseInsensitive) == .orderedSame
-        case .beginsWith: return text.range(of: value, options: [.caseInsensitive, .anchored]) != nil
-        case .endsWith: return text.range(of: value, options: [.caseInsensitive, .anchored, .backwards]) != nil
-        case .matchesRegex: return false
-        }
-    }
-
-    /// Türkçe noktalı/noktasız i farkını kaldırır; büyük/küçük harf farkı karşılaştırmada ayrıca yok sayılır.
-    static func fold(_ text: String) -> String {
-        guard text.contains(where: { $0 == "ı" || $0 == "İ" }) else { return text }
-        return text.replacingOccurrences(of: "ı", with: "i").replacingOccurrences(of: "İ", with: "i")
-    }
-}
-
-// MARK: - Tarama
-
-/// Kaynağı tarar ve kurallara uyan dosyaların göreli yollarını bulur. Klasörlerin kendisi listelenmez (rsync dosyaların
-/// klasörlerini oluşturur); uygulama ve fotoğraf arşivi gibi paket klasörleri tek bir dosya gibi değerlendirilir.
-public enum RuleScanner {
-    public struct Result: Equatable, Sendable {
-        /// Diskteki yazımıyla göreli yollar (rsync'e aynen verilir).
-        public var paths: [String] = []
-        /// Bakılan öğe sayısı.
-        public var scanned = 0
-    }
-
-    /// - Parameters:
-    ///   - skippedPaths: Hiç girilmeyecek göreli yollar (kum havuzunun okutmadığı kişisel klasörler).
-    ///   - skippedNames: Hiçbir düzeyde girilmeyecek adlar (macOS sistem klasörleri).
-    public static func scan(
-        _ root: URL, rules: RuleGroup, skippedPaths: Set<String> = [], skippedNames: Set<String> = [],
-        isCancelled: () -> Bool = { false }
-    ) throws -> Result {
-        let evaluator = try RuleEvaluator(rules)
-        var result = Result()
-        guard let enumerator = FileManager.default.enumerator(atPath: root.path) else { return result }
-        while let relative = enumerator.nextObject() as? String {
-            if result.scanned % 512 == 0, isCancelled() { throw CancellationError() }
-            result.scanned += 1
-            let type = enumerator.fileAttributes?[.type] as? FileAttributeType
-            let isDirectory = type == .typeDirectory
-            let name = (relative as NSString).lastPathComponent
-            if skippedPaths.contains(relative) || skippedNames.contains(name) {
-                if isDirectory { enumerator.skipDescendants() }
-                continue
-            }
-            if isDirectory {
-                let ext = (name as NSString).pathExtension
-                guard !ext.isEmpty, let type = UTType(filenameExtension: ext, conformingTo: .package), type.conforms(to: .package) else {
-                    continue
-                }
-                enumerator.skipDescendants()
-            }
-            if evaluator.matches(RuleItem(relativePath: relative, isDirectory: isDirectory)) {
-                result.paths.append(relative)
-            }
-        }
-        return result
-    }
 }

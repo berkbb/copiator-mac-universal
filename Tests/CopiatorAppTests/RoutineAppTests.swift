@@ -160,6 +160,19 @@ struct RoutineAppTests {
                                                                        RuleCondition(attribute: .fileExtension, op: .equals, value: "heic")]))
             == "Uzantı eşittir “jpg” veya Uzantı eşittir “heic”")
         #expect(settings.routineProblem(.missingSource(route: 1)) == "Rota 2: kaynak klasörü seçin.")
+        // Gelişmiş ölçütler: sayı ve birim, göreli tarih, değersiz karşılaştırma.
+        let advanced = RuleGroup(conditions: [
+            RuleCondition(attribute: .size, op: .greaterThan, number: 100, unit: .megabytes),
+            RuleCondition(attribute: .modified, op: .withinLast, number: 7, unit: .days),
+            RuleCondition(attribute: .hidden, op: .isFalse),
+            RuleCondition(attribute: .fileExtension, op: .isOneOf, value: "jpg, heic"),
+        ])
+        #expect(settings.describe(advanced)
+            == "Boyut büyüktür “100 MB” ve Değiştirilme tarihi son 7 gün içinde ve Görünürlük görünür ve Uzantı şunlardan biri “jpg, heic”")
+        settings.language = .en
+        #expect(settings.describe(advanced)
+            == "Size is greater than “100 MB” and Date modified is within the last 7 days and Visibility is visible and Extension is one of “jpg, heic”")
+        #expect(settings.rulesProblem(.missingDate) == "Choose a day for before or after.")
     }
 }
 
@@ -178,6 +191,10 @@ struct RoutineViewTests {
                 conditions: [RuleCondition(attribute: .name, op: .matchesRegex, value: #"^[a-z_]+_\d{4}-\d{2}-\d{2}_v\d+\.xlsx?$"#),
                              RuleCondition(attribute: .kind, op: .equals, value: "spreadsheet")],
                 groups: [RuleGroup(match: .any, conditions: [RuleCondition(attribute: .folderName, op: .beginsWith, value: "20"),
+                                                            RuleCondition(attribute: .size, op: .greaterThan, number: 50, unit: .megabytes),
+                                                            RuleCondition(attribute: .modified, op: .before, date: Date(timeIntervalSince1970: 1_800_000_000)),
+                                                            RuleCondition(attribute: .hidden, op: .isFalse),
+                                                            RuleCondition(attribute: .duration, op: .lessThan, number: 3, unit: .minutes),
                                                             RuleCondition(attribute: .name, op: .matchesRegex, value: "([bozuk")])])),
             RoutineRoute(source: fixture.url("Kaynak"), destination: fixture.url("Hedef")),
         ])

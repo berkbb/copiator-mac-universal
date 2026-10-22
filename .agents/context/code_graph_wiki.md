@@ -32,7 +32,8 @@
 | `AppUpdate.swift` | `AppRelease`, `AppUpdateChecker`, `UpdateSignature`, `UpdateChecksums` | Release check and verification |
 | `Localization.swift` | `AppLanguage`, `StringTable` (`resultMessage`, `logText`), `LKey` | Localization engine and keys |
 | `Snapshots.swift` | `SnapshotOptions`, `SnapshotStore` (`prepare`, `plan`, `apply`, `finalize`, `updateLatestLink`, `retained`, `prune`, `removeTree`) | Dated snapshot folders, `.partial` resume, `Latest` link, retention and pruning |
-| `Rules.swift` | `RuleMatch`, `RuleAttribute`, `RuleOperator`, `FileKind`, `RuleCondition`, `RuleGroup` (`problems`, `maxDepth`), `RuleItem`, `RuleEvaluator`, `RuleScanner` | Finder-style rules, evaluation and source scanning |
+| `Rules.swift` | `RuleMatch`, `RuleAttribute` (basic/advanced, `valueKind`, `operators`, `units`), `RuleOperator` (`input(for:)`), `RuleUnit`, `FileKind`, `RuleCondition` (`starting`), `RuleGroup` (`problems`, `allConditions`, `maxDepth`) | Finder-style rule model |
+| `RuleEvaluation.swift` | `RuleItem` (lazy metadata), `MediaInfo`, `RuleEvaluator`, `RuleScanner` (async), `Spotlight` | Evaluation, metadata reading, source scanning |
 | `Routines.swift` | `Routine` (`jobOptions(for:)`, `problems`), `RoutineRoute`, `RoutineStore`, `RuleSelection` | Routine model, persistence, `--files-from` list preparation |
 | `ChildProcessGuard.swift` | `ChildProcessGuard` (`register`, `unregister`, `configure`, `installCrashHandlers`, `reapOrphans`, `Record`) | Signal-safe child table, crash/termination handlers, orphan reaping at launch |
 

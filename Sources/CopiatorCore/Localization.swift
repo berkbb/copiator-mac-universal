@@ -228,6 +228,15 @@ public enum LKey: String, CaseIterable, Sendable {
     case detailRoutine, detailRules
     case intentRunRoutineTitle, intentRunRoutineDescription, intentRoutineParameter, intentRoutineTypeName
     case intentRoutineQueued, intentRoutineNotFound, shortcutRunRoutine, menuBarRoutines, routineMore
+    // Gelişmiş ölçütler
+    case ruleAdvancedSection, ruleAttrSize, ruleAttrModified, ruleAttrCreated, ruleAttrAdded, ruleAttrTag, ruleAttrHidden
+    case ruleAttrDepth, ruleAttrCaptureDate, ruleAttrResolution, ruleAttrDuration, ruleAttrCamera, ruleAttrContent
+    case ruleOpOneOf, ruleOpGreater, ruleOpLess, ruleOpAtMost, ruleOpAtLeast, ruleOpWithinLast, ruleOpNotWithinLast
+    case ruleOpBefore, ruleOpAfter, ruleOpHidden, ruleOpVisible, ruleOpHasTag, ruleOpNoTag
+    case unitKB, unitMB, unitGB, unitTB, unitSeconds, unitMinutes, unitHours, unitDays, unitWeeks, unitMonths, unitYears
+    case unitPixels, unitLevels
+    case ruleListPlaceholder, ruleTagPlaceholder, ruleConditionFormatNoValue, routineSampleAdvancedNote
+    case problemRuleNumber, problemRuleDate, ruleWithinFormat, ruleNotWithinFormat
 }
 
 extension StringTable {
