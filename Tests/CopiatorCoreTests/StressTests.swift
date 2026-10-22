@@ -28,17 +28,28 @@ struct StressTests {
         try handle.close()
         let sourceBefore = try FileManager.default.subpathsOfDirectory(atPath: workspace.url("Kaynak").path).sorted()
 
-        let job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"))
+        var job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"))
         let context = try await engineContext()
         let events = Collected<TransferEvent>()
         let started = ContinuousClock.now
-        let first = Task { await RsyncEngine().run(job, context: context) { events.add($0) } }
-        try await Task.sleep(for: .seconds(1))
+        let first = Task { [job] in await RsyncEngine().run(job, context: context) { events.add($0) } }
+        // Aktarım başlayınca kes: aynı adlı dosya denetimi bitmiş, ilk baytlar yazılmış olur.
+        let copying = ContinuousClock.now + .seconds(120)
+        while ContinuousClock.now < copying,
+              !events.values.contains(where: { if case .progress(let p) = $0 { p.bytesTransferred > 0 } else { false } }) {
+            try await Task.sleep(for: .milliseconds(50))
+        }
         first.cancel()
         let cancelStarted = ContinuousClock.now
         #expect(await first.value.kind == .cancelled)
         // İptal hızlıdır: rsync SIGTERM'e uyar, en geç 2 sn sonra SIGKILL.
         #expect(ContinuousClock.now - cancelStarted < .seconds(5))
+        // Uygulamadaki gibi olaylar işe uygulanır: aynı adlı dosya denetimi bitti (hedef boştu), sürdürmede bu geçişin
+        // yazdığı dosyalar yeniden sorulmaz.
+        let firstEvents = events.values
+        #expect(firstEvents.contains { if case .conflictsSettled = $0 { true } else { false } })
+        for event in firstEvents { JobQueue.apply(event, to: &job) }
+        #expect(job.conflictResolution?.others == .replace)
 
         let resumed = await RsyncEngine().run(job, context: context) { events.add($0) }
         #expect(resumed.kind == .succeeded, "\(resumed)")

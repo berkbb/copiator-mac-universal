@@ -90,8 +90,12 @@ func fatLikeDestinationsDropPermissionFlags(fs: FileSystemKind) {
                                          environment: env(protected: [".ssh"]))
     #expect(contents.contains("--exclude=/.ssh"))
     #expect(RsyncCommand.escapePattern("a*b?[c]\\d") == "a\\*b\\?\\[c]\\\\d")
+    // Joker karakter yoksa rsync kalıbı harfi harfine karşılaştırır: ters bölü kaçışlanmaz.
+    #expect(RsyncCommand.escapePattern("/ters\\bölü.txt") == "/ters\\bölü.txt")
     let odd = RsyncCommand.transfer(job("/Users/x*y", "/Volumes/Y", options: options), environment: env(protected: [".ssh"]))
     #expect(odd.contains("--exclude=/x\\*y/.ssh"))
+    let slashed = RsyncCommand.transfer(job("/Users/x*y", "/Volumes/Y", options: options), environment: env(protected: ["a\\b"]))
+    #expect(slashed.contains("--exclude=/x\\*y/a\\\\b"))
 }
 
 /// Yollar "--"dan sonra gelir ve mutlaktır: "-" ile başlayan ya da ":" içeren adlar seçenek ya da uzak sunucu sayılmaz.

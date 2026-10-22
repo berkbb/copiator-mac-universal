@@ -506,6 +506,7 @@
 "removeAllConfirmButton" = "Elimină tot";
 "logRulesMatched" = "%1$@ fișiere corespund regulilor (%2$@ elemente verificate).";
 "logRulesNewlineSkipped" = "%@ fișiere cu un sfârșit de rând în nume nu pot fi copiate cu acest rsync și au fost omise.";
+"logRuleRegexTooComplex" = "Expresia regulată este prea complexă: potrivirea a depășit limita de pași și scanarea a fost oprită. Simplificați expresia: %@";
 "problemRuleEmpty" = "O condiție are valoarea goală.";
 "problemRuleRegex" = "Expresie regulată nevalidă: %@";
 "problemRuleKind" = "Tip de fișier necunoscut.";
@@ -583,6 +584,7 @@
 "routineSamplePlaceholder" = "ex. Rapoarte/raport_vanzari_v3.xlsx";
 "routineSampleMatches" = "Ruta %ld: corespunde regulilor";
 "routineSampleNoMatch" = "Ruta %ld: nu corespunde";
+"routineSampleTooComplex" = "Ruta %ld: expresia regulată este prea complexă pentru a fi încercată";
 "routineSampleNote" = "Scrieți un nume de fișier sau o cale relativă la sursă; niciun fișier nu este atins.";
 "detailRoutine" = "Rutină";
 "detailRules" = "Reguli";
@@ -646,6 +648,7 @@
 "logConflictsResolved" = "%1$@ fișiere cu același nume: %2$@ înlocuite, %3$@ păstrate ca copii numerotate, %4$@ omise.";
 "logKeptBoth" = "%1$@ a fost copiat ca %2$@ (ambele păstrate).";
 "logKeepBothFailed" = "%@ nu a putut fi copiat cu un nume numerotat.";
+"logKeptBothRenamed" = "A sosit un dosar numit %1$@; elementul cu același nume din destinație a fost redenumit %2$@ (ambele păstrate).";
 "resultAwaitingDecision" = "Se așteaptă o decizie: în destinație există %ld fișiere cu același nume";
 "statusAwaitingDecision" = "Așteaptă decizie";
 "conflictTitle" = "În destinație există deja %ld fișiere cu același nume";
@@ -658,12 +661,14 @@
 "conflictFile" = "Fișier";
 "conflictDecisionColumn" = "Decizie";
 "conflictIdentical" = "același conținut";
+"conflictIncomingFolder" = "un dosar nou";
 "conflictTruncated" = "Lista arată primele %1$ld din %2$ld fișiere; alegerea „Pentru toate” se aplică celorlalte.";
 "conflictRememberJob" = "Ține minte pentru această lucrare și nu mai întreba";
 "conflictRememberRoutine" = "Ține minte pentru această rutină și nu mai întreba";
 "conflictLater" = "Decid mai târziu";
 "conflictContinue" = "Continuă";
 "conflictKeepBothNote" = "Păstrează ambele: fișierul din destinație rămâne, iar cel nou este copiat cu un nume numerotat (raport 2.xlsx).";
+"conflictKeepBothFolderNote" = "Când un dosar nou ar lua locul unui fișier cu același nume, Păstrează ambele redenumește fișierul din destinație cu un număr și copiază dosarul în locul lui. Înlocuiește șterge acel fișier.";
 "menuResolveConflicts" = "Ia o decizie…";
 "notifyDecisionTitle" = "Este nevoie de o decizie";
 "notifyDecisionBody" = "„%1$@”: în destinație există deja %2$ld fișiere cu același nume.";

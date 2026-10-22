@@ -197,8 +197,10 @@ public enum RuleSelection {
     ///   - zeroTerminated: Liste NUL ile ayrılsın (`--from0`); motor desteklemiyorsa satır sonuyla, adında satır sonu
     ///     olanlar atlanarak yazılır.
     ///   - skippedPaths: Taranmayacak göreli yollar (kum havuzunun okutmadığı kişisel klasörler).
+    ///   - scratch: Listenin özel (0700) klasörünün açılacağı yer.
     public static func prepare(
-        _ job: inout TransferJob, zeroTerminated: Bool, skippedPaths: Set<String>, isCancelled: () -> Bool
+        _ job: inout TransferJob, zeroTerminated: Bool, skippedPaths: Set<String>,
+        scratch: URL = FileManager.default.temporaryDirectory, isCancelled: () -> Bool
     ) async throws -> Prepared? {
         guard let rules = job.options.rules else { return nil }
         let skippedNames = job.options.excludeSystemFolders ? Set(RsyncCommand.systemExclusions) : []
@@ -213,7 +215,7 @@ public enum RuleSelection {
                 return !bad
             }
         }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Copiator-rules-\(UUID().uuidString)", isDirectory: true)
+        let folder = scratch.appendingPathComponent("Copiator-rules-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let list = folder.appendingPathComponent("secilenler.txt")
         let separator = zeroTerminated ? "\u{0}" : "\n"

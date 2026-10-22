@@ -208,7 +208,7 @@ public enum LKey: String, CaseIterable, Sendable {
     // Kuyruğu temizleme
     case toolbarClear, menuRemoveAll, removeAllConfirmTitle, removeAllConfirmMessage, removeAllConfirmButton
     // Rutinler
-    case logRulesMatched, logRulesNewlineSkipped
+    case logRulesMatched, logRulesNewlineSkipped, logRuleRegexTooComplex, routineSampleTooComplex
     case problemRuleEmpty, problemRuleRegex, problemRuleKind, problemRuleDepth
     case routineRoutePrefix, routineProblemName, routineProblemNoRoutes, routineProblemSource, routineProblemDestination
     case routineProblemSourceFolder
@@ -238,7 +238,8 @@ public enum LKey: String, CaseIterable, Sendable {
     case ruleListPlaceholder, ruleTagPlaceholder, ruleConditionFormatNoValue, routineSampleAdvancedNote
     case problemRuleNumber, problemRuleDate, ruleWithinFormat, ruleNotWithinFormat
     // Aynı adlı dosyalar
-    case logAwaitingDecision, logConflictsResolved, logKeptBoth, logKeepBothFailed, resultAwaitingDecision
+    case logAwaitingDecision, logConflictsResolved, logKeptBoth, logKeepBothFailed, logKeptBothRenamed, resultAwaitingDecision
+    case conflictIncomingFolder, conflictKeepBothFolderNote
     case statusAwaitingDecision, conflictTitle, conflictSubtitle, conflictIdenticalCount, conflictApplyAll
     case conflictReplace, conflictKeepBoth, conflictSkip, conflictFile, conflictDecisionColumn, conflictIdentical
     case conflictTruncated, conflictRememberJob, conflictRememberRoutine, conflictLater, conflictContinue, conflictKeepBothNote

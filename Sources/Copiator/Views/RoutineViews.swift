@@ -408,10 +408,16 @@ struct RoutineEditorSheet: View {
                         .font(.body.monospaced())
                     if !sample.trimmingCharacters(in: .whitespaces).isEmpty {
                         ForEach(Array(routine.routes.enumerated()), id: \.element.id) { index, route in
-                            let matches = (try? RuleEvaluator(route.rules).matches(RuleItem(relativePath: sample))) ?? false
-                            Label(settings.t(matches ? .routineSampleMatches : .routineSampleNoMatch, index + 1),
-                                  systemImage: matches ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundStyle(matches ? .green : .secondary)
+                            let evaluator = try? RuleEvaluator(route.rules)
+                            let matches = evaluator?.matches(RuleItem(relativePath: sample)) ?? false
+                            if evaluator?.runawayPattern != nil {
+                                Label(settings.t(.routineSampleTooComplex, index + 1), systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
+                            } else {
+                                Label(settings.t(matches ? .routineSampleMatches : .routineSampleNoMatch, index + 1),
+                                      systemImage: matches ? "checkmark.circle.fill" : "xmark.circle")
+                                    .foregroundStyle(matches ? .green : .secondary)
+                            }
                         }
                     }
                 } header: {

@@ -42,18 +42,29 @@ public enum ConflictDecision: String, Codable, CaseIterable, Identifiable, Senda
     }
 }
 
-/// Hedefte aynı adla bulunan bir dosya.
+/// Hedefte aynı adla bulunan bir dosya (ya da gelen öğeyle aynı adlı, başka türde bir öğe).
 public struct FileConflict: Codable, Equatable, Hashable, Identifiable, Sendable {
     /// Hedefe göre göreli yol, rsync'in yazdığı gibi ("Kaynak/2026/rapor.xlsx").
     public var path: String
     /// İçerik aynı (rsync'e göre aktarılacak veri yok).
     public var identical: Bool
+    /// Gelen bir klasör, hedefte aynı adlı bir dosyanın (ya da bağlantının) yerine geçecek. rsync bu dosyayı sormadan
+    /// silerdi. "İkisini de sakla"da hedefteki öğe numaralı adla yeniden adlandırılır; klasör yerinde kalır.
+    public var incomingFolder: Bool
 
     public var id: String { path }
 
-    public init(path: String, identical: Bool) {
+    public init(path: String, identical: Bool, incomingFolder: Bool = false) {
         self.path = path
         self.identical = identical
+        self.incomingFolder = incomingFolder
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        path = try container.decode(String.self, forKey: .path)
+        identical = try container.decode(Bool.self, forKey: .identical)
+        incomingFolder = try container.decodeIfPresent(Bool.self, forKey: .incomingFolder) ?? false
     }
 }
 
@@ -92,16 +103,33 @@ public enum ConflictDetector {
     /// `-n -ii` çıktısından hedefte zaten bulunan dosyalar. `-ii` değişmemiş dosyaları da yazar: içerik aynı olsa da aynı
     /// adlı her dosya bir çakışmadır. Yeni dosyalar (`>f+++…`), klasörler, bağlantılar ve silme satırları çakışma değildir.
     public static func conflicts(in output: String, format: ItemizeParser.Format) -> [FileConflict] {
+        conflicts(in: output, format: format, existsAtDestination: { _ in false })
+    }
+
+    /// Hedefte başka türde bir öğenin yerine geçecek "yeni" öğeler de sayılır: rsync hedefte aynı adla klasör yerine dosya,
+    /// dosya yerine klasör ya da bağlantı bulunca gelen öğeyi yeni (`>f+++…`, `cd+++…`, `cL+++…`) gösterir ve oradakini
+    /// sessizce siler. - Parameter existsAtDestination: Göreli yolda hedefte bir öğe var mı (`lstat`; bağlantı izlenmez)?
+    public static func conflicts(in output: String, format: ItemizeParser.Format, existsAtDestination: (String) -> Bool) -> [FileConflict] {
         let width = format.codeWidth
         var result: [FileConflict] = []
         for line in output.split(omittingEmptySubsequences: true, whereSeparator: { $0 == "\n" || $0 == "\r" }) {
             let characters = Array(line)
-            guard characters.count > width + 1, characters[width] == " ", characters[1] == "f", "<>c.".contains(characters[0]) else { continue }
+            guard characters.count > width + 1, characters[width] == " ", "<>c.".contains(characters[0]) else { continue }
             let attributes = characters[2..<width]
-            guard !attributes.allSatisfy({ $0 == "+" }) else { continue }
-            let path = ItemizeParser.unescape(String(characters[(width + 1)...]))
-            guard !path.isEmpty else { continue }
-            result.append(FileConflict(path: path, identical: characters[0] == "."))
+            let isNew = attributes.allSatisfy { $0 == "+" }
+            // Yeni öğe yalnızca hedefte aynı adla (başka türde) bir şey varsa çakışmadır: o silinecekti.
+            guard isNew ? "fdL".contains(characters[1]) && characters[0] != "." : characters[1] == "f" else { continue }
+            var raw = String(characters[(width + 1)...])
+            if characters[1] == "L", let arrow = raw.range(of: " -> ") { raw = String(raw[..<arrow.lowerBound]) }
+            var path = ItemizeParser.unescape(raw)
+            while path.hasSuffix("/") { path.removeLast() }
+            guard !path.isEmpty, path != ".", !path.hasPrefix("./") || path.count > 2 else { continue }
+            if isNew {
+                guard existsAtDestination(path) else { continue }
+                result.append(FileConflict(path: path, identical: false, incomingFolder: characters[1] == "d"))
+            } else {
+                result.append(FileConflict(path: path, identical: characters[0] == "."))
+            }
         }
         return result
     }
@@ -123,7 +151,7 @@ public enum ConflictDetector {
     /// Atlanacak ve numaralı kopyalanacak dosyaların ana kopyalamadan dışlanması için rsync süzgeç kalıpları: aktarım
     /// köküne sabitlenmiş, özel karakterleri kaçışlanmış ("/Kaynak/a\*.txt").
     public static func excludePatterns(for paths: [String]) -> [String] {
-        paths.map { "/" + RsyncCommand.escapePattern($0) }
+        paths.map { RsyncCommand.escapePattern("/" + $0) }
     }
 }
 
@@ -131,14 +159,29 @@ public enum ConflictDetector {
 final class ConflictCollector: @unchecked Sendable {
     private let lock = NSLock()
     private let format: ItemizeParser.Format
+    private let destination: String?
     private var found: [FileConflict] = []
 
-    init(format: ItemizeParser.Format) {
+    /// - Parameter destination: Verilirse "yeni" görünen öğelerin hedefte başka türde bir karşılığı olup olmadığına bakılır.
+    init(format: ItemizeParser.Format, destination: URL? = nil) {
         self.format = format
+        self.destination = destination.map { $0.standardizedFileURL.path }
     }
 
     func consume(_ record: String) {
-        let items = ConflictDetector.conflicts(in: record, format: format)
+        let items = ConflictDetector.conflicts(in: record, format: format) { [destination] path in
+            guard let destination else { return false }
+            // Üst klasörlerden biri gerçek bir klasör değilse (bağlantı, dosya) rsync onu değiştirecek; altındaki yol
+            // bağlantı üzerinden bulunsa da hedefte "var" sayılmaz (bağlantı izlenmez).
+            var info = stat()
+            var current = destination
+            let components = path.split(separator: "/")
+            for component in components.dropLast() {
+                current = (current as NSString).appendingPathComponent(String(component))
+                guard lstat(current, &info) == 0, info.st_mode & S_IFMT == S_IFDIR else { return false }
+            }
+            return lstat((destination as NSString).appendingPathComponent(path), &info) == 0
+        }
         guard !items.isEmpty else { return }
         lock.withLock { found += items }
     }

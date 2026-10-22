@@ -21,7 +21,7 @@
 | `RsyncOutcome.swift` | `RsyncOutcome` (`classify`, `errorLines`, `messageBody`, `endsWithErrno`) | Exit code + stderr → `JobResult` |
 | `ItemizeParser.swift` | `DiffEntry`, `ItemizeParser` (`Format`: rsync 3.x 11 columns, openrsync 9 columns) | `-i` parsing, `\#ooo` unescaping |
 | `Engine.swift` | `EngineInfo`, `EngineLocator`, `EngineUpdateResult`, `EngineUpdater` | Candidates, version/capability parsing, choice, updater wrapper |
-| `TransferEngine.swift` | `TransferEngine`, `TransferEvent`, `EngineContext`, `VerifyReport`, `TransferEngines` | Engine-independent contract and registry |
+| `TransferEngine.swift` | `TransferEngine`, `TransferEvent`, `EngineContext` (`scratchDirectory`), `VerifyReport`, `TransferEngines` | Engine-independent contract and registry |
 | `RsyncEngine.swift` | `RsyncEngine` (`run`, `verify`, `compare`, `verifyAfterCopy`, `finishSnapshot`), `ProgressThrottle` | Preflight, snapshots, sandbox, disk guard, run, classify, quarantine, verify after copy |
 | `Job.swift` | `JobKind`, `CopyMode`, `VerifyAfterCopy`, `CopyOptions` (`snapshots`, `verifyAfterCopy`, `runWhenConnected`, `problems`), `JobStatus` (incl. `verifying`), `JobResultKind` (incl. `verificationFailed`), `JobResult` (`snapshot`, `differenceCount`), `JobRun`, `JobLogEntry`, `TransferJob` (`history`, `suspendedForDisk`, `uses(volume:)`), `JobValidation` | Codable job model with tolerant decoding |
 | `JobStore.swift` | `JobStore`, `JobQueue` (`next(pathsAvailable:)`, `isWaitingForDisk`, `canEdit`, `finish` → history) | Persistence and pure queue rules |
@@ -33,9 +33,9 @@
 | `Localization.swift` | `AppLanguage`, `StringTable` (`resultMessage`, `logText`), `LKey` | Localization engine and keys |
 | `Snapshots.swift` | `SnapshotOptions`, `SnapshotStore` (`prepare`, `plan`, `apply`, `finalize`, `updateLatestLink`, `retained`, `prune`, `removeTree`) | Dated snapshot folders, `.partial` resume, `Latest` link, retention and pruning |
 | `Rules.swift` | `RuleMatch`, `RuleAttribute` (basic/advanced, `valueKind`, `operators`, `units`), `RuleOperator` (`input(for:)`), `RuleUnit`, `FileKind`, `RuleCondition` (`starting`), `RuleGroup` (`problems`, `allConditions`, `maxDepth`) | Finder-style rule model |
-| `RuleEvaluation.swift` | `RuleItem` (lazy metadata), `MediaInfo`, `RuleEvaluator`, `RuleScanner` (async), `Spotlight` | Evaluation, metadata reading, source scanning |
+| `RuleEvaluation.swift` | `RuleItem` (lazy metadata), `MediaInfo` (`pixels`), `RuleEvaluator` (`regexStepBudget`, `RunawayRegex`, `runawayPattern`), `RuleScanner` (async), `Spotlight` | Evaluation, metadata reading, source scanning |
 | `Routines.swift` | `Routine` (`jobOptions(for:)`, `problems`), `RoutineRoute`, `RoutineStore`, `RuleSelection` | Routine model, persistence, `--files-from` list preparation |
-| `Conflicts.swift` | `ConflictPolicy`, `ConflictDecision`, `FileConflict`, `ConflictReport`, `ConflictResolution`, `ConflictDetector`, `ConflictCollector` | Same-name file detection, decisions, numbered names |
+| `Conflicts.swift` | `ConflictPolicy`, `ConflictDecision`, `FileConflict` (`incomingFolder`), `ConflictReport`, `ConflictResolution`, `ConflictDetector` (`conflicts(in:format:existsAtDestination:)`), `ConflictCollector` (`lstat` without following links) | Same-name file detection, decisions, numbered names |
 | `ChildProcessGuard.swift` | `ChildProcessGuard` (`register`, `unregister`, `configure`, `installCrashHandlers`, `reapOrphans`, `Record`) | Signal-safe child table, crash/termination handlers, orphan reaping at launch |
 
 ### Target: `Copiator` (`Sources/Copiator/`)

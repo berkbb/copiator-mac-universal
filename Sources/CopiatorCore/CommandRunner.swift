@@ -117,11 +117,14 @@ public struct CommandRunner: Sendable {
                 ChildProcessGuard.register(pid, name: executableURL.lastPathComponent)
                 if !box.process.isRunning { ChildProcessGuard.unregister(pid) }
 
-                DispatchQueue.global().async {
+                // Borular kendi iş parçacıklarında okunur: çok sayıda eşzamanlı süreçte GCD havuzu dolsa da okuma hemen
+                // başlar. Havuzdan bir iş parçacığı beklenseydi süreç bittikten sonraki `drainGracePeriod` okuma hiç
+                // başlamadan dolabilir ve çıktı kaybolurdu.
+                Self.startReader {
                     box.drain(box.stdoutPipe) { state.appendStdout($0) }
                     readers.leave()
                 }
-                DispatchQueue.global().async {
+                Self.startReader {
                     box.drain(box.stderrPipe) { state.appendStderr($0) }
                     readers.leave()
                 }
@@ -140,6 +143,15 @@ public struct CommandRunner: Sendable {
             state.markCancelled()
             box.terminate()
         }
+    }
+}
+
+extension CommandRunner {
+    /// Boruyu sonuna kadar okuyan ayrı bir iş parçacığı (okuma bloklanır; GCD havuzundan iş parçacığı tutmaz).
+    fileprivate static func startReader(_ body: @escaping @Sendable () -> Void) {
+        let thread = Thread(block: body)
+        thread.name = "CommandRunner.reader"
+        thread.start()
     }
 }
 

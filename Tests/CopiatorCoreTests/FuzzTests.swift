@@ -134,6 +134,11 @@ func outcomeClassifierIsTotal(seed: UInt64) {
     for _ in 0..<iterations {
         let name = spliced(&g) + String(["*", "?", "[", "\\"][Int(UInt64.random(in: 0..<4, using: &g))])
         let escaped = Array(RsyncCommand.escapePattern(name))
+        // Joker karakter yoksa rsync kalıbı harfi harfine karşılaştırır: ad olduğu gibi kalır.
+        guard name.contains(where: { "*?[".contains($0) }) else {
+            #expect(String(escaped) == name)
+            continue
+        }
         var index = 0
         while index < escaped.count {
             if escaped[index] == "\\" {

@@ -275,7 +275,7 @@ public enum RsyncCommand {
         var patterns: [String] = []
         // Kum havuzunun okutmadığı kişisel klasörler: aktarım köküne bağlı ("/" ile başlayan) kalıplar.
         for path in environment.protectedPaths {
-            patterns.append(sourceRootPrefix(job, environment) + escapePattern(path))
+            patterns.append(escapePattern(sourceRootPrefix(job, environment) + path))
         }
         if job.options.excludeSystemFolders { patterns += systemExclusions }
         let a = job.options.advanced
@@ -301,13 +301,18 @@ public enum RsyncCommand {
     }
 
     /// Aktarım kökü: "klasörün kendisi" kipinde rsync kaynağın adını da aktarır ("/Ad/…"), "içeriği" kipinde aktarmaz.
+    /// Kaçışlanmamıştır: kalıbın tamamı birlikte kaçışlanır (bkz. `escapePattern`).
     static func sourceRootPrefix(_ job: TransferJob, _ environment: Environment) -> String {
         guard environment.sourceIsDirectory else { return "/" }
-        return job.options.copyMode == .contents ? "/" : "/" + escapePattern(job.source.lastPathComponent) + "/"
+        return job.options.copyMode == .contents ? "/" : "/" + job.source.lastPathComponent + "/"
     }
 
-    /// rsync süzgeç kalıplarında `*`, `?`, `[` ve `\` özel anlamlıdır; adda geçerlerse kaçışlanır.
+    /// Bir yolu harfi harfine eşleşen rsync kalıbına çevirir; kalıbın tamamına (kök öneki dahil) bir kez uygulanır.
+    /// rsync bir kalıbı yalnızca `*`, `?` ya da `[` içeriyorsa joker kalıp sayar ve ancak o zaman `\` kaçış karakteridir:
+    /// böyle bir kalıpta dördü de kaçışlanır. Joker karakter yoksa kalıp olduğu gibi karşılaştırılır; ters bölüyü kaçışlamak
+    /// eşleşmeyi bozardı ("ters\bölü.txt" dışlanmazdı).
     public static func escapePattern(_ path: String) -> String {
+        guard path.contains(where: { "*?[".contains($0) }) else { return path }
         var result = ""
         for character in path {
             if "*?[\\".contains(character) { result.append("\\") }

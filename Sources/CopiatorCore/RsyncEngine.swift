@@ -49,6 +49,9 @@ public struct RsyncEngine: TransferEngine {
             selection = try await Self.prepareRules(&job, context: context)
         } catch is CancellationError {
             return JobResult(kind: .cancelled)
+        } catch let runaway as RuleEvaluator.RunawayRegex {
+            onEvent(.log(JobLogEntry(level: .error, key: .logRuleRegexTooComplex, arguments: [runaway.pattern])))
+            return JobResult(kind: .failed, detail: runaway.pattern)
         } catch {
             return JobResult(kind: .failed, detail: error.localizedDescription)
         }
@@ -68,7 +71,7 @@ public struct RsyncEngine: TransferEngine {
         defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
         if context.sandboxed {
             do {
-                staged = try Self.stageListFiles(&job.options.advanced)
+                staged = try Self.stageListFiles(&job.options.advanced, in: context.scratchDirectory)
             } catch {
                 return JobResult(kind: .failed, detail: error.localizedDescription)
             }
@@ -137,9 +140,13 @@ public struct RsyncEngine: TransferEngine {
         if conflicts.checked { onEvent(.conflictsSettled) }
         if conflicts.total > 0 {
             onEvent(.log(JobLogEntry(level: .info, key: .logConflictsResolved, arguments: [
-                String(conflicts.total), String(conflicts.replaced), String(conflicts.keepBoth.count), String(conflicts.skipped),
+                String(conflicts.total), String(conflicts.replaced), String(conflicts.keepBoth.count + conflicts.renamed.count),
+                String(conflicts.skipped),
             ])))
         }
+        let renameLog = conflicts.renamed.map { JobLogEntry(level: .info, key: .logKeptBothRenamed, arguments: [$0.path, $0.name]) }
+            + conflicts.renameFailures.map { JobLogEntry(level: .error, key: .logKeepBothFailed, arguments: [$0]) }
+        if !renameLog.isEmpty { onEvent(.logBatch(Array(renameLog.suffix(TransferJob.maxLogEntries)))) }
 
         let arguments = RsyncCommand.transfer(job, environment: environment)
         let dropped = RsyncCommand.droppedOptions(job, environment: environment)
@@ -187,6 +194,9 @@ public struct RsyncEngine: TransferEngine {
         if Task.isCancelled { return JobResult(kind: .cancelled, exitCode: processResult.exitCode) }
 
         var result = RsyncOutcome.classify(exitCode: processResult.exitCode, stderr: processResult.stderr, destinationFileSystem: fileSystem)
+        // "link_stat … No such file" hem kaynağın kendisi yokken hem de listede olup kopyalanmadan önce kaybolan bir dosyada
+        // gelir. Kaynak duruyorsa yalnızca bazı dosyalar kaybolmuştur; öbürleri kopyalandı.
+        if result.kind == .sourceMissing, FileManager.default.fileExists(atPath: job.source.path) { result.kind = .sourceFilesVanished }
         for line in RsyncOutcome.errorLines(in: processResult.stderr, destinationFileSystem: fileSystem) {
             onEvent(.log(JobLogEntry(level: result.kind.isSuccess ? .warning : .error, raw: line)))
         }
@@ -200,6 +210,11 @@ public struct RsyncEngine: TransferEngine {
             let target = job.target(sourceIsDirectory: sourceIsDirectory)
             let marked = Quarantine.propagate(from: job.source, to: target, since: started, isCancelled: { Task.isCancelled })
             if marked > 0 { onEvent(.log(JobLogEntry(level: .info, key: .logQuarantineApplied, arguments: [String(marked)]))) }
+        }
+
+        if !conflicts.renameFailures.isEmpty, result.kind.isSuccess {
+            result.kind = .partial
+            result.noteCount += conflicts.renameFailures.count
         }
 
         // "İkisini de sakla": çakışan dosyalar numaralı adlarla ayrıca kopyalanır.
@@ -272,6 +287,10 @@ public struct RsyncEngine: TransferEngine {
         /// Denetim yapıldı (kararlar uygulanacak ya da çakışma yok).
         var checked = false
         var keepBoth: [FileConflict] = []
+        /// "İkisini de sakla" ile gelen klasöre yer açmak için numaralı adla yeniden adlandırılan hedef öğeleri (yol, yeni ad).
+        var renamed: [(path: String, name: String)] = []
+        /// Yeniden adlandırılamadığı için atlanan öğeler (silinmesinler diye ana kopyalamadan dışlanır).
+        var renameFailures: [String] = []
         var total = 0
         var replaced = 0
         var skipped = 0
@@ -294,7 +313,7 @@ public struct RsyncEngine: TransferEngine {
         guard mayAsk, !snapshot, !a.ignoreExisting, a.batchMode != .onlyWrite else { return plan }
 
         let format = ItemizeParser.Format(engine: context.info)
-        let collected = ConflictCollector(format: format)
+        let collected = ConflictCollector(format: format, destination: job.destination)
         let result = try await runner.run(RsyncCommand.conflictCheck(job, environment: environment), retainStdout: false) { collected.consume($0) }
         let conflicts = collected.conflicts
         guard result.exitCode == 0 || result.exitCode == 23 || result.exitCode == 24 else {
@@ -304,24 +323,46 @@ public struct RsyncEngine: TransferEngine {
         plan.checked = true
         guard !conflicts.isEmpty else { return plan }
 
-        var undecided = false
+        var undecided: [FileConflict] = []
         var excluded: [String] = []
+        var renaming: [FileConflict] = []
         for conflict in conflicts {
             switch resolution.decision(for: conflict.path) ?? job.options.conflictPolicy.decision {
-            case nil: undecided = true
+            case nil: undecided.append(conflict)
             case .replace?: plan.replaced += 1
             case .skip?:
                 plan.skipped += 1
                 excluded.append(conflict.path)
             case .keepBoth?:
-                plan.keepBoth.append(conflict)
-                excluded.append(conflict.path)
+                if conflict.incomingFolder {
+                    renaming.append(conflict)
+                } else {
+                    plan.keepBoth.append(conflict)
+                    excluded.append(conflict.path)
+                }
             }
         }
-        if undecided {
+        // Yalnızca kararı verilmemiş olanlar sorulur; verilmiş kararlar saklı kalır (yeni karar onlara eklenir).
+        if !undecided.isEmpty {
             plan.checked = false
-            plan.undecided = ConflictReport(items: Array(conflicts.prefix(ConflictDetector.maxListed)), total: conflicts.count)
+            plan.undecided = ConflictReport(items: Array(undecided.prefix(ConflictDetector.maxListed)), total: undecided.count)
             return plan
+        }
+        // Gelen klasör, hedefteki aynı adlı dosyanın (bağlantının) yerine geçecek: o öğe numaralı adla yeniden adlandırılır,
+        // klasör yerine kopyalanır. Yeniden adlandırılamazsa öğe silinmesin diye klasör ana kopyalamadan dışlanır.
+        for conflict in renaming {
+            let existing = job.destination.appendingPathComponent(conflict.path)
+            let directory = existing.deletingLastPathComponent()
+            let name = ConflictDetector.numberedName(for: existing.lastPathComponent) { candidate in
+                var info = stat()
+                return lstat(directory.appendingPathComponent(candidate).path, &info) == 0
+            }
+            if rename(existing.path, directory.appendingPathComponent(name).path) == 0 {
+                plan.renamed.append((conflict.path, name))
+            } else {
+                plan.renameFailures.append(conflict.path)
+                excluded.append(conflict.path)
+            }
         }
         guard !excluded.isEmpty else { return plan }
 
@@ -334,7 +375,7 @@ public struct RsyncEngine: TransferEngine {
         if !zeroTerminated, excluded.contains(where: { $0.contains { $0 == "\n" || $0 == "\r" } }) {
             throw EngineError.failed(code: 1, message: "A conflicting file name contains a line break and cannot be excluded with this rsync.")
         }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Copiator-conflicts-\(UUID().uuidString)", isDirectory: true)
+        let folder = context.scratchDirectory.appendingPathComponent("Copiator-conflicts-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         plan.folder = folder
         let list = folder.appendingPathComponent("dislananlar.txt")
@@ -353,6 +394,9 @@ public struct RsyncEngine: TransferEngine {
     ) async -> Int {
         // Aktarım kökü: rsync'in yazdığı yollar buna göredir ("klasörün kendisi" kipinde kaynağın adı da yolun başındadır).
         let root = sourceIsDirectory && job.options.copyMode == .contents ? job.source : job.source.deletingLastPathComponent()
+        // Öznitelikler taşınmıyorsa karantina işareti ana kopyada olduğu gibi numaralı kopyaya da ayrıca yazılır; yoksa
+        // indirilmiş bir dosyanın numaralı kopyası Gatekeeper denetimi olmadan açılırdı.
+        let copiesAttributes = job.options.preserveExtendedAttributes && environment.engine.supportsXattrs && !environment.engine.isOpenrsync
         var planned = Set<String>()
         var failures = 0
         var lines: [JobLogEntry] = []
@@ -370,6 +414,7 @@ public struct RsyncEngine: TransferEngine {
             let arguments = RsyncCommand.singleFile(job, environment: environment, source: source.path, destination: target.path)
             let exitCode = (try? await runner.run(arguments))?.exitCode
             if exitCode == 0 {
+                if !copiesAttributes, let value = Quarantine.value(of: source) { Quarantine.set(value, on: target) }
                 lines.append(JobLogEntry(level: .info, key: .logKeptBoth, arguments: [conflict.path, name]))
             } else {
                 failures += 1
@@ -430,7 +475,7 @@ public struct RsyncEngine: TransferEngine {
         if let latest = SnapshotStore.latest(in: job.destination) {
             target.destination = latest
         } else {
-            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Copiator-empty-\(UUID().uuidString)", isDirectory: true)
+            let folder = context.scratchDirectory.appendingPathComponent("Copiator-empty-\(UUID().uuidString)", isDirectory: true)
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             } catch {
@@ -454,6 +499,8 @@ public struct RsyncEngine: TransferEngine {
             selection = try await Self.prepareRules(&job, context: context)
         } catch is CancellationError {
             return report(.cancelled)
+        } catch let runaway as RuleEvaluator.RunawayRegex {
+            return VerifyReport(entries: [], result: JobResult(kind: .failed, detail: runaway.pattern), checksum: checksum)
         } catch {
             return VerifyReport(entries: [], result: JobResult(kind: .failed, detail: error.localizedDescription), checksum: checksum)
         }
@@ -462,7 +509,7 @@ public struct RsyncEngine: TransferEngine {
         defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
         if context.sandboxed {
             do {
-                staged = try Self.stageListFiles(&job.options.advanced)
+                staged = try Self.stageListFiles(&job.options.advanced, in: context.scratchDirectory)
             } catch {
                 return VerifyReport(entries: [], result: JobResult(kind: .failed, detail: error.localizedDescription), checksum: checksum)
             }
@@ -512,15 +559,16 @@ public struct RsyncEngine: TransferEngine {
             : []
         let a = job.options.advanced
         let zeroTerminated = !context.info.isOpenrsync && (a.includeFromFile ?? "").isEmpty && (a.excludeFromFile ?? "").isEmpty
-        return try await RuleSelection.prepare(&job, zeroTerminated: zeroTerminated, skippedPaths: skipped, isCancelled: { Task.isCancelled })
+        return try await RuleSelection.prepare(&job, zeroTerminated: zeroTerminated, skippedPaths: skipped, scratch: context.scratchDirectory,
+                                               isCancelled: { Task.isCancelled })
     }
 
     /// Liste dosyalarını kullanıcıya özel (0700) geçici bir klasöre kopyalar ve seçenekleri kopyalara çevirir.
     /// - Returns: Geçici klasör (liste yoksa nil); çağıran işi bitince siler.
-    static func stageListFiles(_ options: inout AdvancedOptions) throws -> URL? {
+    static func stageListFiles(_ options: inout AdvancedOptions, in scratch: URL = FileManager.default.temporaryDirectory) throws -> URL? {
         let paths = options.listFiles.filter { options[keyPath: $0]?.isEmpty == false }
         guard !paths.isEmpty else { return nil }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Copiator-lists-\(UUID().uuidString)", isDirectory: true)
+        let folder = scratch.appendingPathComponent("Copiator-lists-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         for (index, keyPath) in paths.enumerated() {
             guard let original = options[keyPath: keyPath] else { continue }

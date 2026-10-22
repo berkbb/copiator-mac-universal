@@ -506,6 +506,7 @@
 "removeAllConfirmButton" = "Tümünü Kaldır";
 "logRulesMatched" = "Kurallara uyan %1$@ dosya bulundu (%2$@ öğeye bakıldı).";
 "logRulesNewlineSkipped" = "Adında satır sonu olan %@ dosya bu rsync ile kopyalanamaz; atlandı.";
+"logRuleRegexTooComplex" = "Düzenli ifade çok karmaşık: eşleştirme adım sınırını aştı, tarama durduruldu. İfadeyi sadeleştirin: %@";
 "problemRuleEmpty" = "Bir koşulun değeri boş.";
 "problemRuleRegex" = "Geçersiz düzenli ifade: %@";
 "problemRuleKind" = "Bilinmeyen dosya türü.";
@@ -583,6 +584,7 @@
 "routineSamplePlaceholder" = "ör. Raporlar/satis_raporu_v3.xlsx";
 "routineSampleMatches" = "Rota %ld: kurallara uyar";
 "routineSampleNoMatch" = "Rota %ld: kurallara uymaz";
+"routineSampleTooComplex" = "Rota %ld: düzenli ifade çok karmaşık, denenemedi";
 "routineSampleNote" = "Bir dosya adı ya da kaynağa göre göreli bir yol yazın; hiçbir dosyaya dokunulmaz.";
 "detailRoutine" = "Rutin";
 "detailRules" = "Kurallar";
@@ -646,6 +648,7 @@
 "logConflictsResolved" = "Aynı adlı %1$@ dosya: %2$@ değiştirildi, %3$@ numaralı kopya olarak saklandı, %4$@ atlandı.";
 "logKeptBoth" = "%1$@, %2$@ adıyla kopyalandı (ikisi de saklandı).";
 "logKeepBothFailed" = "%@ numaralı adla kopyalanamadı.";
+"logKeptBothRenamed" = "%1$@ adlı bir klasör geldi; hedefteki aynı adlı öğe %2$@ olarak yeniden adlandırıldı (ikisi de saklandı).";
 "resultAwaitingDecision" = "Karar bekleniyor: hedefte aynı adlı %ld dosya var";
 "statusAwaitingDecision" = "Karar bekliyor";
 "conflictTitle" = "Hedefte aynı adlı %ld dosya zaten var";
@@ -658,12 +661,14 @@
 "conflictFile" = "Dosya";
 "conflictDecisionColumn" = "Karar";
 "conflictIdentical" = "aynı içerik";
+"conflictIncomingFolder" = "gelen bir klasör";
 "conflictTruncated" = "Listede toplam %2$ld dosyanın ilk %1$ld tanesi var; ötekilere “Tümüne” seçimi uygulanır.";
 "conflictRememberJob" = "Bu iş için hatırla, bir daha sorma";
 "conflictRememberRoutine" = "Bu rutin için hatırla, bir daha sorma";
 "conflictLater" = "Sonra Karar Ver";
 "conflictContinue" = "Devam Et";
 "conflictKeepBothNote" = "İkisini de sakla: hedefteki dosya kalır, yeni gelen numaralı adla kopyalanır (rapor 2.xlsx).";
+"conflictKeepBothFolderNote" = "Gelen bir klasör hedefteki aynı adlı dosyanın yerine geçecekse İkisini de sakla, hedefteki dosyayı numaralı adla yeniden adlandırır; klasör yerine kopyalanır. Değiştir o dosyayı siler.";
 "menuResolveConflicts" = "Karar Ver…";
 "notifyDecisionTitle" = "Karar gerekiyor";
 "notifyDecisionBody" = "“%1$@”: hedefte aynı adlı %2$ld dosya var.";

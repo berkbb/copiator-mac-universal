@@ -63,3 +63,6 @@ Version 1.0 scope: local disk → local disk. Planned job kinds: other engines (
 
 - Decided with the user on 2026-10-22: every copy asks when a file with the same name already exists at the destination, even if the contents are identical. Choices: 1 · Replace, 2 · Keep Both (the incoming file gets a Finder-style number: "report 2.xlsx"), 3 · Skip; for all files or file by file; "remember for this job/routine" turns the choice into the job's or routine's policy.
 - Unattended runs (e.g. a routine started by connecting a disk) pause as "Needs decision", notify and let the next jobs run.
+- An item of another type under the same name is also asked about (rsync would delete it): a folder arriving where a file or link exists, a file arriving where an empty folder or a link exists. Keep Both for an incoming folder renames the existing item ("belgeler 2") instead of numbering the folder, so the folder's contents keep their place in the structure. A file arriving where a non-empty folder exists is refused by rsync (partial result, nothing lost).
+- Only undecided files are listed in a sheet; decisions from earlier sheets are kept.
+- "Replace" follows rsync's quick check: a same-name file with the same size and modification time counts as identical and is not rewritten.

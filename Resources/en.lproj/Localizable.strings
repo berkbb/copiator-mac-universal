@@ -506,6 +506,7 @@
 "removeAllConfirmButton" = "Remove All";
 "logRulesMatched" = "%1$@ files match the rules (%2$@ items checked).";
 "logRulesNewlineSkipped" = "%@ files with a line break in their name cannot be copied with this rsync and were skipped.";
+"logRuleRegexTooComplex" = "The regular expression is too complex: matching exceeded the step limit and the scan was stopped. Simplify the expression: %@";
 "problemRuleEmpty" = "A condition has an empty value.";
 "problemRuleRegex" = "Invalid regular expression: %@";
 "problemRuleKind" = "Unknown file kind.";
@@ -583,6 +584,7 @@
 "routineSamplePlaceholder" = "e.g. Reports/sales_report_v3.xlsx";
 "routineSampleMatches" = "Route %ld: matches the rules";
 "routineSampleNoMatch" = "Route %ld: does not match";
+"routineSampleTooComplex" = "Route %ld: the regular expression is too complex to try";
 "routineSampleNote" = "Type a file name or a path relative to the source; no file is touched.";
 "detailRoutine" = "Routine";
 "detailRules" = "Rules";
@@ -646,6 +648,7 @@
 "logConflictsResolved" = "%1$@ files with the same name: %2$@ replaced, %3$@ kept as numbered copies, %4$@ skipped.";
 "logKeptBoth" = "%1$@ was copied as %2$@ (both kept).";
 "logKeepBothFailed" = "%@ could not be copied under a numbered name.";
+"logKeptBothRenamed" = "A folder named %1$@ arrived; the item with the same name at the destination was renamed %2$@ (both kept).";
 "resultAwaitingDecision" = "Waiting for a decision: %ld files with the same name exist at the destination";
 "statusAwaitingDecision" = "Needs decision";
 "conflictTitle" = "%ld files with the same name already exist at the destination";
@@ -658,12 +661,14 @@
 "conflictFile" = "File";
 "conflictDecisionColumn" = "Decision";
 "conflictIdentical" = "same contents";
+"conflictIncomingFolder" = "an incoming folder";
 "conflictTruncated" = "The list shows the first %1$ld of %2$ld files; the “For all” choice applies to the rest.";
 "conflictRememberJob" = "Remember for this job and don't ask again";
 "conflictRememberRoutine" = "Remember for this routine and don't ask again";
 "conflictLater" = "Decide Later";
 "conflictContinue" = "Continue";
 "conflictKeepBothNote" = "Keep Both: the file at the destination stays and the new one is copied under a numbered name (report 2.xlsx).";
+"conflictKeepBothFolderNote" = "When an incoming folder would take the place of a file with the same name, Keep Both renames the file at the destination with a number and copies the folder in its place. Replace deletes that file.";
 "menuResolveConflicts" = "Decide…";
 "notifyDecisionTitle" = "Decision needed";
 "notifyDecisionBody" = "“%1$@”: %2$ld files with the same name already exist at the destination.";

@@ -67,6 +67,13 @@ public struct MediaInfo: Equatable, Sendable {
         return formatter.date(from: text)
     }
 
+    /// Piksel sayısı: bozuk bir dosyanın sonsuz, NaN ya da çok büyük boyutu `Int`e çevrilirken çökertmesin.
+    static func pixels(_ value: CGFloat) -> Int? {
+        let rounded = abs(value).rounded()
+        guard rounded.isFinite, rounded < CGFloat(Int32.max) else { return nil }
+        return Int(rounded)
+    }
+
     static func audiovisual(_ url: URL) async -> MediaInfo? {
         let asset = AVURLAsset(url: url)
         var info = MediaInfo()
@@ -76,8 +83,8 @@ public struct MediaInfo: Equatable, Sendable {
         if let track = try? await asset.loadTracks(withMediaType: .video).first,
            let (size, transform) = try? await track.load(.naturalSize, .preferredTransform) {
             let rect = CGRect(origin: .zero, size: size).applying(transform)
-            info.pixelWidth = Int(abs(rect.width).rounded())
-            info.pixelHeight = Int(abs(rect.height).rounded())
+            info.pixelWidth = pixels(rect.width)
+            info.pixelHeight = pixels(rect.height)
         }
         if let creation = try? await asset.load(.creationDate), let date = try? await creation.load(.dateValue) {
             info.captureDate = date
@@ -214,8 +221,23 @@ public final class RuleItem: @unchecked Sendable {
 
 /// Derlenmiş kurallar: düzenli ifadeler bir kez derlenir; göreli tarihler `now` anına göre hesaplanır.
 public struct RuleEvaluator: @unchecked Sendable {
+    /// Bir düzenli ifade eşleşmesinin adım sınırı. ICU uzun bir eşleşmede ilerleme bloğunu her başlangıç konumunda ve
+    /// geri izleme adımlarına göre düzenli aralıklarla çağırır: sayı saatten bağımsızdır, her seferinde aynıdır. Olağan bir
+    /// ifade bir yolda en çok yolun uzunluğu kadar çağırır; "(a+)+$" gibi geri izlemesi katlanarak büyüyen bir ifade sınırı
+    /// aşar, eşleşme durdurulur ve tarama hatayla biter. Sınır olmasaydı tarama hiç bitmez, iptal de edilemezdi.
+    public static let regexStepBudget = 5_000
+
+    /// Adım sınırını aşan düzenli ifade.
+    public struct RunawayRegex: Error, Equatable, Sendable {
+        public var pattern: String
+    }
+
+    /// "Son N gün içinde" ölçütünde en çok bu kadar birim: takvim hesabı (ve `Int` çevirisi) taşmasın.
+    static let maxCalendarAmount = 1_000_000.0
+
     public let rules: RuleGroup
     private let regexes: [UUID: NSRegularExpression]
+    private let runaway = RunawayRecord()
     private let now: Date
     private let calendar: Calendar
     /// İçerik koşullarına uyan öğelerin (NFC) göreli yolları (Spotlight'tan).
@@ -234,6 +256,9 @@ public struct RuleEvaluator: @unchecked Sendable {
     }
 
     public func matches(_ item: RuleItem) -> Bool { matches(item, rules, depth: 0) }
+
+    /// Adım sınırını aşan ilk düzenli ifade (varsa o eşleşme "uymaz" sayıldı; tarama hatayla bitmeli).
+    public var runawayPattern: String? { runaway.pattern }
 
     private func matches(_ item: RuleItem, _ group: RuleGroup, depth: Int) -> Bool {
         guard depth < RuleGroup.maxDepth else { return false }
@@ -279,7 +304,7 @@ public struct RuleEvaluator: @unchecked Sendable {
     private func compare(_ text: String, _ condition: RuleCondition, stripDot: Bool = false) -> Bool {
         if condition.op == .matchesRegex {
             guard let regex = regexes[condition.id] else { return false }
-            return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+            return firstMatch(regex, in: text)
         }
         let text = Self.fold(text)
         if condition.op == .isOneOf {
@@ -295,6 +320,23 @@ public struct RuleEvaluator: @unchecked Sendable {
         case .endsWith: return text.range(of: value, options: [.caseInsensitive, .anchored, .backwards]) != nil
         default: return false
         }
+    }
+
+    /// Adım sınırlı eşleşme (bkz. `regexStepBudget`).
+    private func firstMatch(_ regex: NSRegularExpression, in text: String) -> Bool {
+        var ticks = 0
+        var matched = false
+        regex.enumerateMatches(in: text, options: [.reportProgress], range: NSRange(text.startIndex..., in: text)) { result, _, stop in
+            if result != nil {
+                matched = true
+                stop.pointee = true
+            } else {
+                ticks += 1
+                if ticks > Self.regexStepBudget { stop.pointee = true }
+            }
+        }
+        if !matched, ticks > Self.regexStepBudget { runaway.record(regex.pattern) }
+        return matched
     }
 
     /// Sayı: koşulun sayısı birimiyle çarpılır (MB → bayt, dakika → saniye); değer yoksa koşul tutmaz.
@@ -317,7 +359,8 @@ public struct RuleEvaluator: @unchecked Sendable {
         switch condition.op {
         case .withinLast, .notWithinLast:
             guard let (component, step) = condition.unit?.calendarComponent,
-                  let cutoff = calendar.date(byAdding: component, value: -Int(condition.number.rounded()) * step, to: now) else { return false }
+                  let cutoff = calendar.date(byAdding: component, value: -Int(min(condition.number.rounded(), Self.maxCalendarAmount)) * step,
+                                             to: now) else { return false }
             return condition.op == .withinLast ? date >= cutoff : date < cutoff
         case .before:
             guard let day = condition.date else { return false }
@@ -335,6 +378,14 @@ public struct RuleEvaluator: @unchecked Sendable {
         guard text.contains(where: { $0 == "ı" || $0 == "İ" }) else { return text }
         return text.replacingOccurrences(of: "ı", with: "i").replacingOccurrences(of: "İ", with: "i")
     }
+}
+
+/// Adım sınırını aşan düzenli ifadenin kaydı (değerlendiricinin kopyaları paylaşır).
+private final class RunawayRecord: @unchecked Sendable {
+    private let lock = NSLock()
+    private var first: String?
+    var pattern: String? { lock.withLock { first } }
+    func record(_ pattern: String) { lock.withLock { if first == nil { first = pattern } } }
 }
 
 // MARK: - Tarama
@@ -389,6 +440,7 @@ public enum RuleScanner {
                 item.media = await MediaInfo.load(url, type: type)
             }
             if evaluator.matches(item) { result.paths.append(relative) }
+            if let pattern = evaluator.runawayPattern { throw RuleEvaluator.RunawayRegex(pattern: pattern) }
         }
         return result
     }

@@ -663,7 +663,11 @@ final class AppModel {
     func resolveConflicts(_ id: TransferJob.ID, resolution: ConflictResolution, remember: ConflictPolicy?) {
         guard let job = job(id) else { return }
         update(id) {
-            $0.conflictResolution = resolution
+            // Önceki çalıştırmalarda verilmiş kararlar saklı kalır; sayfada yalnızca kararı verilmemiş olanlar vardı.
+            var merged = $0.conflictResolution ?? ConflictResolution()
+            merged.decisions.merge(resolution.decisions) { _, new in new }
+            merged.others = resolution.others ?? merged.others
+            $0.conflictResolution = merged
             $0.pendingConflicts = nil
             $0.options.suggestsRememberingConflictChoice = false
             if let remember { $0.options.conflictPolicy = remember }

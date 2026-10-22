@@ -164,8 +164,11 @@ struct ConflictEngineTests {
         job.conflictResolution = ConflictResolution(decisions: ["Kaynak/ayni.txt": .skip, "Kaynak/alt/farkli.txt": .keepBoth])
         try workspace.write("Kaynak/sonradan.txt", "kaynak\n")
         try workspace.write("Hedef/Kaynak/sonradan.txt", "hedef\n")
-        let (asked, _) = try await run(job)
-        #expect(asked.kind == .awaitingDecision && asked.noteCount == 3)
+        // Yalnızca kararı verilmemiş dosya sorulur; verilmiş iki karar saklı kalır.
+        let (asked, events) = try await run(job)
+        #expect(asked.kind == .awaitingDecision && asked.noteCount == 1)
+        let reports = events.compactMap { if case .conflicts(let report) = $0 { report } else { nil } }
+        #expect(reports.first?.items.map(\.path) == ["Kaynak/sonradan.txt"])
         #expect(workspace.read("Hedef/Kaynak/sonradan.txt") == "hedef\n")
 
         job.conflictResolution?.others = .replace

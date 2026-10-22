@@ -23,12 +23,19 @@ public struct EngineContext: Sendable {
     /// Motor sandbox-exec altında çalışsın mı (Ayarlar › Gelişmiş).
     public var sandboxed: Bool
     public var home: URL
+    /// Motorun geçici listelerini (seçilen dosyalar, dışlananlar, liste kopyaları) yazdığı klasör. Her çalıştırma burada
+    /// kendine özel (0700) bir alt klasör açar ve bitince siler. Testler kendi klasörlerini verir.
+    public var scratchDirectory: URL
 
-    public init(executable: URL, info: EngineInfo, sandboxed: Bool = true, home: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    public init(
+        executable: URL, info: EngineInfo, sandboxed: Bool = true, home: URL = FileManager.default.homeDirectoryForCurrentUser,
+        scratchDirectory: URL = FileManager.default.temporaryDirectory
+    ) {
         self.executable = executable
         self.info = info
         self.sandboxed = sandboxed
         self.home = home
+        self.scratchDirectory = scratchDirectory
     }
 }
 

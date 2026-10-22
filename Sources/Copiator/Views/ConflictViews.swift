@@ -128,6 +128,11 @@ struct ConflictSheet: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        if item.incomingFolder {
+                            Text(settings.t(.conflictIncomingFolder))
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
                     }
                 }
                 TableColumn(settings.t(.conflictDecisionColumn)) { item in
@@ -147,6 +152,9 @@ struct ConflictSheet: View {
                     Text(settings.t(.conflictTruncated, report.items.count, report.total))
                 }
                 Text(settings.t(.conflictKeepBothNote))
+                if report.items.contains(where: \.incomingFolder) {
+                    Text(settings.t(.conflictKeepBothFolderNote))
+                }
             }
             .font(.footnote)
             .foregroundStyle(.secondary)

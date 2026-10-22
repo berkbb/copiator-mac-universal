@@ -95,3 +95,36 @@
 ## Episode 22: Jobs Saved Before a New "Ask" Default Asked Every Time
 - **Root Cause:** the same-name policy defaults to Ask, so jobs and routines saved before the setting existed suddenly asked on every run, although their users never chose that.
 - **Guardrail:** `CopyOptions.suggestsRememberingConflictChoice` is decoded as true when the saved options have no `conflictPolicy`; the conflict sheet pre-checks "Remember" for them and `AppModel.resolveConflicts` clears the flag on the job and its routine. Covered by `conflictOptionsDecodeWithAskAsDefault` and `legacyJobsSuggestRememberingOnce`.
+
+## Episode 23: An Opt-In Suite Hid a Regression From the Same-Name Check
+- **Root Cause:** `StressTests` runs only with `COPIATOR_STRESS_FILES`, so the full suite skipped it after the same-name check was added. Its cancel-then-resume step drove the engine directly without applying `.conflictsSettled` to the job, so the resumed run stopped as "Needs decision". A fixed one-second cancel also made the outcome depend on tree size: with 20000 files the cancel fell inside the conflict check and the test still passed.
+- **Guardrail:** the test cancels once bytes are being copied and applies the run's events with `JobQueue.apply`, as the app does. After a change to the engine's run flow, run the opt-in rounds too (`COPIATOR_STRESS_FILES=2000 swift test --filter StressTests`, `COPIATOR_VOLUME_TESTS=1 swift test --filter ForeignVolumeTests`).
+
+## Episode 24: rsync Silently Deleted a File to Make Room for a Folder
+- **Root Cause:** the same-name check only read `f` lines that were not new. When the destination held a file named like an incoming folder (or a link or empty folder where a file arrives), rsync showed the item as new (`cd+++`, `>f+++`) and deleted what was there; nobody was asked. Found by the red-team matrix case.
+- **Guardrail:** `ConflictDetector` treats a new item whose path exists at the destination (`lstat`, parents must be real folders) as a conflict with `incomingFolder`; Keep Both renames the existing item. Covered by `redTeamItemsOfAnotherTypeAreAskedAbout` for every decision.
+
+## Episode 25: An Escaped Backslash Never Matched
+- **Root Cause:** `escapePattern` always escaped `\`. rsync treats a pattern as a wildcard pattern only when it contains `*`, `?` or `[`; otherwise it compares literally, so "/ters\\bölü.txt" never matched "ters\bölü.txt" and a skipped file was replaced. The unit fuzz test checked the escaping shape, not rsync's behavior.
+- **Guardrail:** escape the whole pattern once and only when it is a wildcard pattern; `redTeamWildcardNamesAreExcludedLiterally` runs the real rsync.
+
+## Episode 26: A Regex Could Hang a Scan Forever
+- **Root Cause:** `NSRegularExpression.firstMatch` has no limit, and the scanner checks cancellation only between items, so `(a+)+$` on a 40-character name never finished (nor did the Try field on the main thread).
+- **Guardrail:** `.reportProgress` with a step budget (a count, not a clock); `RunawayRegex` fails the job with `logRuleRegexTooComplex`.
+
+## Episode 27: Unchecked Number Conversions in Rule Evaluation
+- **Root Cause:** "within the last N days" converted the rule's `Double` to `Int` without bounds; validation accepted any finite positive number, so 1e19 crashed the app. Video sizes were converted the same way.
+- **Guardrail:** clamp to `maxCalendarAmount`, range-check pixels; `volumeHugeRuleNumbersNeverTrap`, `volumeMediaPixelSizesAreRangeChecked`.
+
+## Episode 28: Numbered Copies Lost the Quarantine Flag
+- **Root Cause:** quarantine propagation runs on the main transfer's paths before keep-both copies exist; without `-X` (openrsync or attributes off) the numbered copy of a downloaded file had no quarantine.
+- **Guardrail:** `copyKeepingBoth` writes the source's quarantine value on each numbered copy when attributes are not copied; `penetrationQuarantineReachesNumberedCopies`.
+
+## Episode 29: Matrix Fixtures That rsync Considered Identical
+- **Root Cause:** several new tests wrote "yeni" and "eski" (same size) in the same second; rsync's quick check (size + mtime) skipped them, so "replace" seemed broken. A 0555 folder also turned out not to block the owner's rsync, which makes it writable temporarily.
+- **Guardrail:** fixtures for replacement use different sizes; "cannot write" scenarios use a Finder-locked (`uchg`) file.
+
+## Episode 30: Pipe Readers Starved on the GCD Pool
+- **Root Cause:** `CommandRunner` drained stdout and stderr with blocking reads on `DispatchQueue.global()`. When the matrix ran many processes beside other suites, a reader for `/bin/cat` was not scheduled before the 2-second `drainGracePeriod` that starts at process exit, so `runnerFeedsInput` saw empty output. `Process` itself does not leak pipe descriptors (checked with `lsof`).
+- **Guardrail:** each pipe is drained on its own `Thread`; the grace period only covers grandchildren holding a pipe open.
+
