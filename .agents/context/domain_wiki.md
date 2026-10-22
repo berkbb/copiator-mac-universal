@@ -51,3 +51,9 @@ Version 1.0 scope: local disk → local disk. Planned job kinds: other engines (
 
 - `Scripts/package.sh`: tests → `build_app.sh` (universal app + bundled rsync, ad-hoc signed) → `verify_bundle.sh` → `.dmg` → Ed25519 `.dmg.sig` (keychain item `com.babadogantech.copiator.update-signing`, public key `CopiatorUpdatePublicEDKey`) → `SHA256SUMS.txt`.
 - `Scripts/release.sh` tags `v<version>` and uploads with `gh release create`; no GitHub Actions.
+
+## Copy Routines
+
+- A routine is a named, reusable set of routes; each route is "files in this source folder that match these rules → this destination folder", keeping the folder structure. Several routes send different files to different places (decided with the user on 2026-10-22).
+- Rules work like Finder smart folders: All / Any / None groups that can nest; conditions on name, extension, any folder name in the path, relative path (contains, is, begins with, ends with, regex) and file kind. Text matching ignores case (Turkish I/ı/İ/i alike); regexes are applied as written.
+- Running a routine queues one job per route; the same jobs are requeued on later runs. Routines never delete at the destination and are not scheduled (time-based scheduling is rejected); they start manually, from the menu bar, from Shortcuts, or when the destination disk is connected.

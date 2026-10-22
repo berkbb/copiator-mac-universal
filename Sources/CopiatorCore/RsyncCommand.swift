@@ -52,7 +52,8 @@ public enum RsyncCommand {
         arguments += rsyncPathFlags(environment)
         arguments += metadataFlags(job.options, environment)
         arguments += advancedFlags(job.options, environment, forVerify: false)
-        if job.options.deleteExtraneous { arguments += deleteFlags(advanced, forVerify: false) }
+        // Kurallı işte kurallar dosya seçer; hedefteki öteki dosyalar silinmez.
+        if job.options.deleteExtraneous, job.options.rules == nil { arguments += deleteFlags(advanced, forVerify: false) }
         arguments += exclusions(job, environment)
         arguments += ["--", sourceArgument(job, environment), destinationArgument(job)]
         assertSafe(arguments)
@@ -261,7 +262,10 @@ public enum RsyncCommand {
         if a.useFilterFiles { arguments.append("-F") }
         if let file = a.includeFromFile, !file.isEmpty { arguments.append("--include-from=\(file)") }
         if let file = a.excludeFromFile, !file.isEmpty { arguments.append("--exclude-from=\(file)") }
-        if let file = a.filesFromFile, !file.isEmpty { arguments.append("--files-from=\(file)") }
+        if let file = a.filesFromFile, !file.isEmpty {
+            arguments.append("--files-from=\(file)")
+            if a.filesFromZeroTerminated, !environment.engine.isOpenrsync { arguments.append("--from0") }
+        }
         return arguments
     }
 

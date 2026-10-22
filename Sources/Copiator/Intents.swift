@@ -12,6 +12,7 @@ enum IntentTarget {
     static var model: () -> AppModel = { AppModel.shared }
 
     static func runJob(_ id: UUID) async -> String { await model().runFromShortcut(id) }
+    static func runRoutine(_ id: UUID) async -> String { await model().runRoutineFromShortcut(id) }
     static func pauseAll() async -> String { await model().pauseAllFromShortcut() }
     static func resumeAll() async -> String { await model().resumeAllFromShortcut() }
 }
@@ -43,6 +44,58 @@ nonisolated struct JobEntityQuery: EntityQuery {
 
     func suggestedEntities() async throws -> [JobEntity] {
         await MainActor.run { IntentTarget.model().jobs.map(JobEntity.init) }
+    }
+}
+
+/// Kestirmelerde seçilebilen bir kopyalama rutini.
+nonisolated struct RoutineEntity: AppEntity, Identifiable {
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "intentRoutineTypeName")
+    static let defaultQuery = RoutineEntityQuery()
+
+    let id: UUID
+    let name: String
+    let routeCount: Int
+
+    init(routine: Routine) {
+        id = routine.id
+        name = routine.name
+        routeCount = routine.routes.count
+    }
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(name)")
+    }
+}
+
+nonisolated struct RoutineEntityQuery: EntityQuery {
+    func entities(for identifiers: [RoutineEntity.ID]) async throws -> [RoutineEntity] {
+        await MainActor.run { IntentTarget.model().routines.filter { identifiers.contains($0.id) }.map(RoutineEntity.init) }
+    }
+
+    func suggestedEntities() async throws -> [RoutineEntity] {
+        await MainActor.run { IntentTarget.model().routines.map(RoutineEntity.init) }
+    }
+}
+
+/// Bir rutini çalıştırır: her rotası kuyruğa bir iş olarak girer.
+/// (`@Parameter` özelliği değişken olduğu için tür `nonisolated` işaretlenemez; sabitler ayrıca işaretlenir.)
+struct RunRoutineIntent: AppIntent {
+    nonisolated static let title: LocalizedStringResource = "intentRunRoutineTitle"
+    nonisolated static let description = IntentDescription("intentRunRoutineDescription")
+    nonisolated static let openAppWhenRun = false
+
+    @Parameter(title: "intentRoutineParameter")
+    var routine: RoutineEntity
+
+    init() {}
+
+    init(routine: RoutineEntity) {
+        self.routine = routine
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let message = await IntentTarget.runRoutine(routine.id)
+        return .result(dialog: "\(message)")
     }
 }
 
@@ -99,6 +152,12 @@ nonisolated struct CopiatorShortcuts: AppShortcutsProvider {
             systemImageName: "play.circle"
         )
         AppShortcut(
+            intent: RunRoutineIntent(),
+            phrases: ["Run \(\.$routine) routine in \(.applicationName)"],
+            shortTitle: "shortcutRunRoutine",
+            systemImageName: "wand.and.stars"
+        )
+        AppShortcut(
             intent: PauseAllJobsIntent(),
             phrases: ["Pause all jobs in \(.applicationName)"],
             shortTitle: "shortcutPauseAll",
@@ -128,6 +187,17 @@ extension AppModel {
         guard JobQueue.canResume(job) || JobQueue.canRunAgain(job) else { return settings.t(.intentJobCannotRun, name) }
         resume([id])
         return settings.t(.intentRunJobStarted, name)
+    }
+
+    /// Kestirmeden gelen "rutini çalıştır".
+    func runRoutineFromShortcut(_ id: Routine.ID) async -> String {
+        await launch()
+        guard let routine = routine(id) else { return settings.t(.intentRoutineNotFound) }
+        if let message = runRoutine(id) {
+            alert = nil
+            return message
+        }
+        return settings.t(.intentRoutineQueued, routine.name)
     }
 
     func pauseAllFromShortcut() async -> String {

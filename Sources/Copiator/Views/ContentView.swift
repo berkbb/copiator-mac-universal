@@ -20,7 +20,9 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 300)
         } detail: {
             ZStack {
-                if model.jobs.isEmpty {
+                if let id = model.selectedRoutineID, let routine = model.routine(id) {
+                    RoutineDetailView(routine: routine)
+                } else if model.jobs.isEmpty {
                     WelcomeView()
                         .transition(.opacity)
                 } else {
@@ -61,6 +63,7 @@ struct ContentView: View {
         .animation(.spring(duration: 0.35), value: model.toast)
         .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.35), value: model.operation != nil || finishingOperation != nil)
         .sheet(item: $model.newJobRequest) { NewJobSheet(request: $0) }
+        .sheet(item: $model.routineEditor) { RoutineEditorSheet(request: $0) }
         .sheet(item: $model.verifyPresentation) { VerifyResultSheet(presentation: $0) }
         .confirmationDialog(
             settings.t(.verifyChooseTitle),

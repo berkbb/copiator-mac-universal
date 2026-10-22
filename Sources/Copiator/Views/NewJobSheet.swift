@@ -438,13 +438,22 @@ struct WelcomeView: View {
                         .frame(maxWidth: 520)
                 }
 
-                Button {
-                    model.beginNewJob()
-                } label: {
-                    Label(settings.t(.menuNewJob), systemImage: "plus")
-                        .padding(.horizontal, 6)
+                HStack(spacing: 12) {
+                    Button {
+                        model.beginNewJob()
+                    } label: {
+                        Label(settings.t(.menuNewJob), systemImage: "plus")
+                            .padding(.horizontal, 6)
+                    }
+                    .buttonStyle(.glassProminent)
+                    Button {
+                        model.beginNewRoutine()
+                    } label: {
+                        Label(settings.t(.menuNewRoutine), systemImage: "wand.and.stars")
+                            .padding(.horizontal, 6)
+                    }
+                    .buttonStyle(.glass)
                 }
-                .buttonStyle(.glassProminent)
                 .controlSize(.extraLarge)
 
                 DropZone(isTargeted: model.isDropTargeted, hint: settings.t(.welcomeDropHint))

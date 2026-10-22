@@ -9,13 +9,35 @@ struct SidebarView: View {
 
     var body: some View {
         @Bindable var model = model
-        List(selection: Binding<JobFilter?>(get: { model.filter }, set: { model.filter = $0 ?? .all })) {
+        List(selection: Binding<SidebarItem?>(get: { model.sidebarSelection }, set: { model.sidebarSelection = $0 ?? .filter(.all) })) {
             Section(settings.t(.sidebarQueue)) {
                 ForEach(JobFilter.allCases) { filter in
                     Label(settings.t(filter.titleKey), systemImage: filter.systemImage)
                         .badge(model.count(for: filter))
-                        .tag(filter)
+                        .tag(SidebarItem.filter(filter))
                 }
+            }
+            Section(settings.t(.sidebarRoutines)) {
+                ForEach(model.routines) { routine in
+                    Label(OpenSafety.visibleName(routine.name), systemImage: "wand.and.stars")
+                        .lineLimit(1)
+                        .tag(SidebarItem.routine(routine.id))
+                        .contextMenu {
+                            Button(settings.t(.routineRun), systemImage: "play.fill") { model.runRoutine(routine.id) }
+                            Button(settings.t(.menuEditJob), systemImage: "pencil") { model.beginEditRoutine(routine.id) }
+                            Button(settings.t(.menuDuplicateJob), systemImage: "plus.square.on.square") { model.beginDuplicateRoutine(routine.id) }
+                            Divider()
+                            Button(settings.t(.routineDelete), systemImage: "trash", role: .destructive) { model.requestDeleteRoutine(routine.id) }
+                        }
+                }
+                Button {
+                    model.beginNewRoutine()
+                } label: {
+                    Label(settings.t(.menuNewRoutine), systemImage: "plus")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("copiator.sidebar.newRoutine")
             }
         }
         .listStyle(.sidebar)
@@ -144,6 +166,12 @@ struct JobRow: View {
                     Text(OpenSafety.visibleName(job.destination.lastPathComponent.isEmpty ? job.destination.path : job.destination.lastPathComponent))
                         .lineLimit(1)
                         .foregroundStyle(.secondary)
+                    if let routineName = job.routineName, job.routineID != nil {
+                        Label(OpenSafety.visibleName(routineName), systemImage: "wand.and.stars")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     Spacer()
                     StatusBadge(job: job, settings: settings, isPausing: model.isPausingRunningJob && model.runningJobID == job.id,
                                 isWaitingForDisk: model.isWaitingForDisk(job))
@@ -285,6 +313,8 @@ struct JobDetailView: View {
                         row(.detailDestination, OpenSafety.visibleName(job.destination.path))
                         row(.detailTarget, OpenSafety.visibleName(targetPath(job)))
                         if job.options.snapshots.enabled { row(.detailSnapshots, snapshotSummary(job)) }
+                        if let routineName = job.routineName, job.routineID != nil { row(.detailRoutine, OpenSafety.visibleName(routineName)) }
+                        if let rules = job.options.rules { row(.detailRules, settings.describe(rules), lineLimit: nil) }
                         row(.detailMode, settings.t(job.options.copyMode == .folder ? .modeFolder : .modeContents))
                         row(.detailOptions, optionsSummary(job.options), lineLimit: nil)
                         row(.detailStatus, settings.t(job.status.titleKey))

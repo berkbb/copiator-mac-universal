@@ -123,6 +123,8 @@ public struct AdvancedOptions: Codable, Equatable, Sendable {
     public var includeFromFile: String?
     public var excludeFromFile: String?
     public var filesFromFile: String?
+    /// `--from0`: liste dosyaları NUL ile ayrılmış (rutin kurallarının ürettiği listede; adında satır sonu olabilir).
+    public var filesFromZeroTerminated = false
     /// `--max-size`, `--min-size` (bayt).
     public var maxSizeBytes: Int64?
     public var minSizeBytes: Int64?
@@ -202,6 +204,7 @@ public struct AdvancedOptions: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case filterRules, includePatterns, excludePatterns, excludePresets, useFilterFiles, includeFromFile, excludeFromFile, filesFromFile
+        case filesFromZeroTerminated
         case maxSizeBytes, minSizeBytes, ignoreExisting, existingOnly, updateOnly, pruneEmptyDirectories
         case hardLinks, creationTimes, accessTimes, numericIDs, oneFileSystem, chmod
         case symlinks, sparse, inplace, wholeFile, appendMode
@@ -226,6 +229,7 @@ public struct AdvancedOptions: Codable, Equatable, Sendable {
         includeFromFile = optional(.includeFromFile)
         excludeFromFile = optional(.excludeFromFile)
         filesFromFile = optional(.filesFromFile)
+        filesFromZeroTerminated = value(.filesFromZeroTerminated, d.filesFromZeroTerminated)
         maxSizeBytes = optional(.maxSizeBytes)
         minSizeBytes = optional(.minSizeBytes)
         ignoreExisting = value(.ignoreExisting, d.ignoreExisting)
@@ -287,6 +291,8 @@ public struct AdvancedOptions: Codable, Equatable, Sendable {
         case stopAtInPast
         /// Anlık görüntü saklama sayısı 1'den küçük.
         case invalidRetention
+        /// Rutin kurallarında bir sorun (boş değer, geçersiz düzenli ifade…).
+        case rules(RuleGroup.Problem)
     }
 
     /// - Parameters:

@@ -125,6 +125,7 @@ struct KeyboardShortcutData: Codable, Equatable, Sendable {
 /// Kullanıcı tarafından özelleştirilebilen eylemler (Transmission'daki kısayollara yakın).
 enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
     case newJob
+    case newRoutine
     case resume
     case pause
     case resumeAll
@@ -142,6 +143,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
     var titleKey: LKey {
         switch self {
         case .newJob: .menuNewJob
+        case .newRoutine: .menuNewRoutine
         case .resume: .menuResumeJob
         case .pause: .menuPauseJob
         case .resumeAll: .menuResumeAll
@@ -155,6 +157,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Sendable {
     var defaultShortcut: KeyboardShortcutData {
         switch self {
         case .newJob: KeyboardShortcutData(key: "N", command: true)
+        case .newRoutine: KeyboardShortcutData(key: "N", command: true, option: true)
         case .resume: KeyboardShortcutData(key: "R", command: true)
         case .pause: KeyboardShortcutData(key: ".", command: true)
         case .resumeAll: KeyboardShortcutData(key: "R", command: true, option: true)
@@ -410,6 +413,32 @@ final class AppSettings {
         case .missingBatchFile: t(.problemBatch)
         case .stopAtInPast: t(.problemStopAt)
         case .invalidRetention: t(.problemRetention)
+        case .rules(let problem): rulesProblem(problem)
+        }
+    }
+
+    /// Kural sorununun açıklaması.
+    func rulesProblem(_ problem: RuleGroup.Problem) -> String {
+        switch problem {
+        case .emptyValue: t(.problemRuleEmpty)
+        case .invalidRegex(let pattern): t(.problemRuleRegex, OpenSafety.visibleName(pattern))
+        case .unknownKind: t(.problemRuleKind)
+        case .tooDeep: t(.problemRuleDepth, RuleGroup.maxDepth)
+        }
+    }
+
+    /// Rutin sorununun açıklaması ("Rota 2: …").
+    func routineProblem(_ problem: Routine.Problem) -> String {
+        func route(_ index: Int, _ text: String) -> String { t(.routineRoutePrefix, index + 1) + " " + text }
+        return switch problem {
+        case .emptyName: t(.routineProblemName)
+        case .noRoutes: t(.routineProblemNoRoutes)
+        case .missingSource(let index): route(index, t(.routineProblemSource))
+        case .missingDestination(let index): route(index, t(.routineProblemDestination))
+        case .sourceNotFolder(let index): route(index, t(.routineProblemSourceFolder))
+        case .path(let index, let problem): route(index, result(JobResult(kind: RsyncEngine.resultKind(for: problem))))
+        case .rules(let index, let problem): route(index, rulesProblem(problem))
+        case .options(let problem): self.problem(problem)
         }
     }
 

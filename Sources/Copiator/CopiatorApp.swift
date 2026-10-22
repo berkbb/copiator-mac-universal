@@ -109,6 +109,12 @@ struct AppCommands: Commands {
                 model.beginNewJob()
             }
             .keyboardShortcut(newJob.keyEquivalent, modifiers: newJob.eventModifiers)
+            let newRoutine = settings.shortcut(for: .newRoutine)
+            Button(settings.t(.menuNewRoutine)) {
+                openWindow(id: WindowID.main)
+                model.beginNewRoutine()
+            }
+            .keyboardShortcut(newRoutine.keyEquivalent, modifiers: newRoutine.eventModifiers)
         }
 
         CommandMenu(settings.t(.menuJob)) {

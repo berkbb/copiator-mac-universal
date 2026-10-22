@@ -76,6 +76,20 @@ struct NewJobRequest: Identifiable {
     var editing: TransferJob.ID?
 }
 
+/// Rutin düzenleme sayfası (yeni, düzenleme ya da çoğaltma).
+struct RoutineEditorRequest: Identifiable {
+    let id = UUID()
+    var routine: Routine
+    /// Kayıtlı bir rutin düzenleniyor (yoksa yeni rutin).
+    var isExisting: Bool
+}
+
+/// Kenar çubuğunun seçimi: bir iş süzgeci ya da bir rutin.
+enum SidebarItem: Hashable {
+    case filter(JobFilter)
+    case routine(Routine.ID)
+}
+
 /// Doğrulama sonucunun gösterimi.
 struct VerifyPresentation: Identifiable {
     let id = UUID()
@@ -140,6 +154,25 @@ final class AppModel {
     private(set) var jobs: [TransferJob] = []
     var selection: Set<TransferJob.ID> = []
     var filter: JobFilter = .all
+    /// Kopyalama rutinleri (kenar çubuğundaki kütüphane).
+    private(set) var routines: [Routine] = []
+    /// Kenar çubuğunda seçili rutin (yoksa iş listesi görünür).
+    var selectedRoutineID: Routine.ID?
+    var routineEditor: RoutineEditorRequest?
+
+    /// Kenar çubuğunun seçimi: süzgeç ya da rutin.
+    var sidebarSelection: SidebarItem {
+        get { selectedRoutineID.map(SidebarItem.routine) ?? .filter(filter) }
+        set {
+            switch newValue {
+            case .filter(let filter):
+                self.filter = filter
+                selectedRoutineID = nil
+            case .routine(let id):
+                selectedRoutineID = id
+            }
+        }
+    }
     private(set) var runningJobID: TransferJob.ID?
     /// Çalışan iş için Duraklat'a basıldı; rsync duruyor.
     private(set) var isPausingRunningJob = false
@@ -170,6 +203,7 @@ final class AppModel {
     var isDropTargeted = false
 
     @ObservationIgnored private let store: JobStore
+    @ObservationIgnored private let routineStore: RoutineStore
     @ObservationIgnored private var runningTask: Task<Void, Never>?
     @ObservationIgnored private var operationTask: Task<Void, Never>?
     @ObservationIgnored private var toastTask: Task<Void, Never>?
@@ -207,13 +241,19 @@ final class AppModel {
     /// Dock simgesi ve menü çubuğu için ilerleme bildirimi (uygulama kurar; testlerde nil).
     @ObservationIgnored var onActivityChange: (() -> Void)?
 
-    init(settings: AppSettings, store: JobStore = JobStore(), sleepReason: String = AppModel.sleepReason, processStateFile: URL? = nil) {
+    /// - Parameter routineStore: Rutin kaydı; verilmezse iş kaydının yanındaki routines.json (testler kendi klasörlerini kullanır).
+    init(
+        settings: AppSettings, store: JobStore = JobStore(), routineStore: RoutineStore? = nil,
+        sleepReason: String = AppModel.sleepReason, processStateFile: URL? = nil
+    ) {
         self.settings = settings
         self.store = store
+        self.routineStore = routineStore ?? RoutineStore(url: store.url.deletingLastPathComponent().appendingPathComponent("routines.json"))
         self.sleepReason = sleepReason
         self.processStateFile = processStateFile
         sleepGuard = SleepGuard(reason: sleepReason)
         loadJobs()
+        loadRoutines()
     }
 
     private func t(_ key: LKey) -> String { settings.t(key) }
@@ -464,6 +504,165 @@ final class AppModel {
             update(id) { $0.appendLog(JobLogEntry(level: .warning, key: .logOrphanStopped, arguments: [description])) }
         }
         save()
+    }
+
+    // MARK: - Rutinler
+
+    private func loadRoutines() {
+        do {
+            routines = try routineStore.load()
+        } catch {
+            routines = []
+            if let backup = routineStore.quarantineCorruptFile() {
+                alert = AlertItem(title: t(.errorTitle), message: t(.errorStoreCorrupt, backup.path))
+            }
+        }
+    }
+
+    private func saveRoutines() {
+        do {
+            try routineStore.save(routines)
+        } catch {
+            alert = AlertItem(title: t(.errorTitle), message: t(.errorSaveFailed, error.localizedDescription))
+        }
+    }
+
+    func routine(_ id: Routine.ID) -> Routine? { routines.first { $0.id == id } }
+
+    /// Bir rutinin kuyruktaki işleri (rota sırasıyla).
+    func jobs(for routineID: Routine.ID) -> [TransferJob] {
+        let order = routine(routineID)?.routes.map(\.id) ?? []
+        return jobs.filter { $0.routineID == routineID }
+            .sorted { (order.firstIndex(of: $0.routeID ?? UUID()) ?? .max) < (order.firstIndex(of: $1.routeID ?? UUID()) ?? .max) }
+    }
+
+    func beginNewRoutine(source: URL? = nil) {
+        var routine = Routine(routes: [RoutineRoute(source: source)], options: settings.defaultOptions)
+        routine.options.copyMode = .contents
+        routine.options.deleteExtraneous = false
+        routineEditor = RoutineEditorRequest(routine: routine, isExisting: false)
+    }
+
+    func beginEditRoutine(_ id: Routine.ID) {
+        guard let routine = routine(id) else { return }
+        routineEditor = RoutineEditorRequest(routine: routine, isExisting: true)
+    }
+
+    /// Rutinin bir kopyasını düzenleme sayfasında açar (yeni kimlikler, "… kopya" adı).
+    func beginDuplicateRoutine(_ id: Routine.ID) {
+        guard let original = routine(id) else { return }
+        var copy = Routine(name: t(.routineCopyName, original.name), routes: original.routes.map {
+            RoutineRoute(source: $0.source, destination: $0.destination, rules: $0.rules)
+        }, options: original.options)
+        copy.options.rules = nil
+        routineEditor = RoutineEditorRequest(routine: copy, isExisting: false)
+    }
+
+    /// Rutini denetleyip kaydeder; kuyruktaki çalışmayan işlerini yeni ayarlarla günceller. Silinen rotaların işleri
+    /// sıradan iş olarak kalır. - Returns: Sorun varsa açıklaması (sayfa kapanmaz).
+    @discardableResult
+    func saveRoutine(_ routine: Routine) -> String? {
+        var routine = routine
+        routine.name = routine.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Diski takılı değilken "disk takılınca başla" seçili rutin yine kaydedilebilir.
+        if let problem = routine.problems(checkPaths: !routine.options.runWhenConnected).first {
+            return settings.routineProblem(problem)
+        }
+        routine.updatedAt = Date()
+        if let index = routines.firstIndex(where: { $0.id == routine.id }) {
+            routine.lastRunAt = routines[index].lastRunAt
+            routines[index] = routine
+        } else {
+            routines.append(routine)
+        }
+        let routeIDs = Set(routine.routes.map(\.id))
+        for index in jobs.indices where jobs[index].routineID == routine.id && !jobs[index].status.isActive {
+            if let routeID = jobs[index].routeID, routeIDs.contains(routeID), let route = routine.routes.first(where: { $0.id == routeID }) {
+                apply(route, of: routine, to: &jobs[index])
+            } else {
+                jobs[index].routineID = nil
+                jobs[index].routeID = nil
+            }
+        }
+        saveRoutines()
+        save()
+        selectedRoutineID = routine.id
+        showToast(t(.toastRoutineSaved), systemImage: "wand.and.stars")
+        refreshShortcutParameters()
+        return nil
+    }
+
+    func requestDeleteRoutine(_ id: Routine.ID) {
+        guard let routine = routine(id) else { return }
+        alert = AlertItem(
+            title: t(.routineDeleteConfirmTitle),
+            message: t(.routineDeleteConfirmMessage, routine.name),
+            actionTitle: t(.routineDeleteButton),
+            action: { [weak self] in self?.deleteRoutine(id) },
+            isDestructive: true
+        )
+    }
+
+    /// Rutini siler; işleri kuyrukta sıradan iş olarak kalır, kopyalanmış dosyalara dokunulmaz.
+    func deleteRoutine(_ id: Routine.ID) {
+        routines.removeAll { $0.id == id }
+        for index in jobs.indices where jobs[index].routineID == id {
+            jobs[index].routineID = nil
+            jobs[index].routeID = nil
+        }
+        if selectedRoutineID == id { selectedRoutineID = nil }
+        saveRoutines()
+        save()
+        refreshShortcutParameters()
+    }
+
+    /// Rutini çalıştırır: her rota kuyruğa bir iş olarak girer (rota başına tek iş; bitmiş iş yeniden sıraya alınır,
+    /// bekleyen ya da çalışan iş olduğu gibi kalır). - Returns: Sorun varsa açıklaması.
+    @discardableResult
+    func runRoutine(_ id: Routine.ID) -> String? {
+        guard var routine = routine(id) else { return t(.intentRoutineNotFound) }
+        if let problem = routine.problems(checkPaths: !routine.options.runWhenConnected).first {
+            let message = settings.routineProblem(problem)
+            alert = AlertItem(title: t(.errorTitle), message: message)
+            return message
+        }
+        for route in routine.routes {
+            if let index = jobs.firstIndex(where: { $0.routeID == route.id }) {
+                guard !jobs[index].status.isActive, jobs[index].status != .waiting else { continue }
+                apply(route, of: routine, to: &jobs[index])
+                JobQueue.requeue(&jobs[index])
+                jobs[index].appendLog(JobLogEntry(level: .info, key: .logRoutineRun, arguments: [routine.name]))
+            } else {
+                var job = TransferJob(source: route.source ?? URL(fileURLWithPath: "/"), destination: route.destination ?? URL(fileURLWithPath: "/"),
+                                      options: routine.jobOptions(for: route))
+                job.routineID = routine.id
+                job.routeID = route.id
+                job.routineName = routine.name
+                job.appendLog(JobLogEntry(level: .info, key: .logRoutineRun, arguments: [routine.name]))
+                jobs.append(job)
+            }
+        }
+        routine.lastRunAt = Date()
+        if let index = routines.firstIndex(where: { $0.id == id }) { routines[index] = routine }
+        saveRoutines()
+        save()
+        showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
+        scheduleNext()
+        return nil
+    }
+
+    /// Rotanın güncel ayarlarını işe yazar (kaynak, hedef, seçenekler, rutin adı).
+    private func apply(_ route: RoutineRoute, of routine: Routine, to job: inout TransferJob) {
+        if let source = route.source { job.source = source }
+        if let destination = route.destination { job.destination = destination }
+        job.options = routine.jobOptions(for: route)
+        job.routineName = routine.name
+    }
+
+    /// Bir rotanın kuru çalıştırması: hangi dosyaların kopyalanacağı.
+    func previewRoute(_ route: RoutineRoute, of routine: Routine) async -> VerifyReport? {
+        guard let source = route.source, let destination = route.destination else { return nil }
+        return await preview(source: source, destination: destination, options: routine.jobOptions(for: route))
     }
 
     // MARK: - İş kuyruğu: kayıt

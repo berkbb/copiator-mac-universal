@@ -4,3 +4,4 @@
 "Back up ${job} with ${applicationName}" = "${applicationName} ile ${job} yedekle";
 "Pause all jobs in ${applicationName}" = "${applicationName} işlerini duraklat";
 "Resume all jobs in ${applicationName}" = "${applicationName} işlerini sürdür";
+"Run ${routine} routine in ${applicationName}" = "${applicationName} ile ${routine} rutinini çalıştır";

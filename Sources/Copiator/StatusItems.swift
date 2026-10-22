@@ -41,6 +41,20 @@ struct MenuBarContent: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            if !model.routines.isEmpty {
+                Divider()
+                Text(settings.t(.menuBarRoutines)).font(.caption).foregroundStyle(.secondary)
+                ForEach(model.routines.prefix(6)) { routine in
+                    Button {
+                        model.runRoutine(routine.id)
+                    } label: {
+                        Label(OpenSafety.visibleName(routine.name), systemImage: "play.circle")
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.borderless)
+                    .help(settings.t(.routineRun))
+                }
+            }
             Divider()
             HStack {
                 Button(settings.t(.menuPauseAll), systemImage: "pause.fill") { model.pauseAll() }

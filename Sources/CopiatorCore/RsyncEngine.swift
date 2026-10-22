@@ -42,6 +42,25 @@ public struct RsyncEngine: TransferEngine {
                 return JobResult(kind: .failed, detail: error.localizedDescription)
             }
         }
+        // Rutin kuralları: kaynak taranır, uyan dosyalar listeye yazılır (`--files-from`). Sonraki doğrulama aynı listeyi
+        // kullanır; kaynak yeniden taranmaz.
+        let selection: RuleSelection.Prepared?
+        do {
+            selection = try Self.prepareRules(&job, context: context)
+        } catch is CancellationError {
+            return JobResult(kind: .cancelled)
+        } catch {
+            return JobResult(kind: .failed, detail: error.localizedDescription)
+        }
+        defer { if let selection { try? FileManager.default.removeItem(at: selection.folder) } }
+        if let selection {
+            onEvent(.log(JobLogEntry(level: .info, key: .logRulesMatched, arguments: [String(selection.matched), String(selection.scanned)])))
+            if selection.skippedNewlines > 0 {
+                onEvent(.log(JobLogEntry(level: .warning, key: .logRulesNewlineSkipped, arguments: [String(selection.skippedNewlines)])))
+            }
+            job.options.rules = nil
+        }
+
         // Liste dosyaları (--files-from vb.) kum havuzunda özel bir kopyadan okunur: rsync bu dosyaları yol bileşenlerini
         // tek tek açarak okur; kişisel bir klasördeki listeye (ör. ~/.ssh) yalnızca dosyanın kendisine izin vermek
         // yetmez, klasörü açmak da kişisel klasörün içeriğini listeletirdi. Kopyalar iş bitince silinir.
@@ -59,14 +78,18 @@ public struct RsyncEngine: TransferEngine {
 
         // Ön denetim: kaynağın boyutu, hedefte zaten bulunan kopya kadar azaltılarak boş alanla karşılaştırılır. Anlık
         // görüntüde değişmeyen dosyalar önceki anlık görüntüyle paylaşıldığı için o da "zaten var" sayılır.
-        let sourceBytes = DiskSpace.totalSize(of: [job.source], isCancelled: { Task.isCancelled })
-        var existing = DiskSpace.totalSize(of: Self.existingCounterparts(of: job, sourceIsDirectory: sourceIsDirectory),
-                                           isCancelled: { Task.isCancelled })
+        // Kurallı işte yalnızca seçilen dosyalar sayılır.
+        let sourceBytes = DiskSpace.totalSize(of: selection.map { $0.paths.map { job.source.appendingPathComponent($0) } } ?? [job.source],
+                                              isCancelled: { Task.isCancelled })
+        let counterparts = selection.map { $0.paths.map { job.destination.appendingPathComponent($0) } }
+            ?? Self.existingCounterparts(of: job, sourceIsDirectory: sourceIsDirectory)
+        var existing = DiskSpace.totalSize(of: counterparts, isCancelled: { Task.isCancelled })
         if let previous = preparation?.previous {
             var previousJob = job
             previousJob.destination = previous
-            existing = max(existing, DiskSpace.totalSize(of: Self.existingCounterparts(of: previousJob, sourceIsDirectory: sourceIsDirectory),
-                                                         isCancelled: { Task.isCancelled }))
+            let previousCounterparts = selection.map { $0.paths.map { previous.appendingPathComponent($0) } }
+                ?? Self.existingCounterparts(of: previousJob, sourceIsDirectory: sourceIsDirectory)
+            existing = max(existing, DiskSpace.totalSize(of: previousCounterparts, isCancelled: { Task.isCancelled }))
         }
         if Task.isCancelled { return JobResult(kind: .cancelled) }
         let required = DiskSpace.requiredForCopy(sourceBytes: sourceBytes, existingDestinationBytes: existing)
@@ -279,6 +302,15 @@ public struct RsyncEngine: TransferEngine {
             return report(Self.resultKind(for: problem))
         }
         var job = job
+        let selection: RuleSelection.Prepared?
+        do {
+            selection = try Self.prepareRules(&job, context: context)
+        } catch is CancellationError {
+            return report(.cancelled)
+        } catch {
+            return VerifyReport(entries: [], result: JobResult(kind: .failed, detail: error.localizedDescription), checksum: checksum)
+        }
+        defer { if let selection { try? FileManager.default.removeItem(at: selection.folder) } }
         var staged: URL?
         defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
         if context.sandboxed {
@@ -320,6 +352,20 @@ public struct RsyncEngine: TransferEngine {
         } catch {
             return VerifyReport(entries: [], result: JobResult(kind: .failed, detail: String(describing: error)), checksum: checksum)
         }
+    }
+
+    /// Kurallı işin dosya listesini hazırlar (kural yoksa nil). Kum havuzunda okunamayan kişisel klasörler taranmaz.
+    /// Liste NUL ile ayrılır (`--from0`); motor desteklemiyorsa ya da işin başka bir liste dosyası varsa (`--from0` onları da
+    /// etkilerdi) satır sonuyla.
+    static func prepareRules(_ job: inout TransferJob, context: EngineContext) throws -> RuleSelection.Prepared? {
+        guard job.options.rules != nil else { return nil }
+        let skipped = context.sandboxed
+            ? Set(SandboxProfile.forTransfer(sources: [job.source], destination: job.destination, home: context.home)
+                .protectedPaths(inside: job.source))
+            : []
+        let a = job.options.advanced
+        let zeroTerminated = !context.info.isOpenrsync && (a.includeFromFile ?? "").isEmpty && (a.excludeFromFile ?? "").isEmpty
+        return try RuleSelection.prepare(&job, zeroTerminated: zeroTerminated, skippedPaths: skipped, isCancelled: { Task.isCancelled })
     }
 
     /// Liste dosyalarını kullanıcıya özel (0700) geçici bir klasöre kopyalar ve seçenekleri kopyalara çevirir.

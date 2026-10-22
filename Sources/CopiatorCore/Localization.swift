@@ -207,6 +207,27 @@ public enum LKey: String, CaseIterable, Sendable {
     case settingsShortcutsAppSection, settingsShortcutsAppNote
     // Kuyruğu temizleme
     case toolbarClear, menuRemoveAll, removeAllConfirmTitle, removeAllConfirmMessage, removeAllConfirmButton
+    // Rutinler
+    case logRulesMatched, logRulesNewlineSkipped
+    case problemRuleEmpty, problemRuleRegex, problemRuleKind, problemRuleDepth
+    case routineRoutePrefix, routineProblemName, routineProblemNoRoutes, routineProblemSource, routineProblemDestination
+    case routineProblemSourceFolder
+    case sidebarRoutines, menuNewRoutine, routineNewTitle, routineEditTitle, routineName, routineNamePlaceholder
+    case routineRoute, routineAddRoute, routineRemoveRoute, routineRoutesNote, routineRules, routineOptions
+    case ruleGroupLabel, ruleMatchAll, ruleMatchAny, ruleMatchNone, ruleAddCondition, ruleAddGroup, ruleRemoveGroup
+    case ruleValuePlaceholder, ruleRegexPlaceholder, ruleRegexInvalid
+    case ruleAttrName, ruleAttrExtension, ruleAttrFolder, ruleAttrPath, ruleAttrKind
+    case ruleOpContains, ruleOpEquals, ruleOpBegins, ruleOpEnds, ruleOpRegex
+    case fileKindImage, fileKindMovie, fileKindAudio, fileKindPDF, fileKindDocument, fileKindSpreadsheet, fileKindPresentation
+    case fileKindText, fileKindSourceCode, fileKindArchive, fileKindApplication
+    case rulesEverything, rulesAnd, rulesOr, rulesNoneOf, ruleConditionFormat
+    case routineSave, routineSaveRun, routineRun, routineCopyName, routineDelete
+    case routineDeleteConfirmTitle, routineDeleteConfirmMessage, routineDeleteButton
+    case routineLastRun, routineNeverRun, routineJobs, routineNoJobs, toastRoutineQueued, toastRoutineSaved, logRoutineRun
+    case routineSampleTitle, routineSamplePlaceholder, routineSampleMatches, routineSampleNoMatch, routineSampleNote
+    case detailRoutine, detailRules
+    case intentRunRoutineTitle, intentRunRoutineDescription, intentRoutineParameter, intentRoutineTypeName
+    case intentRoutineQueued, intentRoutineNotFound, shortcutRunRoutine, menuBarRoutines, routineMore
 }
 
 extension StringTable {

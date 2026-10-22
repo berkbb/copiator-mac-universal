@@ -33,6 +33,7 @@
 13. **Snapshot Pruning Safety:** only `SnapshotStore.prune` deletes data, and only real directories directly inside the snapshot root whose names parse exactly as `yyyy-MM-dd-HHmmss`. It never removes the snapshot just created, partial snapshots, symlinks or any other item, runs only after a fully successful run with at least one retention rule, and retention must be confirmed in the UI when it is set or changed.
 14. **No Orphaned Engine:** every child process goes through `CommandRunner`, which registers it with `ChildProcessGuard`. The crash handler may only call async-signal-safe functions (`kill`, `raise`). Orphan reaping at launch kills a process only if its PID, exact start time and launchd parent all match the record.
 15. **User-Rejected Scope:** scheduled (time-based) jobs and remote (SSH) jobs are rejected (`context/user_rejected_spec.md`); jobs start manually, from the Finder service, from Shortcuts or when the destination disk is connected.
+16. **Routines Only Add:** rule-based jobs (`CopyOptions.rules`) never produce `--delete`; `Routine.jobOptions(for:)` and `RuleSelection.prepare` both force it off, and the rule scanner never enters protected personal folders when sandboxed. Rules are evaluated by the app, never translated into rsync glob patterns.
 
 ---
 

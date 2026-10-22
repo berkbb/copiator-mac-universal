@@ -47,11 +47,15 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     public var verifyAfterCopy: VerifyAfterCopy
     /// Hedef disk takılınca iş kendiliğinden başlar; disk takılı değilken bekler (hata vermez).
     public var runWhenConnected: Bool
+    /// Dosya seçme kuralları (rutin rotaları); nil ise kaynağın tamamı kopyalanır. Kurallar her çalıştırmada kaynakta
+    /// değerlendirilir (bkz. `RuleSelection`).
+    public var rules: RuleGroup?
 
     public init(
         copyMode: CopyMode = .folder, preservePermissions: Bool = false, preserveExtendedAttributes: Bool = true,
         deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions(),
-        snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false
+        snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false,
+        rules: RuleGroup? = nil
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -62,11 +66,12 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.snapshots = snapshots
         self.verifyAfterCopy = verifyAfterCopy
         self.runWhenConnected = runWhenConnected
+        self.rules = rules
     }
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
-        case snapshots, verifyAfterCopy, runWhenConnected
+        case snapshots, verifyAfterCopy, runWhenConnected, rules
     }
 
     public init(from decoder: Decoder) throws {
@@ -82,6 +87,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         snapshots = (try? container.decodeIfPresent(SnapshotOptions.self, forKey: .snapshots)) ?? defaults.snapshots
         verifyAfterCopy = (try? container.decodeIfPresent(VerifyAfterCopy.self, forKey: .verifyAfterCopy)) ?? defaults.verifyAfterCopy
         runWhenConnected = (try? container.decodeIfPresent(Bool.self, forKey: .runWhenConnected)) ?? defaults.runWhenConnected
+        rules = (try? container.decodeIfPresent(RuleGroup.self, forKey: .rules)) ?? nil
     }
 
     /// Seçeneklerdeki sorunlar (gelişmiş seçenekler ve saklama kuralları). Anlık görüntü kipinde "önceki yedek"
@@ -94,6 +100,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         }
         var problems = advanced.problems(source: source, now: now)
         if snapshots.enabled, !snapshots.isValid { problems.append(.invalidRetention) }
+        if let rules { problems += rules.problems().map { .rules($0) } }
         return problems
     }
 }
@@ -266,6 +273,10 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
     public var suspendedForDisk: Bool
     /// Önceki çalıştırmalar, eskiden yeniye.
     public var history: [JobRun]
+    /// İşi oluşturan rutin ve rota (rutin silinince nil olur; iş sıradan bir iş olarak kalır).
+    public var routineID: UUID?
+    public var routeID: UUID?
+    public var routineName: String?
 
     /// Günlükte tutulan en çok satır; uzun süreli işlerde kayıt dosyası şişmesin.
     public static let maxLogEntries = 500
@@ -291,11 +302,14 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         self.wasInterrupted = false
         self.suspendedForDisk = false
         self.history = []
+        self.routineID = nil
+        self.routeID = nil
+        self.routineName = nil
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, kind, source, destination, options, status, progress, result, log, createdAt, startedAt, finishedAt, wasInterrupted
-        case suspendedForDisk, history
+        case suspendedForDisk, history, routineID, routeID, routineName
     }
 
     public init(from decoder: Decoder) throws {
@@ -316,6 +330,9 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         wasInterrupted = (try? container.decodeIfPresent(Bool.self, forKey: .wasInterrupted)) ?? false
         suspendedForDisk = (try? container.decodeIfPresent(Bool.self, forKey: .suspendedForDisk)) ?? false
         history = (try? container.decodeIfPresent([JobRun].self, forKey: .history)) ?? []
+        routineID = (try? container.decodeIfPresent(UUID.self, forKey: .routineID)) ?? nil
+        routeID = (try? container.decodeIfPresent(UUID.self, forKey: .routeID)) ?? nil
+        routineName = (try? container.decodeIfPresent(String.self, forKey: .routineName)) ?? nil
     }
 
     /// Kaynağın hedefteki karşılığı: "klasörün kendisi" kipinde hedef/Ad, "içeriği" kipinde hedefin kendisi.

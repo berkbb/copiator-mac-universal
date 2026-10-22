@@ -41,7 +41,8 @@ func translationsAreNotEnglishFallbacks(code: String) throws {
     let english = try table("en")
     let other = try table(code)
     // Dilde gerçekten aynı yazılan sözcükler: "OK", "General" (tr/ro), "Active" (ro, "etkin" çoğulu).
-    let sameEverywhere: Set<String> = ["appName", "buttonOK", "progressSpeed", "notifyFailedBody", "settingsGeneral", "filterActive", "settingsRsync"]
+    let sameEverywhere: Set<String> = ["appName", "buttonOK", "progressSpeed", "notifyFailedBody", "settingsGeneral", "filterActive", "settingsRsync",
+                                       "fileKindPDF", "fileKindAudio", "fileKindText", "fileKindDocument"]
     let identical = LKey.allCases.map(\.rawValue).filter { key in
         guard let value = other[key], value == english[key], !sameEverywhere.contains(key) else { return false }
         return value.contains(where: \.isLetter)
@@ -119,6 +120,7 @@ func resultMessagesAreLocalizedAndFormatted(code: String) throws {
     let phrases = regex.matches(in: source, range: NSRange(source.startIndex..., in: source)).map { match in
         String(source[Range(match.range(at: 1), in: source)!])
             .replacingOccurrences(of: #"\(\.$job)"#, with: "${job}")
+            .replacingOccurrences(of: #"\(\.$routine)"#, with: "${routine}")
             .replacingOccurrences(of: #"\(.applicationName)"#, with: "${applicationName}")
     }
     #expect(phrases.count >= 4)
@@ -128,6 +130,7 @@ func resultMessagesAreLocalizedAndFormatted(code: String) throws {
         for (key, value) in table {
             #expect(value.contains("${applicationName}"), "\(code): \(key)")
             #expect(key.contains("${job}") == value.contains("${job}"), "\(code): \(key)")
+            #expect(key.contains("${routine}") == value.contains("${routine}"), "\(code): \(key)")
         }
     }
 }

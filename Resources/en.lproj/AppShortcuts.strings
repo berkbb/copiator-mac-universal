@@ -4,3 +4,4 @@
 "Back up ${job} with ${applicationName}" = "Back up ${job} with ${applicationName}";
 "Pause all jobs in ${applicationName}" = "Pause all jobs in ${applicationName}";
 "Resume all jobs in ${applicationName}" = "Resume all jobs in ${applicationName}";
+"Run ${routine} routine in ${applicationName}" = "Run ${routine} routine in ${applicationName}";
