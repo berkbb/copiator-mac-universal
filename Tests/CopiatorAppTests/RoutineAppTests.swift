@@ -147,6 +147,76 @@ struct RoutineAppTests {
         #expect(await IntentTarget.runRoutine(UUID()) == fixture.settings.t(.intentRoutineNotFound))
     }
 
+    /// Finder'da seçilen öğeler bir rutine gönderilir: her rota rotanın kaynağı yerine yalnızca bu öğelere uygulanır
+    /// (kuralları ve yerleşimiyle); rutinin kendi işleri değişmez. Kestirmeler eylemi aynı yolu izler.
+    @Test func sendSelectedItemsToARoutine() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        await model.refreshEngine()
+        IntentTarget.model = { model }
+        defer { IntentTarget.model = { AppModel.shared } }
+        try fixture.write("İndirilenler/Enerjisa Ekim 2026.pdf", "fatura")
+        try fixture.write("İndirilenler/tatil.HEIC", "foto")
+        try fixture.write("İndirilenler/seçilmeyen.pdf", "x")
+        let routine = Routine(name: "Gelen kutusu", routes: [
+            RoutineRoute(source: fixture.url("Ofis"), destination: fixture.url("Raporlar"),
+                         rules: RuleGroup(conditions: [RuleCondition(attribute: .fileExtension, op: .equals, value: "pdf")]),
+                         placement: RoutePlacement(folderTemplate: "{year}/{month}-{monthName}", dateSource: .fileName)),
+            RoutineRoute(source: fixture.url("Ofis"), destination: fixture.url("Fotograflar"),
+                         rules: RuleGroup(conditions: [RuleCondition(attribute: .kind, op: .equals, value: "image")])),
+        ])
+        #expect(model.saveRoutine(routine) == nil)
+        let items = [fixture.url("İndirilenler/Enerjisa Ekim 2026.pdf"), fixture.url("İndirilenler/tatil.HEIC")]
+        model.beginSendToRoutine(items)
+        #expect(model.routinePicker?.items == items)
+        model.routinePicker = nil
+
+        #expect(model.runRoutine(routine.id, on: items) == nil)
+        await model.waitUntilIdle()
+        let jobs = model.jobs(for: routine.id)
+        #expect(jobs.count == 2)
+        #expect(jobs.allSatisfy { $0.status == .finished && $0.routeID == nil && $0.options.selectedItems == ["Enerjisa Ekim 2026.pdf", "tatil.HEIC"] })
+        #expect(fixture.read("Raporlar/2026/10-Ekim/Enerjisa Ekim 2026.pdf") == "fatura")
+        #expect(fixture.read("Fotograflar/tatil.HEIC") == "foto")
+        let reports = try FileManager.default.subpathsOfDirectory(atPath: fixture.url("Raporlar").path)
+        #expect(!reports.contains { $0.hasSuffix("seçilmeyen.pdf") || $0.hasSuffix("fatura.pdf") })
+
+        #expect(await IntentTarget.runRoutine(routine.id, on: [fixture.url("İndirilenler/seçilmeyen.pdf")])
+            == fixture.settings.t(.intentRoutineQueued, "Gelen kutusu"))
+        await model.waitUntilIdle()
+        #expect(model.jobs(for: routine.id).count == 4)
+
+        // Sorunlar: öğe yok; öğeler hedefin üst klasöründe (hedef kaynağın içine düşer).
+        #expect(model.runRoutine(routine.id, on: []) == fixture.settings.t(.sendToRoutineNoItems))
+        #expect(model.runRoutine(routine.id, on: [fixture.url("Raporlar")]) != nil)
+        #expect(model.jobs(for: routine.id).count == 4)
+        model.alert = nil
+    }
+
+    /// Yerleştirmeli rota kuyruktan çalışır: addaki tarihle yıl klasörüne, ad şablonuyla.
+    @Test func placedRoutineRunsThroughTheQueue() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        await model.refreshEngine()
+        let route = RoutineRoute(source: fixture.url("Ofis"), destination: fixture.url("Raporlar"),
+                                 rules: RuleGroup(conditions: [RuleCondition(attribute: .fileExtension, op: .equals, value: "xlsx")]),
+                                 placement: RoutePlacement(folderTemplate: "{year}", nameTemplate: "rapor_{year}{month}{day}", dateSource: .fileName))
+        let routine = Routine(name: "Raporlar", routes: [route])
+        #expect(model.saveRoutine(routine) == nil)
+        #expect(model.runRoutine(routine.id) == nil)
+        await model.waitUntilIdle()
+        #expect(fixture.read("Raporlar/2026/rapor_20260131.xlsx") == "Ofis/2026/Ocak/satis_raporu_2026-01-31_v1.xlsx")
+        let job = try #require(model.jobs(for: routine.id).first)
+        #expect(job.status == .finished && job.options.placement == route.placement)
+        fixture.settings.language = .tr
+        #expect(fixture.settings.describe(route.placement) == "{year} / rapor_{year}{month}{day} • Dosya adındaki tarih")
+        #expect(fixture.settings.describe(RoutePlacement(folderTemplate: "{year}")) == "{year} / aynı ad • Otomatik")
+        #expect(fixture.settings.describe(RoutePlacement()) == nil)
+        #expect(fixture.settings.routineProblem(.placement(route: 0, .unknownToken("{yil}"))) == "Rota 1: Bilinmeyen belirteç: {yil}")
+    }
+
     @Test func rulesAreDescribedReadably() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
@@ -199,6 +269,7 @@ struct RoutineViewTests {
             RoutineRoute(source: fixture.url("Kaynak"), destination: fixture.url("Hedef")),
         ])
         routine.options.snapshots.enabled = true
+        routine.routes[1].placement = RoutePlacement(folderTemplate: "{year}/{month}-{monthName}", nameTemplate: "{yil}_{name}")
         let render = { (view: AnyView, size: NSSize, name: String) in
             _ = NSApplication.shared
             let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
@@ -219,11 +290,21 @@ struct RoutineViewTests {
         render(AnyView(RoutineEditorSheet(request: RoutineEditorRequest(routine: routine, isExisting: true))
             .environment(model).environment(settings)), NSSize(width: 680, height: 1300), "routine-editor")
         routine.routes[0].rules.groups[0].conditions.removeLast()
+        routine.routes[1].placement.nameTemplate = "{name}_{yy}"
         #expect(model.saveRoutine(routine) == nil)
         model.toggleQueueHold()
         model.runRoutine(routine.id)
         render(AnyView(ContentView().environment(model).environment(settings)), NSSize(width: 1080, height: 680), "routine-detail")
         render(AnyView(MenuBarContent().environment(model).environment(settings)), NSSize(width: 320, height: 320), "menubar-routines")
+        render(AnyView(RoutinePickerSheet(request: RoutinePickerRequest(items: [fixture.url("Kaynak/not.txt"), fixture.url("Kaynak/alt")]))
+            .environment(model).environment(settings)), NSSize(width: 520, height: 440), "send-to-routine")
+        render(AnyView(DestinationSummarySheet(request: DestinationSummaryRequest(destination: fixture.url("Kaynak"))).environment(settings)),
+               NSSize(width: 560, height: 560), "destination-summary-scanning")
+        try fixture.write("Kaynak/Fotoğraflar/a.jpg", String(repeating: "x", count: 4000))
+        try fixture.write("Kaynak/Belgeler/b.pdf", String(repeating: "x", count: 1500))
+        let summary = try DestinationSummary.compute(at: fixture.url("Kaynak"))
+        render(AnyView(DestinationSummarySheet(request: DestinationSummaryRequest(destination: fixture.url("Kaynak")), summary: summary)
+            .environment(settings)), NSSize(width: 560, height: 560), "destination-summary")
         model.selectedRoutineID = nil
         render(AnyView(ContentView().environment(model).environment(settings)), NSSize(width: 1080, height: 680), "queue-routines")
     }

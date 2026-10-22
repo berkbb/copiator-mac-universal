@@ -120,9 +120,11 @@ public final class RuleItem: @unchecked Sendable {
         public var tags: [String]?
         public var hiddenFlag: Bool?
         public var media: MediaInfo?
+        /// Dosyanın metni (PDF ya da düz metin; bkz. `ContentReader`).
+        public var text: String?
 
         public init(size: Int64? = nil, modified: Date? = nil, created: Date? = nil, added: Date? = nil, tags: [String]? = nil,
-                    hiddenFlag: Bool? = nil, media: MediaInfo? = nil) {
+                    hiddenFlag: Bool? = nil, media: MediaInfo? = nil, text: String? = nil) {
             self.size = size
             self.modified = modified
             self.created = created
@@ -130,6 +132,7 @@ public final class RuleItem: @unchecked Sendable {
             self.tags = tags
             self.hiddenFlag = hiddenFlag
             self.media = media
+            self.text = text
         }
     }
 
@@ -211,6 +214,14 @@ public final class RuleItem: @unchecked Sendable {
         } ?? false
     }
 
+    /// Dosyanın metni: yalnızca PDF ve düz metin dosyalarında, ilk sorulduğunda okunur.
+    public var textContent: String? {
+        value("text", \.text) {
+            guard !isDirectory, let url, ContentReader.canRead(type) else { return nil }
+            return ContentReader.text(of: url, type: type)
+        }
+    }
+
     public var media: MediaInfo? {
         get { metadata.media }
         set { metadata.media = newValue }
@@ -242,12 +253,16 @@ public struct RuleEvaluator: @unchecked Sendable {
     private let calendar: Calendar
     /// İçerik koşullarına uyan öğelerin (NFC) göreli yolları (Spotlight'tan).
     private let contentMatches: [UUID: Set<String>]
+    /// "Hedefte kopyası var" ölçütü için hedefin içerik dizini (hedef verilmediyse hiçbir dosya "var" sayılmaz).
+    private let destinationIndex: DestinationIndex?
 
-    public init(_ rules: RuleGroup, now: Date = Date(), calendar: Calendar = .current, contentMatches: [UUID: Set<String>] = [:]) throws {
+    public init(_ rules: RuleGroup, now: Date = Date(), calendar: Calendar = .current, contentMatches: [UUID: Set<String>] = [:],
+                destinationIndex: DestinationIndex? = nil) throws {
         self.rules = rules
         self.now = now
         self.calendar = calendar
         self.contentMatches = contentMatches
+        self.destinationIndex = destinationIndex
         var regexes: [UUID: NSRegularExpression] = [:]
         for condition in rules.allConditions where condition.op == .matchesRegex && condition.op.input(for: condition.attribute) == .text {
             regexes[condition.id] = try NSRegularExpression(pattern: condition.value.precomposedStringWithCanonicalMapping)
@@ -291,13 +306,24 @@ public struct RuleEvaluator: @unchecked Sendable {
         case .captureDate: return compare(item.media?.captureDate, condition)
         case .cameraModel: return item.media?.cameraModel.map { compare($0, condition) } ?? false
         case .hidden: return condition.op == .isTrue ? item.isHidden : !item.isHidden
+        case .inDestination:
+            var present = false
+            if let destinationIndex, !item.isDirectory, let url = item.url, let size = item.size {
+                present = destinationIndex.contains(url, size: size)
+            }
+            return condition.op == .isTrue ? present : !present
         case .tag:
             switch condition.op {
             case .isTrue: return !item.tags.isEmpty
             case .isFalse: return item.tags.isEmpty
             default: return item.tags.contains { compare($0, condition) }
             }
-        case .content: return contentMatches[condition.id]?.contains(item.relativePath) ?? false
+        case .content:
+            // Spotlight dizini bulduysa yeter; bulmadıysa (dizinlenmemiş birim, eski dizin) PDF ve metin dosyaları
+            // doğrudan okunur.
+            if contentMatches[condition.id]?.contains(item.relativePath) == true { return true }
+            guard let text = item.textContent else { return false }
+            return ContentReader.contains(text, condition.value)
         }
     }
 
@@ -404,16 +430,22 @@ public enum RuleScanner {
     ///   - skippedPaths: Hiç girilmeyecek göreli yollar (kum havuzunun okutmadığı kişisel klasörler).
     ///   - skippedNames: Hiçbir düzeyde girilmeyecek adlar (macOS sistem klasörleri).
     ///   - now: Göreli tarihlerin ("son 7 gün") başlangıcı.
+    ///   - destination: "Hedefte kopyası var" ölçütü için hedef (yalnızca o ölçüt kullanılıyorsa taranır).
+    ///   - onlyItems: Verilirse yalnızca kökteki bu öğeler (ve klasörse içleri) değerlendirilir (Finder'da seçilenler).
     public static func scan(
         _ root: URL, rules: RuleGroup, skippedPaths: Set<String> = [], skippedNames: Set<String> = [], now: Date = Date(),
-        isCancelled: () -> Bool = { false }
+        destination: URL? = nil, onlyItems: Set<String>? = nil, isCancelled: () -> Bool = { false }
     ) async throws -> Result {
         // İçerik koşulları taramadan önce Spotlight'a bir kez sorulur.
         var contentMatches: [UUID: Set<String>] = [:]
         for condition in rules.allConditions where condition.attribute == .content {
             contentMatches[condition.id] = Spotlight.relativePaths(containing: condition.value, in: root)
         }
-        let evaluator = try RuleEvaluator(rules, now: now, contentMatches: contentMatches)
+        let index = try destination.flatMap { destination in
+            try rules.allConditions.contains { $0.attribute == .inDestination } ? DestinationIndex(root: destination, isCancelled: isCancelled) : nil
+        }
+        let evaluator = try RuleEvaluator(rules, now: now, contentMatches: contentMatches, destinationIndex: index)
+        let onlyItems = onlyItems.map { Set($0.map(\.precomposedStringWithCanonicalMapping)) }
         let needsMedia = rules.allConditions.contains { $0.attribute.needsMedia }
         var result = Result()
         guard let enumerator = FileManager.default.enumerator(atPath: root.path) else { return result }
@@ -423,6 +455,11 @@ public enum RuleScanner {
             let attributes = enumerator.fileAttributes
             let isDirectory = attributes?[.type] as? FileAttributeType == .typeDirectory
             let name = (relative as NSString).lastPathComponent
+            if let onlyItems, let first = relative.split(separator: "/").first,
+               !onlyItems.contains(String(first).precomposedStringWithCanonicalMapping) {
+                if isDirectory { enumerator.skipDescendants() }
+                continue
+            }
             if skippedPaths.contains(relative) || skippedNames.contains(name) {
                 if isDirectory { enumerator.skipDescendants() }
                 continue

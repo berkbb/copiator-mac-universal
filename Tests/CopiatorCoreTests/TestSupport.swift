@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import CoreText
 import Foundation
+import ImageIO
+import Testing
+import UniformTypeIdentifiers
 @testable import CopiatorCore
 
 /// Paket kökü (Tests/CopiatorCoreTests/… → kök).
@@ -77,4 +81,35 @@ final class Collected<T: Sendable>: @unchecked Sendable {
 func engineContext(sandboxed: Bool = true, home: URL? = nil) async throws -> EngineContext {
     guard let url = vendoredRsync, let info = await EngineLocator.probe(url) else { throw EngineError.engineNotFound }
     return EngineContext(executable: url, info: info, sandboxed: sandboxed, home: home ?? FileManager.default.homeDirectoryForCurrentUser)
+}
+
+/// Tek renkli JPEG; isteğe bağlı EXIF çekim tarihi ("yyyy:MM:dd HH:mm:ss") ve TIFF kamera modeli.
+func writeJPEG(_ url: URL, width: Int, height: Int, taken: String?, model: String?) throws {
+    let context = try #require(CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+    context.setFillColor(CGColor(red: 0.2, green: 0.5, blue: 0.8, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    let image = try #require(context.makeImage())
+    let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil))
+    var properties: [CFString: Any] = [:]
+    if let taken { properties[kCGImagePropertyExifDictionary] = [kCGImagePropertyExifDateTimeOriginal: taken] }
+    if let model { properties[kCGImagePropertyTIFFDictionary] = [kCGImagePropertyTIFFModel: model] }
+    CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+    #expect(CGImageDestinationFinalize(destination))
+}
+
+/// Tek sayfalık, seçilebilir metinli PDF (CoreGraphics + CoreText); her satır ayrı çizilir.
+func writePDF(_ url: URL, lines: [String]) throws {
+    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    var box = CGRect(x: 0, y: 0, width: 595, height: 842)
+    let context = try #require(CGContext(url as CFURL, mediaBox: &box, nil))
+    context.beginPDFPage(nil)
+    let font = CTFontCreateWithName("Helvetica" as CFString, 14, nil)
+    for (index, line) in lines.enumerated() {
+        let text = NSAttributedString(string: line, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font])
+        context.textPosition = CGPoint(x: 72, y: 760 - CGFloat(index) * 24)
+        CTLineDraw(CTLineCreateWithAttributedString(text), context)
+    }
+    context.endPDFPage()
+    context.closePDF()
 }

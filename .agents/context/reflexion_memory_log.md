@@ -128,3 +128,15 @@
 - **Root Cause:** `CommandRunner` drained stdout and stderr with blocking reads on `DispatchQueue.global()`. When the matrix ran many processes beside other suites, a reader for `/bin/cat` was not scheduled before the 2-second `drainGracePeriod` that starts at process exit, so `runnerFeedsInput` saw empty output. `Process` itself does not leak pipe descriptors (checked with `lsof`).
 - **Guardrail:** each pipe is drained on its own `Thread`; the grace period only covers grandchildren holding a pipe open.
 
+## Episode 31: A Single Trim Let a Template Climb Out of the Destination
+- **Root Cause:** `RoutePlacement.component` trimmed spaces, removed leading dots, then trimmed spaces again. ". .." lost its first dot and its space and came out as "..", so a folder template could stage a path above the destination. Found by `fuzzPlacementAndDatesStaySafe` minutes after the feature was written; the hand-written red-team case used "../.." and passed.
+- **Guardrail:** trim spaces and leading dots in a loop until the value stops changing, and refuse staged targets with "." or ".." components (`redTeamPlacementNeverLeavesTheDestination` now uses ". ..").
+
+## Episode 32: rsync -L Reads Attributes From the Link
+- **Root Cause:** when building the placement staging tree, `rsync -L`/`--copy-unsafe-links` copied the referent's contents and times but took extended attributes from the symbolic link itself, so quarantine and Finder tags were lost; `-L` also followed links inside packages, turning `Versions/Current` into a copy and an absolute link into the contents of a file outside the source.
+- **Guardrail:** copy the source's attributes onto each staging link, use `--copy-unsafe-links`, mirror packages with only package-internal relative links, and test tags, quarantine and package links in `LivePlacementTests`.
+
+
+## Episode 33: A Fixed Sleep Before Cancel in the Resume Test
+- **Root Cause:** `interruptedCopyResumesWithTheSameCommand` cancelled after 400 ms. With the larger suite running in parallel, the cancel sometimes landed before the same-name check finished, so no `.conflictsSettled` event existed and the test's expectation about the resolution failed (the same timing flaw as Episode 23).
+- **Guardrail:** cancel once a progress event reports transferred bytes; never cancel on a fixed delay in engine tests.

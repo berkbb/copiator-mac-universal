@@ -107,11 +107,13 @@ public enum RsyncCommand {
         return arguments
     }
 
-    /// "İkisini de sakla": tek bir dosyayı hedefte verilen (numaralı) ada kopyalar.
+    /// "İkisini de sakla": tek bir dosyayı hedefte verilen (numaralı) ada kopyalar. Bağlantı ayarı ana kopyadakiyle
+    /// aynıdır (yerleştirmede kaynak hazırlık ağacındaki bir bağlantıdır).
     public static func singleFile(_ job: TransferJob, environment: Environment, source: String, destination: String) -> [String] {
         var arguments = baseFlags(job.options, environment)
         arguments += rsyncPathFlags(environment)
         arguments += metadataFlags(job.options, environment)
+        arguments += symlinkFlags(job.options.advanced)
         arguments += ["--", source, destination]
         assertSafe(arguments)
         return arguments
@@ -170,13 +172,7 @@ public enum RsyncCommand {
         if a.numericIDs { flags.append("--numeric-ids") }
         if a.oneFileSystem { flags.append("-x") }
         if let chmod = a.chmod { flags.append("--chmod=\(chmod)") }
-        // Bağlantılar
-        switch a.symlinks {
-        case .preserve: break
-        case .copyTargets: flags.append("-L")
-        case .copyUnsafeTargets: flags.append("--copy-unsafe-links")
-        case .skipUnsafe: flags.append("--safe-links")
-        }
+        flags += symlinkFlags(a)
         // Karşılaştırma
         if a.sizeOnly { flags.append("--size-only") }
         if let window = a.modifyWindowSeconds, !environment.destinationFileSystem.hasCoarseTimestamps {
@@ -247,6 +243,16 @@ public enum RsyncCommand {
     /// taşır. Kum havuzu bu yazmayı (doğru olarak) engeller ve kuru çalıştırma (doğrulama, önizleme) olmayan "._" dosyalarını
     /// açmaya çalışıp hata verir. Bu kipte karantina işareti `Quarantine.propagate` ile ayrıca aktarılır; seçenek
     /// `droppedOptions` ile günlüğe yazılır.
+    /// Bağlantıların kopyalanışı.
+    static func symlinkFlags(_ a: AdvancedOptions) -> [String] {
+        switch a.symlinks {
+        case .preserve: []
+        case .copyTargets: ["-L"]
+        case .copyUnsafeTargets: ["--copy-unsafe-links"]
+        case .skipUnsafe: ["--safe-links"]
+        }
+    }
+
     static func baseFlags(_ options: CopyOptions, _ environment: Environment) -> [String] {
         let xattrs = options.preserveExtendedAttributes && environment.engine.supportsXattrs && !environment.engine.isOpenrsync
         return [xattrs ? "-rltDhX" : "-rltDh"]

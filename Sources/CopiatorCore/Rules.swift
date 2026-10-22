@@ -48,8 +48,10 @@ public enum RuleAttribute: String, Codable, CaseIterable, Identifiable, Sendable
     case resolution
     case duration
     case cameraModel
-    /// Dosyanın içinde geçen metin (Spotlight dizininden).
+    /// Dosyanın içinde geçen metin (Spotlight dizininden; PDF ve metin dosyaları doğrudan da okunur).
     case content
+    /// Aynı içerikte bir dosya hedefte zaten var (adı ya da yeri farklı olsa da; bkz. `DestinationIndex`).
+    case inDestination
 
     public var id: String { rawValue }
 
@@ -70,7 +72,7 @@ public enum RuleAttribute: String, Codable, CaseIterable, Identifiable, Sendable
         case .kind: .kind
         case .size, .depth, .resolution, .duration: .number
         case .modified, .created, .added, .captureDate: .date
-        case .hidden: .flag
+        case .hidden, .inDestination: .flag
         }
     }
 
@@ -87,7 +89,7 @@ public enum RuleAttribute: String, Codable, CaseIterable, Identifiable, Sendable
         case .depth: [.atMost, .atLeast, .equals]
         case .modified, .created, .added, .captureDate: [.withinLast, .notWithinLast, .before, .after]
         case .tag: [.equals, .contains, .isTrue, .isFalse]
-        case .hidden: [.isTrue, .isFalse]
+        case .hidden, .inDestination: [.isTrue, .isFalse]
         case .content: [.contains]
         }
     }
@@ -243,6 +245,7 @@ public struct RuleCondition: Codable, Equatable, Identifiable, Sendable {
         case .duration: RuleCondition(attribute: .duration, op: .greaterThan, number: 1, unit: .minutes)
         case .depth: RuleCondition(attribute: .depth, op: .atMost, number: 0, unit: .levels)
         case .hidden: RuleCondition(attribute: .hidden, op: .isTrue)
+        case .inDestination: RuleCondition(attribute: .inDestination, op: .isFalse)
         case .tag: RuleCondition(attribute: .tag, op: .equals)
         default: RuleCondition(attribute: attribute)
         }

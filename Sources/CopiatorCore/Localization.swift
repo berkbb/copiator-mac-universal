@@ -208,7 +208,22 @@ public enum LKey: String, CaseIterable, Sendable {
     // Kuyruğu temizleme
     case toolbarClear, menuRemoveAll, removeAllConfirmTitle, removeAllConfirmMessage, removeAllConfirmButton
     // Rutinler
-    case logRulesMatched, logRulesNewlineSkipped, logRuleRegexTooComplex, routineSampleTooComplex
+    case logRulesMatched, logRulesNewlineSkipped, logRuleRegexTooComplex, routineSampleTooComplex, logPlacementLinksSkipped
+    // Hedefte yerleşim (alt klasör ve ad şablonları)
+    case placementTitle, placementFolder, placementFolderPrompt, placementPresets, placementPresetYearMonthName, placementPresetYearMonth
+    case placementPresetYear, placementKeepStructure, placementName, placementNamePrompt, placementInsertToken, placementTokenName
+    case placementTokenFolder, placementTokenYear, placementTokenYY, placementTokenMonth, placementTokenMonthName, placementTokenDay
+    case placementDateSource, placementDateAutomatic, placementDateFileName, placementDateContents, placementDateCapture
+    case placementDateModified, placementDateCreated, placementExample, placementNote, placementSampleFile, placementSameName
+    case problemPlacementToken, problemPlacementSlash, problemPlacementParent
+    // Hedefte kopyası var ölçütü
+    case ruleAttrInDestination, ruleOpExists, ruleOpNotExists
+    // Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi
+    case sendToRoutineTitle, sendToRoutineNone, sendToRoutineNoneNote, sendToRoutineNote, sendToRoutineNoItems, logRoutineOnItems
+    case detailSelectedItems, intentRunRoutineOnFilesTitle, intentRunRoutineOnFilesDescription, intentFilesParameter
+    case menuDestinationSummary, summaryScanning, summaryFailed, summaryVolume, summaryCounts, summaryFolders, summaryExtensions
+    case summaryRootFiles, summaryNoExtension, suggestFolders, suggestFoldersQuery, suggestFoldersPrompt, suggestFoldersEmpty
+    case suggestFoldersNone, suggestFoldersNote
     case problemRuleEmpty, problemRuleRegex, problemRuleKind, problemRuleDepth
     case routineRoutePrefix, routineProblemName, routineProblemNoRoutes, routineProblemSource, routineProblemDestination
     case routineProblemSourceFolder

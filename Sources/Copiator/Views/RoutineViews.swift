@@ -25,6 +25,7 @@ extension AppSettings {
         case .duration: t(.ruleAttrDuration)
         case .cameraModel: t(.ruleAttrCamera)
         case .content: t(.ruleAttrContent)
+        case .inDestination: t(.ruleAttrInDestination)
         }
     }
 
@@ -45,8 +46,8 @@ extension AppSettings {
         case .notWithinLast: t(.ruleOpNotWithinLast)
         case .before: t(.ruleOpBefore)
         case .after: t(.ruleOpAfter)
-        case .isTrue: t(attribute == .hidden ? .ruleOpHidden : .ruleOpHasTag)
-        case .isFalse: t(attribute == .hidden ? .ruleOpVisible : .ruleOpNoTag)
+        case .isTrue: t(attribute == .hidden ? .ruleOpHidden : attribute == .inDestination ? .ruleOpExists : .ruleOpHasTag)
+        case .isFalse: t(attribute == .hidden ? .ruleOpVisible : attribute == .inDestination ? .ruleOpNotExists : .ruleOpNoTag)
         }
     }
 
@@ -373,14 +374,19 @@ struct RoutineEditorSheet: View {
                                          panelMessage: settings.t(.panelChooseSource))
                         FolderChooserRow(title: settings.t(.newJobDestination), url: $route.destination, systemImage: "externaldrive",
                                          panelMessage: settings.t(.panelChooseDestination))
+                        HStack {
+                            Spacer()
+                            FolderSuggestionButton(destination: $route.destination, sample: sample)
+                        }
                         VStack(alignment: .leading, spacing: 6) {
                             Text(settings.t(.routineRules)).font(.headline)
                             RuleGroupEditor(group: $route.rules)
                         }
+                        PlacementEditor(placement: $route.placement, sample: sample)
                         HStack {
                             Button(settings.t(.newJobPreview), systemImage: "eye") { preview(route) }
                                 .disabled(route.source == nil || route.destination == nil || previewTask != nil
-                                          || !route.rules.problems().isEmpty)
+                                          || !route.rules.problems().isEmpty || !route.placement.problems().isEmpty)
                             if previewTask != nil { ProgressView().controlSize(.small) }
                             Spacer()
                             if routine.routes.count > 1 {
@@ -566,6 +572,15 @@ struct RoutineDetailView: View {
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let placement = settings.describe(route.placement) {
+                        LabeledContent(settings.t(.placementTitle), value: placement)
+                    }
+                    if let destination = route.destination {
+                        Button(settings.t(.menuDestinationSummary), systemImage: "chart.bar.doc.horizontal") {
+                            model.showDestinationSummary(destination)
+                        }
+                        .buttonStyle(.borderless)
                     }
                 }
             }

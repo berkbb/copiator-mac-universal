@@ -55,12 +55,18 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     /// Dosya seçme kuralları (rutin rotaları); nil ise kaynağın tamamı kopyalanır. Kurallar her çalıştırmada kaynakta
     /// değerlendirilir (bkz. `RuleSelection`).
     public var rules: RuleGroup?
+    /// Seçilen dosyaların hedefte yerleşimi (alt klasör ve ad şablonları; rutin rotaları). nil ise klasör yapısı ve adlar
+    /// olduğu gibi kalır (bkz. `RoutePlacement`, `PlacementStaging`).
+    public var placement: RoutePlacement?
+    /// Yalnızca kaynağın kökündeki bu öğeler (Finder'da seçilip bir rutine gönderilenler); nil ise kaynağın tamamı.
+    public var selectedItems: [String]?
 
     public init(
         copyMode: CopyMode = .folder, preservePermissions: Bool = false, preserveExtendedAttributes: Bool = true,
         deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions(),
         snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false,
-        rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask, suggestsRememberingConflictChoice: Bool = false
+        rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask, suggestsRememberingConflictChoice: Bool = false,
+        placement: RoutePlacement? = nil, selectedItems: [String]? = nil
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -74,11 +80,14 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.rules = rules
         self.conflictPolicy = conflictPolicy
         self.suggestsRememberingConflictChoice = suggestsRememberingConflictChoice
+        self.placement = placement
+        self.selectedItems = selectedItems
     }
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
-        case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy, suggestsRememberingConflictChoice
+        case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy, suggestsRememberingConflictChoice, placement
+        case selectedItems
     }
 
     public init(from decoder: Decoder) throws {
@@ -95,6 +104,8 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         verifyAfterCopy = (try? container.decodeIfPresent(VerifyAfterCopy.self, forKey: .verifyAfterCopy)) ?? defaults.verifyAfterCopy
         runWhenConnected = (try? container.decodeIfPresent(Bool.self, forKey: .runWhenConnected)) ?? defaults.runWhenConnected
         rules = (try? container.decodeIfPresent(RuleGroup.self, forKey: .rules)) ?? nil
+        placement = (try? container.decodeIfPresent(RoutePlacement.self, forKey: .placement)) ?? nil
+        selectedItems = (try? container.decodeIfPresent([String].self, forKey: .selectedItems)) ?? nil
         conflictPolicy = (try? container.decodeIfPresent(ConflictPolicy.self, forKey: .conflictPolicy)) ?? defaults.conflictPolicy
         // Ayarı hiç olmayan (bu sürümden önce kaydedilmiş) seçenekler eski kabul edilir.
         suggestsRememberingConflictChoice = (try? container.decodeIfPresent(Bool.self, forKey: .suggestsRememberingConflictChoice))

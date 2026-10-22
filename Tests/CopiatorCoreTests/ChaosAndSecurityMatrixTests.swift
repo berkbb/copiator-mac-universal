@@ -666,7 +666,69 @@ struct ChaosAndSecurityMatrixTests {
         #expect(entries(scratch).isEmpty)
     }
 
+    /// Elle hazırlanmış bir iş kaydındaki yerleşim şablonu ("../../Disari/{name}") bile dosyaları hedefin dışına
+    /// çıkaramaz: ".." ve "." bileşenleri atılır, her şey hedefin içine yazılır.
+    @Test(.enabled(if: live))
+    func redTeamPlacementNeverLeavesTheDestination() async throws {
+        let w = try Workspace("CopiatorMatrix")
+        let (context, scratch) = try await matrixContext(w)
+        try w.write("Kaynak/rapor.txt", "rapor\n")
+        try w.write("Kaynak/..ikinokta.txt", "iki nokta\n")
+        let placement = RoutePlacement(folderTemplate: "../. ../ . ../Disari/{name}/./..", nameTemplate: "../{name}")
+        var job = TransferJob(source: w.url("Kaynak"), destination: try w.mkdir("Hedef"),
+                              options: CopyOptions(copyMode: .contents, rules: RuleGroup(), placement: placement))
+        let result = await run(&job, context)
+        #expect(result.kind == .succeeded, "\(result) \(job.log.suffix(5))")
+        #expect(files(w.url("Hedef")) == ["Disari/rapor/-rapor.txt": "rapor\n", "Disari/ikinokta/-..ikinokta.txt": "iki nokta\n"])
+        #expect(!w.exists("Disari"))
+        #expect(entries(scratch).isEmpty)
+    }
+
     // MARK: 10 Fuzz
+
+    /// Rastgele şablonlar ve adlarla yerleşim: hedef yolu mutlak değildir, "..", "." ya da boş bileşen içermez; şablonun
+    /// ürettiği bileşenler (klasör yapısı korunmuyorsa klasörler, ad şablonu varsa ad) noktayla başlamaz, ":" ya da denetim
+    /// karakteri içermez ve 255 baytı aşmaz. Kaynaktan olduğu gibi gelen bileşenler (gerçek klasör ve dosya adları)
+    /// korunur. Metinden tarih bulucu rastgele metinde çökmez ve yalnızca geçerli tarih verir.
+    @Test(arguments: [UInt64(13), 0xBEEF, 0x5A5A])
+    func fuzzPlacementAndDatesStaySafe(seed: UInt64) {
+        var generator = SplitMix64(seed: seed)
+        let pieces = ["{year}", "{yy}", "{month}", "{monthName}", "{day}", "{name}", "{folder}", "{yil}", "..", "/", ".", ":", " ",
+                      "\n", "a", "ğ", "İ", "\u{202E}", String(repeating: "u", count: 120), "{", "}"]
+        let names = ["rapor.pdf", ".gizli", "a:b.txt", "Ekim 2026.pdf", "ş", String(repeating: "ö", count: 120) + ".txt", "x.tar.gz", "-n"]
+        let words = ["Ekim", "2026", "15.08.26", "mart", "martie", "/", "-", "_", " ", "99", "00", "13", "aralık", "ARALIK", "Ağustos", "08/2026"]
+        for _ in 0..<500 {
+            func pick(_ list: [String], _ count: Int) -> String {
+                (0..<count).map { _ in list[Int(generator.next() % UInt64(list.count))] }.joined()
+            }
+            let placement = RoutePlacement(folderTemplate: pick(pieces, Int(generator.next() % 6)), keepStructure: generator.next() % 2 == 0,
+                                           nameTemplate: pick(pieces, Int(generator.next() % 5)), language: ["tr", "en", "ro"][Int(generator.next() % 3)])
+            let path = (0..<Int(1 + generator.next() % 3)).map { _ in names[Int(generator.next() % UInt64(names.count))] }.joined(separator: "/")
+            let date = generator.next() % 4 == 0 ? nil : DateComponents(year: 1980 + Int(generator.next() % 120), month: 1 + Int(generator.next() % 12))
+            let target = placement.target(for: path, date: date)
+            let components = target.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+            #expect(!target.hasPrefix("/"), "\(target.debugDescription)")
+            #expect(components.allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." }, "\(target.debugDescription)")
+            var generated: [String] = []
+            if !placement.folderTemplate.trimmingCharacters(in: .whitespaces).isEmpty, !placement.keepStructure {
+                generated += components.dropLast()
+            }
+            let original = (path as NSString).lastPathComponent
+            if !placement.nameTemplate.trimmingCharacters(in: .whitespaces).isEmpty, let name = components.last,
+               name != original, !original.hasPrefix(".") || !name.hasPrefix(".") {
+                generated.append(name)
+            }
+            #expect(generated.allSatisfy { part in
+                !part.hasPrefix(".") && !part.contains(":") && part.utf8.count <= 255
+                    && !part.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+            }, "\(target.debugDescription)")
+
+            if let found = TextDate.find(in: pick(words, Int(generator.next() % 6))) {
+                #expect((1980...2099).contains(found.year ?? 0) && (1...12).contains(found.month ?? 0))
+                #expect(found.day.map { (1...31).contains($0) } ?? true)
+            }
+        }
+    }
 
     /// `-ii` çıktısı bozulsa da (rastgele kodlar, kesik satırlar, kaçışlar) aynı adlı dosya ayrıştırıcısı çökmez, boş ya
     /// da "/" ile biten yol üretmez, satır sayısından fazla çakışma bulmaz ve her seferinde aynı sonucu verir.

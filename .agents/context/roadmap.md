@@ -19,6 +19,7 @@
 7. ⬜ **[Low] Low-priority I/O option** (e.g. `taskpolicy`-style background I/O for rsync).
 
 9c. ⬜ **[Low] `--read-batch` as its own job kind** (apply a batch file to a destination).
+9d. ⬜ **[Medium] Archive follow-ups — decision pending (raised on 2026-10-22 while porting the user's `ev` archive scripts):** undo the last run (only files the run created can be removed; replaced files need a backup folder), optional on-device suggestions with Apple's Foundation Models (never cloud AI, never automatic decisions), and two-way sync with folder mapping (two routines with "ask" cover most of it today, not deletions). Each needs an explicit user decision before any work.
 9b. ⬜ **[Low] "Move" mode (`--remove-source-files`) — decision pending, deferred by the user on 2026-10-21.** It conflicts with the "source is never modified" invariant (`AGENTS.md` §1.1) and needs an explicit user decision before any work.
 
 ### Verification & Distribution

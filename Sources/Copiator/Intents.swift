@@ -13,6 +13,7 @@ enum IntentTarget {
 
     static func runJob(_ id: UUID) async -> String { await model().runFromShortcut(id) }
     static func runRoutine(_ id: UUID) async -> String { await model().runRoutineFromShortcut(id) }
+    static func runRoutine(_ id: UUID, on files: [URL]) async -> String { await model().runRoutineOnFilesFromShortcut(id, files: files) }
     static func pauseAll() async -> String { await model().pauseAllFromShortcut() }
     static func resumeAll() async -> String { await model().resumeAllFromShortcut() }
 }
@@ -95,6 +96,33 @@ struct RunRoutineIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let message = await IntentTarget.runRoutine(routine.id)
+        return .result(dialog: "\(message)")
+    }
+}
+
+/// Bir rutini verilen dosyalarla çalıştırır (Kestirmeler'de Finder Hızlı Eylemi olarak kullanılabilir): her rota rotanın
+/// kaynağı yerine bu dosyalara kurallarını ve yerleşimini uygular.
+/// (`@Parameter` özelliği değişken olduğu için tür `nonisolated` işaretlenemez; sabitler ayrıca işaretlenir.)
+struct RunRoutineOnFilesIntent: AppIntent {
+    nonisolated static let title: LocalizedStringResource = "intentRunRoutineOnFilesTitle"
+    nonisolated static let description = IntentDescription("intentRunRoutineOnFilesDescription")
+    nonisolated static let openAppWhenRun = false
+
+    @Parameter(title: "intentRoutineParameter")
+    var routine: RoutineEntity
+
+    @Parameter(title: "intentFilesParameter")
+    var files: [IntentFile]
+
+    init() {}
+
+    init(routine: RoutineEntity, files: [IntentFile]) {
+        self.routine = routine
+        self.files = files
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let message = await IntentTarget.runRoutine(routine.id, on: files.compactMap(\.fileURL))
         return .result(dialog: "\(message)")
     }
 }
@@ -187,6 +215,17 @@ extension AppModel {
         guard JobQueue.canResume(job) || JobQueue.canRunAgain(job) else { return settings.t(.intentJobCannotRun, name) }
         resume([id])
         return settings.t(.intentRunJobStarted, name)
+    }
+
+    /// Kestirmeden gelen "rutini şu dosyalarla çalıştır".
+    func runRoutineOnFilesFromShortcut(_ id: Routine.ID, files: [URL]) async -> String {
+        await launch()
+        guard let routine = routine(id) else { return settings.t(.intentRoutineNotFound) }
+        if let message = runRoutine(id, on: files) {
+            alert = nil
+            return message
+        }
+        return settings.t(.intentRoutineQueued, routine.name)
     }
 
     /// Kestirmeden gelen "rutini çalıştır".

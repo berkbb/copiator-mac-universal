@@ -61,6 +61,9 @@ public struct RsyncEngine: TransferEngine {
             if selection.skippedNewlines > 0 {
                 onEvent(.log(JobLogEntry(level: .warning, key: .logRulesNewlineSkipped, arguments: [String(selection.skippedNewlines)])))
             }
+            if selection.skippedLinks > 0 {
+                onEvent(.log(JobLogEntry(level: .warning, key: .logPlacementLinksSkipped, arguments: [String(selection.skippedLinks)])))
+            }
             job.options.rules = nil
         }
 
@@ -82,15 +85,15 @@ public struct RsyncEngine: TransferEngine {
         // Ön denetim: kaynağın boyutu, hedefte zaten bulunan kopya kadar azaltılarak boş alanla karşılaştırılır. Anlık
         // görüntüde değişmeyen dosyalar önceki anlık görüntüyle paylaşıldığı için o da "zaten var" sayılır.
         // Kurallı işte yalnızca seçilen dosyalar sayılır.
-        let sourceBytes = DiskSpace.totalSize(of: selection.map { $0.paths.map { job.source.appendingPathComponent($0) } } ?? [job.source],
+        let sourceBytes = DiskSpace.totalSize(of: selection.map { s in s.paths.map { s.source.appendingPathComponent($0) } } ?? [job.source],
                                               isCancelled: { Task.isCancelled })
-        let counterparts = selection.map { $0.paths.map { job.destination.appendingPathComponent($0) } }
+        let counterparts = selection.map { $0.targets.map { job.destination.appendingPathComponent($0) } }
             ?? Self.existingCounterparts(of: job, sourceIsDirectory: sourceIsDirectory)
         var existing = DiskSpace.totalSize(of: counterparts, isCancelled: { Task.isCancelled })
         if let previous = preparation?.previous {
             var previousJob = job
             previousJob.destination = previous
-            let previousCounterparts = selection.map { $0.paths.map { previous.appendingPathComponent($0) } }
+            let previousCounterparts = selection.map { $0.targets.map { previous.appendingPathComponent($0) } }
                 ?? Self.existingCounterparts(of: previousJob, sourceIsDirectory: sourceIsDirectory)
             existing = max(existing, DiskSpace.totalSize(of: previousCounterparts, isCancelled: { Task.isCancelled }))
         }
@@ -107,7 +110,7 @@ public struct RsyncEngine: TransferEngine {
         let advanced = job.options.advanced
         let profile = context.sandboxed
             ? SandboxProfile.forTransfer(
-                sources: [job.source], destination: job.destination, home: context.home,
+                sources: Self.readSources(job, selection), destination: job.destination, home: context.home,
                 extraReadable: advanced.readablePaths, extraWritableFiles: advanced.writableFiles,
                 extraWritableDirectories: advanced.writableDirectories
             )
@@ -520,7 +523,7 @@ public struct RsyncEngine: TransferEngine {
         // ve önceki yedek okunabilir kalır; karşılaştırmayı etkilerler.
         var profile = context.sandboxed
             ? SandboxProfile.forTransfer(
-                sources: [job.source], destination: job.destination, home: context.home,
+                sources: Self.readSources(job, selection), destination: job.destination, home: context.home,
                 extraReadable: job.options.advanced.readablePaths
             )
             : nil
@@ -577,6 +580,12 @@ public struct RsyncEngine: TransferEngine {
             options[keyPath: keyPath] = SandboxProfile.resolved(copy).path
         }
         return folder
+    }
+
+    /// Kum havuzunda salt okunur kaynaklar: yerleştirmede hazırlık ağacı ve bağlantıların gösterdiği asıl kaynak.
+    static func readSources(_ job: TransferJob, _ selection: RuleSelection.Prepared?) -> [URL] {
+        guard let selection, selection.staged else { return [job.source] }
+        return [job.source, selection.source]
     }
 
     public static func resultKind(for problem: JobValidation.Problem) -> JobResultKind {

@@ -84,10 +84,18 @@ struct EngineIntegrationTests {
         try handle.close()
         let job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"))
 
-        let first = Task { try await run(job) }
-        try await Task.sleep(for: .milliseconds(400))
+        // Aktarım başlayınca kesilir (aynı adlı dosya denetimi bitmiş olur); sabit bir bekleme yükte denetimin ortasına düşebilirdi.
+        let live = Collected<TransferEvent>()
+        let context = try await engineContext()
+        let first = Task { await RsyncEngine().run(job, context: context) { live.add($0) } }
+        let copying = ContinuousClock.now + .seconds(60)
+        while ContinuousClock.now < copying,
+              !live.values.contains(where: { if case .progress(let p) = $0 { p.bytesTransferred > 0 } else { false } }) {
+            try await Task.sleep(for: .milliseconds(20))
+        }
         first.cancel()
-        let (cancelled, firstEvents) = try await first.value
+        let cancelled = await first.value
+        let firstEvents = live.values
         #expect(cancelled.kind == .cancelled)
 
         // Uygulamadaki gibi olaylar işe uygulanır: bu geçişin hedefe yazdığı (yarım) dosyalar sürdürmede yeniden sorulmaz.

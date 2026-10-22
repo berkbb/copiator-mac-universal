@@ -60,6 +60,24 @@
 				<string>public.item</string>
 			</array>
 		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Send to a Copiator Routine</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>sendToRoutine</string>
+			<key>NSPortName</key>
+			<string>Copiator</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.folder</string>
+				<string>public.item</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

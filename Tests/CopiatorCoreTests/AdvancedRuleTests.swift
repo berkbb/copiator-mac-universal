@@ -152,20 +152,6 @@ private func matches(_ rules: RuleGroup, _ path: String = "a/b.dat", metadata: R
     #expect(try await scan(combined) == ["kucuk.txt", "eski.txt"])
 }
 
-private func writeJPEG(_ url: URL, width: Int, height: Int, taken: String?, model: String?) throws {
-    let context = try #require(CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
-    context.setFillColor(CGColor(red: 0.2, green: 0.5, blue: 0.8, alpha: 1))
-    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-    let image = try #require(context.makeImage())
-    let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil))
-    var properties: [CFString: Any] = [:]
-    if let taken { properties[kCGImagePropertyExifDictionary] = [kCGImagePropertyExifDateTimeOriginal: taken] }
-    if let model { properties[kCGImagePropertyTIFFDictionary] = [kCGImagePropertyTIFFModel: model] }
-    CGImageDestinationAddImage(destination, image, properties as CFDictionary)
-    #expect(CGImageDestinationFinalize(destination))
-}
-
 /// Gelişmiş kurallarla gerçek kopya: son 7 günde değişmiş ve 1 KB'tan büyük dosyalar, yapı korunarak.
 @Suite(.enabled(if: vendoredRsync != nil, "Vendor/rsync/rsync yok"), .serialized)
 struct AdvancedRuleEngineTests {

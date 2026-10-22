@@ -448,6 +448,7 @@ final class AppSettings {
         case .sourceNotFolder(let index): route(index, t(.routineProblemSourceFolder))
         case .path(let index, let problem): route(index, result(JobResult(kind: RsyncEngine.resultKind(for: problem))))
         case .rules(let index, let problem): route(index, rulesProblem(problem))
+        case .placement(let index, let problem): route(index, placementProblem(problem))
         case .options(let problem): self.problem(problem)
         }
     }

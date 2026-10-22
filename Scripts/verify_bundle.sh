@@ -40,7 +40,7 @@ grep -q "GNU GENERAL PUBLIC LICENSE" "$APP/Contents/Resources/Copiator-License.t
 # Kestirmeler (App Intents): eylemler ve Siri ifadeleri meta veride bulunmalı.
 ACTIONS="$APP/Contents/Resources/Metadata.appintents/extract.actionsdata"
 if [ -f "$ACTIONS" ]; then
-  for action in RunJobIntent RunRoutineIntent PauseAllJobsIntent ResumeAllJobsIntent; do
+  for action in RunJobIntent RunRoutineIntent RunRoutineOnFilesIntent PauseAllJobsIntent ResumeAllJobsIntent; do
     grep -q "\"$action\"" "$ACTIONS" || fail "Kestirmeler meta verisinde eksik eylem: $action"
   done
   grep -q '"autoShortcuts"' "$ACTIONS" || fail "Kestirmeler meta verisinde Siri ifadeleri yok"

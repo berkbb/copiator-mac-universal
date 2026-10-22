@@ -22,6 +22,10 @@ struct SidebarView: View {
                     Label(OpenSafety.visibleName(routine.name), systemImage: "wand.and.stars")
                         .lineLimit(1)
                         .tag(SidebarItem.routine(routine.id))
+                        // Finder'dan bırakılan öğeler bu rutinle kopyalanır.
+                        .dropDestination(for: URL.self) { urls, _ in
+                            model.runRoutine(routine.id, on: urls.filter(\.isFileURL)) == nil
+                        }
                         .contextMenu {
                             Button(settings.t(.routineRun), systemImage: "play.fill") { model.runRoutine(routine.id) }
                             Button(settings.t(.menuEditJob), systemImage: "pencil") { model.beginEditRoutine(routine.id) }
@@ -133,6 +137,7 @@ struct JobListView: View {
         Divider()
         Button(settings.t(.menuShowSource), systemImage: "folder") { model.revealSource(job.id) }
         Button(settings.t(.menuShowDestination), systemImage: "externaldrive") { model.revealDestination(job.id) }
+        Button(settings.t(.menuDestinationSummary), systemImage: "chart.bar.doc.horizontal") { model.showDestinationSummary(job.destination) }
         Divider()
         Button(settings.t(.menuRemoveJob), systemImage: "trash", role: .destructive) { model.remove(ids) }
             .disabled(!JobQueue.canRemove(job))
@@ -319,6 +324,10 @@ struct JobDetailView: View {
                         if job.options.snapshots.enabled { row(.detailSnapshots, snapshotSummary(job)) }
                         if let routineName = job.routineName, job.routineID != nil { row(.detailRoutine, OpenSafety.visibleName(routineName)) }
                         if let rules = job.options.rules { row(.detailRules, settings.describe(rules), lineLimit: nil) }
+                        if let placement = job.options.placement.flatMap(settings.describe) { row(.placementTitle, placement, lineLimit: nil) }
+                        if let items = job.options.selectedItems {
+                            row(.detailSelectedItems, items.map(OpenSafety.visibleName).joined(separator: ", "), lineLimit: nil)
+                        }
                         row(.detailMode, settings.t(job.options.copyMode == .folder ? .modeFolder : .modeContents))
                         row(.detailOptions, optionsSummary(job.options), lineLimit: nil)
                         row(.detailStatus, settings.t(job.status.titleKey))

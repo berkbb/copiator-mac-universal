@@ -89,6 +89,18 @@ struct ConflictPrompt: Identifiable, Equatable {
     let id: TransferJob.ID
 }
 
+/// Finder'da seçilip bir rutine gönderilen öğeler (rutin seçme sayfası).
+struct RoutinePickerRequest: Identifiable {
+    let id = UUID()
+    var items: [URL]
+}
+
+/// Bir hedef klasörün özeti (doluluk, klasörlere ve uzantılara göre boyut).
+struct DestinationSummaryRequest: Identifiable {
+    let id = UUID()
+    var destination: URL
+}
+
 /// Kenar çubuğunun seçimi: bir iş süzgeci ya da bir rutin.
 enum SidebarItem: Hashable {
     case filter(JobFilter)
@@ -166,6 +178,10 @@ final class AppModel {
     var routineEditor: RoutineEditorRequest?
     /// Karar bekleyen işin çakışma sayfası.
     var conflictPrompt: ConflictPrompt?
+    /// Seçili öğeleri bir rutine gönderme sayfası.
+    var routinePicker: RoutinePickerRequest?
+    /// Hedef özeti sayfası.
+    var summaryRequest: DestinationSummaryRequest?
 
     /// Kenar çubuğunun seçimi: süzgeç ya da rutin.
     var sidebarSelection: SidebarItem {
@@ -652,6 +668,58 @@ final class AppModel {
         routine.lastRunAt = Date()
         if let index = routines.firstIndex(where: { $0.id == id }) { routines[index] = routine }
         saveRoutines()
+        save()
+        showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
+        scheduleNext()
+        return nil
+    }
+
+    /// Finder'da seçilen öğeleri bir rutine göndermek için rutin seçme sayfasını açar.
+    func beginSendToRoutine(_ items: [URL]) {
+        guard !items.isEmpty else { return }
+        routinePicker = RoutinePickerRequest(items: items)
+    }
+
+    func showDestinationSummary(_ destination: URL) {
+        summaryRequest = DestinationSummaryRequest(destination: destination)
+    }
+
+    /// Rutini seçilen öğelerle çalıştırır: her rota, rotanın kaynak klasörü yerine öğelerin bulunduğu klasörde yalnızca bu
+    /// öğelere kurallarını ve yerleşimini uygular. Her (klasör, rota) için kuyruğa tek seferlik bir iş girer; rutinin
+    /// kendi işleri değişmez. - Returns: Sorun varsa açıklaması.
+    @discardableResult
+    func runRoutine(_ id: Routine.ID, on items: [URL]) -> String? {
+        guard let routine = routine(id) else { return t(.intentRoutineNotFound) }
+        let items = items.map(\.standardizedFileURL).filter { FileManager.default.fileExists(atPath: $0.path) }
+        func fail(_ message: String) -> String {
+            alert = AlertItem(title: t(.errorTitle), message: message)
+            return message
+        }
+        guard !items.isEmpty else { return fail(t(.sendToRoutineNoItems)) }
+        let problems = routine.problems(checkPaths: false).filter {
+            if case .missingSource = $0 { return false }
+            return true
+        }
+        if let problem = problems.first { return fail(settings.routineProblem(problem)) }
+        let groups = Dictionary(grouping: items) { $0.deletingLastPathComponent() }.sorted { $0.key.path < $1.key.path }
+        var added: [TransferJob] = []
+        for route in routine.routes {
+            guard let destination = route.destination else { continue }
+            for (folder, members) in groups {
+                if let problem = JobValidation.check(source: folder, destination: destination, copyMode: .contents) {
+                    return fail(settings.result(JobResult(kind: RsyncEngine.resultKind(for: problem))))
+                }
+                var options = routine.jobOptions(for: route)
+                options.selectedItems = members.map(\.lastPathComponent).sorted()
+                options.runWhenConnected = false
+                var job = TransferJob(source: folder, destination: destination, options: options)
+                job.routineID = routine.id
+                job.routineName = routine.name
+                job.appendLog(JobLogEntry(level: .info, key: .logRoutineOnItems, arguments: [routine.name, String(members.count)]))
+                added.append(job)
+            }
+        }
+        jobs += added
         save()
         showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
         scheduleNext()

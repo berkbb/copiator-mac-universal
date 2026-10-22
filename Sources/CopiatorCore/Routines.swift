@@ -49,6 +49,7 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
         options.copyMode = .contents
         options.deleteExtraneous = false
         options.rules = route.rules
+        options.placement = route.placement.isActive ? route.placement : nil
         return options
     }
 
@@ -63,6 +64,7 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
         /// Kaynak ya da hedef yok (diski takılı değil olabilir).
         case path(route: Int, JobValidation.Problem)
         case rules(route: Int, RuleGroup.Problem)
+        case placement(route: Int, RoutePlacement.Problem)
         case options(AdvancedOptions.Problem)
     }
 
@@ -82,6 +84,7 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
                 continue
             }
             problems += route.rules.problems().map { .rules(route: index, $0) }
+            problems += route.placement.problems().map { .placement(route: index, $0) }
             guard checkPaths else { continue }
             if let problem = JobValidation.check(source: source, destination: destination, copyMode: .contents) {
                 problems.append(.path(route: index, problem))
@@ -94,21 +97,24 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-/// Rutinin bir rotası: kaynak klasör, kurallar, hedef klasör.
+/// Rutinin bir rotası: kaynak klasör, kurallar, hedef klasör ve hedefte yerleşim (alt klasör ve ad şablonları).
 public struct RoutineRoute: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
     public var source: URL?
     public var destination: URL?
     public var rules: RuleGroup
+    public var placement: RoutePlacement
 
-    public init(id: UUID = UUID(), source: URL? = nil, destination: URL? = nil, rules: RuleGroup = RuleGroup()) {
+    public init(id: UUID = UUID(), source: URL? = nil, destination: URL? = nil, rules: RuleGroup = RuleGroup(),
+                placement: RoutePlacement = RoutePlacement()) {
         self.id = id
         self.source = source
         self.destination = destination
         self.rules = rules
+        self.placement = placement
     }
 
-    private enum CodingKeys: String, CodingKey { case id, source, destination, rules }
+    private enum CodingKeys: String, CodingKey { case id, source, destination, rules, placement }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -116,6 +122,7 @@ public struct RoutineRoute: Codable, Equatable, Identifiable, Sendable {
         source = (try? c.decodeIfPresent(URL.self, forKey: .source)) ?? nil
         destination = (try? c.decodeIfPresent(URL.self, forKey: .destination)) ?? nil
         rules = (try? c.decodeIfPresent(RuleGroup.self, forKey: .rules)) ?? RuleGroup()
+        placement = (try? c.decodeIfPresent(RoutePlacement.self, forKey: .placement)) ?? RoutePlacement()
     }
 }
 
@@ -185,12 +192,20 @@ extension Lossy: Encodable where T: Encodable {
 public enum RuleSelection {
     public struct Prepared: Sendable {
         public var folder: URL
-        /// Seçilen göreli yollar.
+        /// Asıl kaynak (yerleştirmede işin kaynağı hazırlık ağacına döner).
+        public var source: URL
+        /// Seçilen göreli yollar (kaynağa göre).
         public var paths: [String]
+        /// Her seçilen yolun hedefe göre göreli yolu (yerleştirme yoksa `paths` ile aynı).
+        public var targets: [String]
         public var matched: Int
         public var scanned: Int
         /// Adında satır sonu olduğu için listeye yazılamayan yollar (yalnızca `--from0` desteklemeyen motorda).
         public var skippedNewlines: Int
+        /// Yerleştirmede kopyalanmayan sembolik bağlantılar (bkz. `PlacementStaging`).
+        public var skippedLinks: Int = 0
+        /// İş hazırlık ağacından kopyalanıyor (asıl kaynak kum havuzunda ayrıca okunabilir olmalı).
+        public var staged: Bool = false
     }
 
     /// - Parameters:
@@ -204,8 +219,27 @@ public enum RuleSelection {
     ) async throws -> Prepared? {
         guard let rules = job.options.rules else { return nil }
         let skippedNames = job.options.excludeSystemFolders ? Set(RsyncCommand.systemExclusions) : []
+        let selected = job.options.selectedItems.map(Set.init)
         let result = try await RuleScanner.scan(job.source, rules: rules, skippedPaths: skippedPaths, skippedNames: skippedNames,
-                                                isCancelled: isCancelled)
+                                                destination: job.destination, onlyItems: selected, isCancelled: isCancelled)
+        let source = job.source
+        let folder = scratch.appendingPathComponent("Copiator-rules-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        job.options.copyMode = .contents
+        job.options.deleteExtraneous = false
+        // Yerleştirme: hedefteki düzen hazırlık ağacında kurulur, iş onu kopyalar (liste gerekmez).
+        if let placement = job.options.placement, placement.isActive {
+            let staged = try await PlacementStaging.build(paths: result.paths, source: source, placement: placement,
+                                                          in: folder.appendingPathComponent("yerlesim", isDirectory: true),
+                                                          isCancelled: isCancelled)
+            job.source = staged.root
+            job.options.placement = nil
+            job.options.advanced.filesFromFile = nil
+            job.options.advanced.filesFromZeroTerminated = false
+            if job.options.advanced.symlinks != .copyTargets { job.options.advanced.symlinks = .copyUnsafeTargets }
+            return Prepared(folder: folder, source: source, paths: staged.paths, targets: staged.targets, matched: staged.paths.count,
+                            scanned: result.scanned, skippedNewlines: 0, skippedLinks: staged.skippedLinks, staged: true)
+        }
         var paths = result.paths
         var skipped = 0
         if !zeroTerminated {
@@ -215,15 +249,12 @@ public enum RuleSelection {
                 return !bad
             }
         }
-        let folder = scratch.appendingPathComponent("Copiator-rules-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let list = folder.appendingPathComponent("secilenler.txt")
         let separator = zeroTerminated ? "\u{0}" : "\n"
         try Data(paths.map { $0 + separator }.joined().utf8).write(to: list)
-        job.options.copyMode = .contents
-        job.options.deleteExtraneous = false
         job.options.advanced.filesFromFile = SandboxProfile.resolved(list).path
         job.options.advanced.filesFromZeroTerminated = zeroTerminated
-        return Prepared(folder: folder, paths: paths, matched: paths.count, scanned: result.scanned, skippedNewlines: skipped)
+        return Prepared(folder: folder, source: source, paths: paths, targets: paths, matched: paths.count, scanned: result.scanned,
+                        skippedNewlines: skipped)
     }
 }
