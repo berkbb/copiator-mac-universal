@@ -115,6 +115,11 @@ struct AppCommands: Commands {
                 model.beginNewRoutine()
             }
             .keyboardShortcut(newRoutine.keyEquivalent, modifiers: newRoutine.eventModifiers)
+            Divider()
+            Button(settings.t(.menuCleanupArchived)) {
+                openWindow(id: WindowID.main)
+                model.beginCleanup()
+            }
         }
 
         CommandMenu(settings.t(.menuJob)) {

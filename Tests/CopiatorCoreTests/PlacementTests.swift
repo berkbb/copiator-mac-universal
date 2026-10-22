@@ -123,6 +123,70 @@ private func date(_ text: String) -> [Int?]? {
     #expect(PlacementToken.monthName(10, language: "tr") == "Ekim" && PlacementToken.monthName(13, language: "tr") == "13")
 }
 
+/// Adlandırma kipleri: `{name}`in önündeki ve ardındaki metin adda zaten varsa yeniden eklenmez, hedef belirteçleri hedefin
+/// yolundan gelir, ad düzeltmeleri sırayla ve rotanın dilinin harf kurallarıyla uygulanır.
+@Test func namingModes() {
+    let october = DateComponents(year: 2026, month: 10, day: 7)
+    // Önek ve sonek yinelenmez (harf büyüklüğü ve aksan fark etmez); şablon iki kez uygulansa da ad uzamaz.
+    let prefixed = RoutePlacement(nameTemplate: "123456789_El_{name}_{yy}")
+    let once = prefixed.target(for: "Ekim.pdf", date: october)
+    #expect(once == "123456789_El_Ekim_26.pdf")
+    #expect(prefixed.target(for: once, date: october) == once)
+    #expect(prefixed.target(for: "123456789_el_Ekim.pdf", date: october) == "123456789_el_Ekim_26.pdf")
+    #expect(RoutePlacement(nameTemplate: "Özet {name}").target(for: "ozet rapor.txt", date: nil) == "ozet rapor.txt")
+    #expect(RoutePlacement(nameTemplate: "{name}-{name}").target(for: "a.txt", date: nil) == "a-a.txt")
+
+    // Hedef belirteçleri: klasör şablonunda rotanın hedefi; ad şablonunda dosyanın düştüğü en derin klasör ve parantez
+    // içindeki en derin numara.
+    let destination = "/Volumes/Arsiv/Abonelikler/Elektrik (123456789)"
+    let both = RoutePlacement(folderTemplate: "{year}", nameTemplate: "{targetNumber}_{targetFolder}_{month}")
+    #expect(both.target(for: "fatura.pdf", date: october, destination: destination) == "2026/123456789_2026_10.pdf")
+    let numbered = RoutePlacement(nameTemplate: "{targetNumber}_{name}")
+    #expect(numbered.target(for: "fatura.pdf", date: nil, destination: destination) == "123456789_fatura.pdf")
+    #expect(numbered.target(for: "Su (55)/fatura.pdf", date: nil, destination: destination) == "Su (55)/55_fatura.pdf")
+    #expect(RoutePlacement(folderTemplate: "{targetFolder} {year}").target(for: "a.pdf", date: october, destination: destination)
+        == "Elektrik (123456789) 2026/a.pdf")
+    #expect(!RoutePlacement(nameTemplate: "{targetNumber}").usesDate)
+    // Şablon ve düzeltme yoksa ad hiç değişmez (gizli dosya ve ":" içeren ad dahil).
+    #expect(RoutePlacement(folderTemplate: "{year}").target(for: "x/.gizli", date: october, destination: destination) == "2026/.gizli")
+    #expect(RoutePlacement(folderTemplate: "{year}").target(for: "a:b.txt", date: october) == "2026/a:b.txt")
+
+    // Ad düzeltmeleri: hazır düzeltmeler sırayla; yalnızca düzeltmesi olan yerleşim de etkindir.
+    var fixes = RoutePlacement(nameFixes: NameFix.presets)
+    #expect(fixes.isActive && !fixes.usesDate && fixes.problems().isEmpty)
+    #expect(fixes.target(for: "Klasör/ab1234 Ekim   fatura.pdf", date: nil) == "Klasör/AB1234_Ekim_fatura.pdf")
+    // Harf dönüşümü rotanın dilinde: Türkçede i → İ, İngilizcede i → I.
+    fixes.nameFixes = [NameFix(pattern: "^(\\w+)", replacement: "${1:upper}")]
+    #expect(fixes.target(for: "istanbul.txt", date: nil) == "İSTANBUL.txt")
+    fixes.language = "en"
+    #expect(fixes.target(for: "istanbul.txt", date: nil) == "ISTANBUL.txt")
+    fixes.nameFixes = [NameFix(pattern: "(\\w+)_(\\w+)", replacement: "${2:title}-$1 $$ $0 ${1:lower}")]
+    #expect(fixes.target(for: "A_rapor.txt", date: nil) == "Rapor-A $ A_rapor a.txt")
+    // Ad boşalırsa korunur; "/" tireye döner ve baştaki noktalar atılır (hedefin dışına çıkılamaz).
+    fixes.nameFixes = [NameFix(pattern: ".*", replacement: "")]
+    #expect(fixes.target(for: "a.txt", date: nil) == "a.txt")
+    fixes.nameFixes = [NameFix(pattern: "a", replacement: "../x/")]
+    #expect(fixes.target(for: "a.txt", date: nil) == "-x-.txt")
+    // Adım sınırını aşan ifade adı değiştirmez (tarama asılı kalmaz).
+    let long = String(repeating: "a", count: 40) + "!"
+    fixes.nameFixes = [NameFix(pattern: "(a+)+$", replacement: "x")]
+    #expect(fixes.target(for: long + ".txt", date: nil) == long + ".txt")
+
+    #expect(NameFix.pieces("x$1${2:lower}$$${a}$") == [.text("x"), .group(1, nil), .group(2, "lower"), .text("$${a}$")])
+}
+
+@Test func nameFixProblemsAndDecoding() throws {
+    #expect(RoutePlacement(nameFixes: [NameFix(pattern: "([a-z", replacement: "")]).problems() == [.invalidFix("([a-z")])
+    #expect(RoutePlacement(nameFixes: [NameFix(pattern: "(a)", replacement: "$2 ${1:shout} ${1:upper} $$3")]).problems()
+        == [.fixReplacement("$2"), .fixReplacement("${1:shout}")])
+    #expect(!RoutePlacement(nameFixes: [NameFix()]).isActive && RoutePlacement(nameFixes: [NameFix()]).problems().isEmpty)
+    let saved = RoutePlacement(nameTemplate: "{name}", nameFixes: [NameFix(pattern: "a", replacement: "b")])
+    #expect(try JSONDecoder().decode(RoutePlacement.self, from: JSONEncoder().encode(saved)) == saved)
+    // Eski yerleşimde düzeltme yoktur; eksik alanlar boş kalır.
+    #expect(try JSONDecoder().decode(RoutePlacement.self, from: Data(#"{"nameTemplate": "{name}"}"#.utf8)).nameFixes.isEmpty)
+    #expect(try JSONDecoder().decode(NameFix.self, from: Data(#"{"pattern": "a"}"#.utf8)).replacement == "")
+}
+
 /// Pakette kalan göreli bağlantılar kurulur, dışarı çıkanlar kurulmaz.
 @Test func linksInsidePackagesMustStayInside() {
     #expect(PlacementStaging.staysInside("A", at: 1))
@@ -156,6 +220,25 @@ struct LivePlacementTests {
             }
         }
         return result
+    }
+
+    /// Adlandırma kipleri gerçek kopyada: hedefin parantez içindeki numarası ada yazılır, adda zaten olan önek yinelenmez,
+    /// ad düzeltmeleri uygulanır; kaynak değişmez.
+    @Test func namingModesApplyInARealCopy() async throws {
+        let workspace = try Workspace("CopiatorPlacement")
+        var context = try await engineContext()
+        context.scratchDirectory = try workspace.mkdir("Gecici")
+        try workspace.write("Kaynak/ab12 rapor.txt", "rapor")
+        try workspace.write("Kaynak/42_eski.txt", "eski")
+        try workspace.mkdir("Hedef (42)")
+        let placement = RoutePlacement(nameTemplate: "{targetNumber}_{name}", nameFixes: [NameFix.presets[1]])
+        let route = RoutineRoute(source: workspace.url("Kaynak"), destination: workspace.url("Hedef (42)"), rules: RuleGroup(), placement: placement)
+        var job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef (42)"),
+                              options: Routine(name: "Adlar", routes: [route]).jobOptions(for: route))
+        let result = await run(&job, context)
+        #expect(result.kind == .succeeded, "\(result)")
+        #expect(listing(workspace.url("Hedef (42)")) == ["42_ab12_rapor.txt": "rapor", "42_eski.txt": "eski"])
+        #expect(listing(workspace.url("Kaynak")) == ["ab12 rapor.txt": "rapor", "42_eski.txt": "eski"])
     }
 
     @Test func placedRouteRenamesIntoDateFoldersAndKeepsEverythingElse() async throws {

@@ -116,6 +116,8 @@ public enum JobQueue {
             resolution.others = resolution.others ?? .replace
             job.conflictResolution = resolution
             job.pendingConflicts = nil
+        case .placements(let report):
+            job.pendingPlacements = report
         }
     }
 
@@ -136,9 +138,12 @@ public enum JobQueue {
             // Verilen kararlar, iş sürdürülünce de geçerlidir.
             job.status = .paused
             job.pendingConflicts = nil
+            job.pendingPlacements = nil
         case let kind where kind.isSuccess:
             job.pendingConflicts = nil
             job.conflictResolution = nil
+            job.pendingPlacements = nil
+            job.placementResolution = nil
             job.status = .finished
             job.finishedAt = date
             if var progress = job.progress {
@@ -153,6 +158,8 @@ public enum JobQueue {
             job.finishedAt = date
             job.pendingConflicts = nil
             job.conflictResolution = nil
+            job.pendingPlacements = nil
+            job.placementResolution = nil
         }
     }
 

@@ -5,6 +5,8 @@ import Foundation
 /// `TransferEngine` protokolünü uygular. Kayıtlı işler türlerini taşır.
 public enum JobKind: String, Codable, CaseIterable, Sendable {
     case rsync
+    /// İki yönlü eşitleme (bkz. `SyncEngine`): iki klasör arasında eksikler iki yöne de kopyalanır, hiçbir şey silinmez.
+    case sync
 }
 
 /// Kaynak klasör nasıl kopyalanır? rsync'te kaynak yolun sonundaki "/" bunu belirler; arayüzde seçenek olarak sunulur.
@@ -60,13 +62,16 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     public var placement: RoutePlacement?
     /// Yalnızca kaynağın kökündeki bu öğeler (Finder'da seçilip bir rutine gönderilenler); nil ise kaynağın tamamı.
     public var selectedItems: [String]?
+    /// "Taşı": kopyalamadan sonra hedefteki karşılığıyla içeriği birebir aynı olan kaynak dosyalar Çöp Sepeti'ne taşınır
+    /// (bkz. `SourceTrash`). Yalnızca kullanıcı açıkça seçip onaylarsa; anlık görüntüde kullanılmaz.
+    public var trashSourceAfterCopy: Bool
 
     public init(
         copyMode: CopyMode = .folder, preservePermissions: Bool = false, preserveExtendedAttributes: Bool = true,
         deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions(),
         snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false,
         rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask, suggestsRememberingConflictChoice: Bool = false,
-        placement: RoutePlacement? = nil, selectedItems: [String]? = nil
+        placement: RoutePlacement? = nil, selectedItems: [String]? = nil, trashSourceAfterCopy: Bool = false
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -82,12 +87,13 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.suggestsRememberingConflictChoice = suggestsRememberingConflictChoice
         self.placement = placement
         self.selectedItems = selectedItems
+        self.trashSourceAfterCopy = trashSourceAfterCopy
     }
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
         case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy, suggestsRememberingConflictChoice, placement
-        case selectedItems
+        case selectedItems, trashSourceAfterCopy
     }
 
     public init(from decoder: Decoder) throws {
@@ -106,6 +112,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         rules = (try? container.decodeIfPresent(RuleGroup.self, forKey: .rules)) ?? nil
         placement = (try? container.decodeIfPresent(RoutePlacement.self, forKey: .placement)) ?? nil
         selectedItems = (try? container.decodeIfPresent([String].self, forKey: .selectedItems)) ?? nil
+        trashSourceAfterCopy = (try? container.decodeIfPresent(Bool.self, forKey: .trashSourceAfterCopy)) ?? false
         conflictPolicy = (try? container.decodeIfPresent(ConflictPolicy.self, forKey: .conflictPolicy)) ?? defaults.conflictPolicy
         // Ayarı hiç olmayan (bu sürümden önce kaydedilmiş) seçenekler eski kabul edilir.
         suggestsRememberingConflictChoice = (try? container.decodeIfPresent(Bool.self, forKey: .suggestsRememberingConflictChoice))
@@ -179,6 +186,8 @@ public struct JobResult: Codable, Equatable, Sendable {
     public var noteCount: Int
     /// rsync'in kısa tanı satırları (ham, İngilizce).
     public var detail: String
+    /// `.awaitingDecision` sonucunun klasör kararı ("Klasörü sor") beklediğini belirten `detail` değeri.
+    public static let placementsDetail = "placements"
     /// Yer yetmediğinde gereken ve boş bayt (`destinationFull`); yazma sürerken durdurulduysa `requiredBytes` nil'dir.
     public var requiredBytes: Int64?
     public var availableBytes: Int64?
@@ -305,6 +314,10 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
     public var pendingConflicts: ConflictReport?
     /// Bir sonraki çalıştırmada uygulanacak kararlar; iş bitince silinir.
     public var conflictResolution: ConflictResolution?
+    /// "Klasörü sor" rotasında klasörü seçilmemiş dosyalar (iş "karar bekliyor" olarak duraklatıldı).
+    public var pendingPlacements: PlacementReport?
+    /// Seçilen klasörler; iş bitince silinir.
+    public var placementResolution: PlacementResolution?
 
     /// Günlükte tutulan en çok satır; uzun süreli işlerde kayıt dosyası şişmesin.
     public static let maxLogEntries = 500
@@ -335,11 +348,14 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         self.routineName = nil
         self.pendingConflicts = nil
         self.conflictResolution = nil
+        self.pendingPlacements = nil
+        self.placementResolution = nil
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, kind, source, destination, options, status, progress, result, log, createdAt, startedAt, finishedAt, wasInterrupted
-        case suspendedForDisk, history, routineID, routeID, routineName, pendingConflicts, conflictResolution
+        case suspendedForDisk, history, routineID, routeID, routineName, pendingConflicts, conflictResolution, pendingPlacements
+        case placementResolution
     }
 
     public init(from decoder: Decoder) throws {
@@ -365,10 +381,12 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         routineName = (try? container.decodeIfPresent(String.self, forKey: .routineName)) ?? nil
         pendingConflicts = (try? container.decodeIfPresent(ConflictReport.self, forKey: .pendingConflicts)) ?? nil
         conflictResolution = (try? container.decodeIfPresent(ConflictResolution.self, forKey: .conflictResolution)) ?? nil
+        pendingPlacements = (try? container.decodeIfPresent(PlacementReport.self, forKey: .pendingPlacements)) ?? nil
+        placementResolution = (try? container.decodeIfPresent(PlacementResolution.self, forKey: .placementResolution)) ?? nil
     }
 
-    /// Hedefte aynı adlı dosyalar için kullanıcının kararı bekleniyor.
-    public var isAwaitingDecision: Bool { pendingConflicts != nil && status == .paused }
+    /// Kullanıcının kararı bekleniyor: hedefte aynı adlı dosyalar ya da klasörü seçilmemiş dosyalar.
+    public var isAwaitingDecision: Bool { (pendingConflicts != nil || pendingPlacements != nil) && status == .paused }
 
     /// Kaynağın hedefteki karşılığı: "klasörün kendisi" kipinde hedef/Ad, "içeriği" kipinde hedefin kendisi.
     /// Kaynak bir dosyaysa her zaman hedef/Ad.

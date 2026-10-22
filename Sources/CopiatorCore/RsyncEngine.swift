@@ -18,6 +18,8 @@ public struct RsyncEngine: TransferEngine {
         // Sürdürülen bir işin geçmişte kalmış "şu saatte dur" sınırı yok sayılır (rsync geçmiş bir zamanı reddeder).
         var job = job
         if let stopAt = job.options.advanced.stopAt, stopAt <= Date() { job.options.advanced.stopAt = nil }
+        // Çalıştırmadan önceki iş: asıl kaynak ve hedef ("taşı" adımı için).
+        let original = job
         let problems = job.options.problems(source: job.source)
         guard problems.isEmpty else { return JobResult(kind: .failed, detail: "\(problems)") }
 
@@ -52,6 +54,11 @@ public struct RsyncEngine: TransferEngine {
         } catch let runaway as RuleEvaluator.RunawayRegex {
             onEvent(.log(JobLogEntry(level: .error, key: .logRuleRegexTooComplex, arguments: [runaway.pattern])))
             return JobResult(kind: .failed, detail: runaway.pattern)
+        } catch let needed as PlacementQuestions.DecisionNeeded {
+            // "Klasörü sor": hiçbir şey kopyalanmadan karar beklenir; karar verilince iş baştan (seçilen klasörlerle) çalışır.
+            onEvent(.placements(needed.report))
+            onEvent(.log(JobLogEntry(level: .warning, key: .logAwaitingPlacement, arguments: [String(needed.report.total)])))
+            return JobResult(kind: .awaitingDecision, noteCount: needed.report.total, detail: JobResult.placementsDetail)
         } catch {
             return JobResult(kind: .failed, detail: error.localizedDescription)
         }
@@ -238,6 +245,23 @@ public struct RsyncEngine: TransferEngine {
             if result.kind == .cancelled { return result }
         }
 
+        // "Taşı": hedefteki karşılığıyla birebir aynı olduğu doğrulanan kaynak dosyalar Çöp Sepeti'ne (anlık görüntüde yok).
+        if original.options.trashSourceAfterCopy, preparation == nil, !Task.isCancelled, result.kind.isSuccess || result.kind == .partial {
+            onEvent(.phase(.verifying))
+            let skippedNames: Set<String> = original.options.excludeSystemFolders ? Set(RsyncCommand.systemExclusions) : []
+            let pairs = SourceTrash.pairs(for: original, selection: selection.map { ($0.source, $0.paths, $0.targets) },
+                                          skippedNames: skippedNames, skippedPaths: Set(protectedPaths), isCancelled: { Task.isCancelled })
+            let root = Self.isDirectory(original.source) ? original.source : original.source.deletingLastPathComponent()
+            let outcome = SourceTrash.moveVerified(pairs, root: root, trash: context.trashItem, isCancelled: { Task.isCancelled })
+            onEvent(.log(JobLogEntry(level: .info, key: .logSourcesTrashed,
+                                     arguments: [String(outcome.moved), String(outcome.folders), String(outcome.kept)])))
+            if !outcome.failed.isEmpty {
+                onEvent(.logBatch(outcome.failed.prefix(Self.maxLoggedDifferences).map {
+                    JobLogEntry(level: .warning, key: .logSourceTrashFailed, arguments: [$0])
+                }))
+            }
+        }
+
         if let preparation { finishSnapshot(preparation, root: snapshotRoot, options: job.options, result: &result, onEvent: onEvent) }
         return result
     }
@@ -333,7 +357,8 @@ public struct RsyncEngine: TransferEngine {
             switch resolution.decision(for: conflict.path) ?? job.options.conflictPolicy.decision {
             case nil: undecided.append(conflict)
             case .replace?: plan.replaced += 1
-            case .skip?:
+            case .skip?, .reverse?:
+                // "Ters" yalnızca eşitlemede anlamlıdır; kopyalama işinde hedefteki dosyaya dokunulmaz.
                 plan.skipped += 1
                 excluded.append(conflict.path)
             case .keepBoth?:
@@ -499,7 +524,7 @@ public struct RsyncEngine: TransferEngine {
         var job = job
         let selection: RuleSelection.Prepared?
         do {
-            selection = try await Self.prepareRules(&job, context: context)
+            selection = try await Self.prepareRules(&job, context: context, askFolders: false)
         } catch is CancellationError {
             return report(.cancelled)
         } catch let runaway as RuleEvaluator.RunawayRegex {
@@ -554,7 +579,7 @@ public struct RsyncEngine: TransferEngine {
     /// Kurallı işin dosya listesini hazırlar (kural yoksa nil). Kum havuzunda okunamayan kişisel klasörler taranmaz.
     /// Liste NUL ile ayrılır (`--from0`); motor desteklemiyorsa ya da işin başka bir liste dosyası varsa (`--from0` onları da
     /// etkilerdi) satır sonuyla.
-    static func prepareRules(_ job: inout TransferJob, context: EngineContext) async throws -> RuleSelection.Prepared? {
+    static func prepareRules(_ job: inout TransferJob, context: EngineContext, askFolders: Bool = true) async throws -> RuleSelection.Prepared? {
         guard job.options.rules != nil else { return nil }
         let skipped = context.sandboxed
             ? Set(SandboxProfile.forTransfer(sources: [job.source], destination: job.destination, home: context.home)
@@ -563,7 +588,7 @@ public struct RsyncEngine: TransferEngine {
         let a = job.options.advanced
         let zeroTerminated = !context.info.isOpenrsync && (a.includeFromFile ?? "").isEmpty && (a.excludeFromFile ?? "").isEmpty
         return try await RuleSelection.prepare(&job, zeroTerminated: zeroTerminated, skippedPaths: skipped, scratch: context.scratchDirectory,
-                                               isCancelled: { Task.isCancelled })
+                                               askFolders: askFolders, isCancelled: { Task.isCancelled })
     }
 
     /// Liste dosyalarını kullanıcıya özel (0700) geçici bir klasöre kopyalar ve seçenekleri kopyalara çevirir.

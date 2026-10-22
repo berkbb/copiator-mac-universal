@@ -109,6 +109,42 @@ private struct GeneralSettingsView: View {
                     .onChange(of: settings.showDockProgress) { model.onActivityChange?() }
             }
 
+            Section(settings.t(.settingsAISection)) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(settings.t(.settingsAISuggestions), isOn: $settings.aiSuggestions)
+                    Text(settings.t(.settingsAISuggestionsNote))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if settings.aiSuggestions {
+                    Picker(settings.t(.settingsAIProvider), selection: $settings.aiProvider) {
+                        ForEach(SuggestionProvider.allCases) { provider in
+                            Text(provider == .automatic ? settings.t(.settingsAIAutomatic) : provider.displayName).tag(provider)
+                        }
+                    }
+                    .accessibilityIdentifier("copiator.settings.aiProvider")
+                    .onChange(of: settings.aiProvider) {
+                        model.updateSuggestionModel()
+                        Task { await model.refreshLocalModels() }
+                    }
+                    if settings.aiProvider == .automatic {
+                        automaticRows
+                    }
+                    ForEach(settings.activeProviders.compactMap(\.server)) { server in
+                        localServerRows(server)
+                    }
+                    if settings.activeProviders.contains(.apple), !OnDeviceSuggestionModel().isAvailable {
+                        Text(settings.t(.settingsAIAppleUnavailable))
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    AILanguageWarning()
+                }
+            }
+            .task { await model.refreshLocalModels() }
+
             Section(settings.t(.settingsPowerSection)) {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(settings.t(.settingsKeepDisplayAwake), isOn: $settings.keepDisplayAwake)
@@ -125,6 +161,90 @@ private struct GeneralSettingsView: View {
         } message: {
             Text(settings.t(.restartMenuBarNotice))
         }
+    }
+
+    /// Otomatik kipin sırası: her model açılıp kapatılabilir ve yukarı, aşağı taşınabilir; durumu yanında yazar.
+    @ViewBuilder
+    private var automaticRows: some View {
+        let order = settings.aiAutomaticOrder
+        ForEach(Array(order.enumerated()), id: \.element) { index, provider in
+            HStack(spacing: 8) {
+                Toggle(isOn: Binding(
+                    get: { !settings.aiAutomaticOff.contains(provider) },
+                    set: { isOn in
+                        if isOn { settings.aiAutomaticOff.remove(provider) } else { settings.aiAutomaticOff.insert(provider) }
+                        model.updateSuggestionModel()
+                        Task { await model.refreshLocalModels() }
+                    }
+                )) {
+                    Text(verbatim: "\(index + 1). \(provider.displayName)")
+                }
+                .toggleStyle(.checkbox)
+                .accessibilityIdentifier("copiator.settings.aiAutomatic.\(provider.rawValue)")
+                Spacer()
+                let ready = model.isReady(provider)
+                Text(settings.t(ready ? .settingsAIStatusReady : .settingsAIStatusOff))
+                    .font(.caption)
+                    .foregroundStyle(ready ? Color.secondary : Color.orange)
+                Button(settings.t(.settingsAIMoveUp), systemImage: "arrow.up") { move(index, by: -1) }
+                    .labelStyle(.iconOnly)
+                    .disabled(index == 0)
+                Button(settings.t(.settingsAIMoveDown), systemImage: "arrow.down") { move(index, by: 1) }
+                    .labelStyle(.iconOnly)
+                    .disabled(index == order.count - 1)
+            }
+        }
+        Text(settings.t(.settingsAIAutomaticNote))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func move(_ index: Int, by offset: Int) {
+        var order = settings.aiAutomaticOrder
+        guard order.indices.contains(index + offset) else { return }
+        order.swapAt(index, index + offset)
+        settings.aiAutomaticOrder = order
+        model.updateSuggestionModel()
+    }
+
+    /// Yerel sunucunun model seçimi, durumu ve adres notu (yalnızca 127.0.0.1; bulut modelleri listelenmez).
+    @ViewBuilder
+    private func localServerRows(_ server: LocalModelServer) -> some View {
+        let models = model.localModels[server] ?? []
+        let selected = settings.aiModel(for: server)
+        HStack {
+            Picker(settings.t(.settingsAIModel) + " · " + server.displayName, selection: Binding(
+                get: { settings.aiModel(for: server) },
+                set: {
+                    settings.setAIModel($0, for: server)
+                    model.updateSuggestionModel()
+                }
+            )) {
+                ForEach(models.contains(selected) || selected.isEmpty ? models : [selected] + models, id: \.self) { Text($0).tag($0) }
+            }
+            .disabled(models.isEmpty)
+            .accessibilityIdentifier("copiator.settings.aiModel")
+            Button(settings.t(.settingsAIRefresh), systemImage: "arrow.clockwise") { Task { await model.refreshLocalModels() } }
+        }
+        let address = "127.0.0.1:\(server.port)"
+        Group {
+            if !model.runningServers.contains(server) {
+                Text(settings.t(.settingsAIServerOff, server.displayName, address)).foregroundStyle(.orange)
+            } else if models.isEmpty {
+                Text(settings.t(.settingsAINoLocalModel)).foregroundStyle(.orange)
+            } else if !models.contains(selected) {
+                Text(settings.t(.settingsAIModelMissing, selected)).foregroundStyle(.orange)
+            } else {
+                Text(settings.t(.settingsAIReady, models.count)).foregroundStyle(.secondary)
+            }
+        }
+        .font(.footnote)
+        .fixedSize(horizontal: false, vertical: true)
+        Text(settings.t(.settingsAILocalNote, address))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 

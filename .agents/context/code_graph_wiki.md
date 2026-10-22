@@ -34,8 +34,13 @@
 | `Snapshots.swift` | `SnapshotOptions`, `SnapshotStore` (`prepare`, `plan`, `apply`, `finalize`, `updateLatestLink`, `retained`, `prune`, `removeTree`) | Dated snapshot folders, `.partial` resume, `Latest` link, retention and pruning |
 | `Rules.swift` | `RuleMatch`, `RuleAttribute` (basic/advanced, `valueKind`, `operators`, `units`), `RuleOperator` (`input(for:)`), `RuleUnit`, `FileKind`, `RuleCondition` (`starting`), `RuleGroup` (`problems`, `allConditions`, `maxDepth`) | Finder-style rule model |
 | `RuleEvaluation.swift` | `RuleItem` (lazy metadata), `MediaInfo` (`pixels`), `RuleEvaluator` (`regexStepBudget`, `RunawayRegex`, `runawayPattern`), `RuleScanner` (async), `Spotlight` | Evaluation, metadata reading, source scanning |
-| `Placement.swift` | `RoutePlacement` (`target`, `component`, `folderPresets`), `PlacementDateSource`, `PlacementToken`, `PlacementStaging`, `PlacementDate`, `ExtendedAttributes` | Folder and name templates, link staging tree |
+| `Placement.swift` | `RoutePlacement` (`target(for:date:destination:folder:)`, `renderName`, `component`, `folderPresets`, `nameFixes`, `askFolder`, `learnedFolders`), `NameFix` (`pieces`, `apply`, `presets`), `PlacementDateSource`, `PlacementToken` (`addTarget`), `PlacementStaging`, `PlacementDate`, `ExtendedAttributes` | Folder and name templates, naming modes, link staging tree |
+| `PlacementDecisions.swift` | `PlacementReport`, `PlacementResolution` (`clean`), `PlacementMemory` (`key`), `PlacementQuestions` (`plan`, `DecisionNeeded`) | Suggested placement: ask, remember, resolve |
 | `ContentReader.swift` | `ContentReader` (`text`, `contains`, `fold`), `TextDate` (`find`) | PDF and plain-text reading, dates in text |
+| `SourceTrash.swift` | `SourceTrash` (`pairs`, `moveVerified`, `archivedFiles`, `move`, `systemTrash`) | Verified move to the Trash, clean-up of archived sources |
+| `Sync.swift` | `SyncPlan`, `SyncPlanner`, `SyncEngine` | Two-way sync without deletions |
+| `Suggestions.swift` | `SuggestionModel`, `OnDeviceSuggestionModel`, `Suggestions` (`rankFolders`, `placeFile`/`parsePlacement`/`FilePlacement`, `nameTemplate`, `cleanTemplate`, `folderTemplate`, `cleanFolderTemplate`, `exampleNames`, `exampleFolders`) | AI suggestions (rank, place, name and folder templates) |
+| `LocalModels.swift` | `SuggestionProvider` (`order`), `FallbackSuggestionModel` (`members`, `lastSource`), `LocalModelServer` (`models`, `request`, `ollamaModels`, `openAIModels`, `isCloud`, `withoutThinking`), `LocalServerSuggestionModel` | Ollama and LM Studio on 127.0.0.1 only, cloud models filtered |
 | `ArchiveTools.swift` | `DestinationIndex`, `DestinationSummary`, `FolderSuggester` | Same contents at the destination, destination overview, folder suggestions |
 | `Routines.swift` | `Routine` (`jobOptions(for:)`, `problems`), `RoutineRoute`, `RoutineStore`, `RuleSelection` | Routine model, persistence, `--files-from` list preparation |
 | `Conflicts.swift` | `ConflictPolicy`, `ConflictDecision`, `FileConflict` (`incomingFolder`), `ConflictReport`, `ConflictResolution`, `ConflictDetector` (`conflicts(in:format:existsAtDestination:)`), `ConflictCollector` (`lstat` without following links) | Same-name file detection, decisions, numbered names |
@@ -52,6 +57,9 @@
 | `Intents.swift` | `IntentTarget`, `JobEntity`, `JobEntityQuery`, `RunJobIntent`, `PauseAllJobsIntent`, `ResumeAllJobsIntent`, `CopiatorShortcuts`, `AppModel.runFromShortcut` |
 | `StatusItems.swift` | `MenuBarContent`, `MenuBarLabel`, `DockProgress`, `VolumeWatcher` |
 | `Views/ConflictViews.swift` | `ConflictSheet`, `ConflictPolicyPicker` |
+| `Views/PlacementDecisionViews.swift` | `PlacementDecisionView` (shown inside `ConflictSheet` when `pendingPlacements` is set) |
+| `Views/PlacementViews.swift` | `PlacementEditor`, `AITemplateSuggestionRow`, `AppSettings.describe(_ placement:)` |
+| `Views/ArchiveViews.swift` | `RoutinePickerSheet`, `DestinationSummarySheet`, `AILanguageWarning`, `FolderSuggestionButton`, `CleanupSheet` |
 | `Views/RoutineViews.swift` | `RuleConditionRow`, `RuleGroupEditor`, `FolderChooserRow`, `RoutineEditorSheet`, `RoutineDetailView`, `AppSettings.describe(_:)` |
 | `Views/JobOptionsSections.swift` | `VerifyAfterCopyPicker`, `SnapshotSection`, `CountField`, `AutomationSection`, `ExcludePresetsSection`, `PreviewSheet`, `JobHistoryList` |
 | `Views/ContentView.swift` | `ContentView`, `OverlayTiming`, `ProgressOverlay`, `ToastView` |
@@ -69,4 +77,5 @@
 | New engine | `JobKind` case, `TransferEngine` implementation, `TransferEngines.engine(for:)`, integration tests |
 | New UI string | `LKey` + three tables |
 | New App Intent or Siri phrase | `Intents.swift`, `Localizable.strings` keys for titles, `AppShortcuts.strings` in all three languages, `appShortcutPhrasesAreLocalized`, `verify_bundle.sh` action list |
+| New decision type that pauses a job | `TransferEvent` case, `TransferJob` field + coding key, `isAwaitingDecision`, `JobQueue.apply`/`finish`, `AppModel.resume`/`notify`, a view inside `ConflictSheet`, switches in `SyncEngine` and `AppModel.apply(_:to:)` |
 | New job status | `JobStatus` (+ `isActive`), `JobStatus.titleKey`, progress bar and badge switches in `JobListView`, `JobFilter` |

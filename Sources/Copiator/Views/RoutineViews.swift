@@ -351,6 +351,8 @@ struct RoutineEditorSheet: View {
     @State private var problem: String?
     @State private var sample = ""
     @State private var showAdvanced = false
+    @State private var confirmTrash = false
+    @State private var runAfterSave = false
     @State private var previewTask: Task<Void, Never>?
     @State private var previewPresentation: PreviewPresentation?
 
@@ -360,8 +362,14 @@ struct RoutineEditorSheet: View {
                 Section {
                     TextField(settings.t(.routineName), text: $routine.name, prompt: Text(settings.t(.routineNamePlaceholder)))
                         .accessibilityIdentifier("copiator.routine.name")
+                    Picker(settings.t(.routineKind), selection: $routine.kind) {
+                        Text(settings.t(.routineKindCopy)).tag(RoutineKind.copy)
+                        Text(settings.t(.routineKindSync)).tag(RoutineKind.sync)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("copiator.routine.kind")
                 } footer: {
-                    Text(settings.t(.routineRoutesNote))
+                    Text(settings.t(routine.kind == .sync ? .routineKindSyncNote : .routineRoutesNote))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -370,19 +378,24 @@ struct RoutineEditorSheet: View {
                 ForEach($routine.routes) { $route in
                     let index = routine.routes.firstIndex { $0.id == route.id } ?? 0
                     Section {
-                        FolderChooserRow(title: settings.t(.newJobSource), url: $route.source, systemImage: "folder",
+                        let sync = routine.kind == .sync
+                        FolderChooserRow(title: settings.t(sync ? .syncFolderA : .newJobSource), url: $route.source, systemImage: "folder",
                                          panelMessage: settings.t(.panelChooseSource))
-                        FolderChooserRow(title: settings.t(.newJobDestination), url: $route.destination, systemImage: "externaldrive",
-                                         panelMessage: settings.t(.panelChooseDestination))
-                        HStack {
-                            Spacer()
-                            FolderSuggestionButton(destination: $route.destination, sample: sample)
+                        FolderChooserRow(title: settings.t(sync ? .syncFolderB : .newJobDestination), url: $route.destination,
+                                         systemImage: sync ? "folder" : "externaldrive", panelMessage: settings.t(.panelChooseDestination))
+                        if !sync {
+                            HStack {
+                                Spacer()
+                                FolderSuggestionButton(destination: $route.destination, sample: sample)
+                            }
                         }
                         VStack(alignment: .leading, spacing: 6) {
                             Text(settings.t(.routineRules)).font(.headline)
                             RuleGroupEditor(group: $route.rules)
                         }
-                        PlacementEditor(placement: $route.placement, sample: sample)
+                        if !sync {
+                            PlacementEditor(placement: $route.placement, sample: sample, destination: route.destination)
+                        }
                         HStack {
                             Button(settings.t(.newJobPreview), systemImage: "eye") { preview(route) }
                                 .disabled(route.source == nil || route.destination == nil || previewTask != nil
@@ -443,9 +456,21 @@ struct RoutineEditorSheet: View {
                     Toggle(settings.t(.optionPreservePermissions), isOn: $routine.options.preservePermissions)
                     Toggle(settings.t(.optionXattrs), isOn: $routine.options.preserveExtendedAttributes)
                     Toggle(settings.t(.optionExcludeSystem), isOn: $routine.options.excludeSystemFolders)
-                    ConflictPolicyPicker(selection: $routine.options.conflictPolicy)
+                    ConflictPolicyPicker(selection: $routine.options.conflictPolicy, kind: routine.jobKind)
+                    if routine.kind == .copy {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Toggle(settings.t(.optionTrashSource), isOn: $routine.options.trashSourceAfterCopy)
+                                .disabled(routine.options.snapshots.enabled)
+                            Text(settings.t(.optionTrashSourceNote))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 }
-                SnapshotSection(options: $routine.options.snapshots)
+                if routine.kind == .copy {
+                    SnapshotSection(options: $routine.options.snapshots)
+                }
                 AutomationSection(options: $routine.options)
                 Section {
                     Toggle(settings.t(.newJobAdvanced), isOn: $showAdvanced)
@@ -476,10 +501,10 @@ struct RoutineEditorSheet: View {
                 Spacer()
                 Button(settings.t(.buttonCancel), role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(settings.t(.routineSaveRun)) { save(run: true) }
+                Button(settings.t(.routineSaveRun)) { requestSave(run: true) }
                     .disabled(!routine.problems(checkPaths: false).isEmpty)
                     .accessibilityIdentifier("copiator.routine.saveRun")
-                Button(settings.t(.routineSave)) { save(run: false) }
+                Button(settings.t(.routineSave)) { requestSave(run: false) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.glassProminent)
                     .disabled(!routine.problems(checkPaths: false).isEmpty)
@@ -497,6 +522,23 @@ struct RoutineEditorSheet: View {
         .onDisappear { previewTask?.cancel() }
         .onChange(of: routine) { problem = nil }
         .sheet(item: $previewPresentation) { PreviewSheet(presentation: $0) }
+        .confirmationDialog(settings.t(.trashConfirmTitle), isPresented: $confirmTrash, titleVisibility: .visible) {
+            Button(settings.t(.trashConfirmButton), role: .destructive) { save(run: runAfterSave) }
+            Button(settings.t(.buttonCancel), role: .cancel) {}
+        } message: {
+            Text(settings.t(.trashConfirmMessage, routine.routes.compactMap { $0.source.map { OpenSafety.visibleName($0.path) } }.joined(separator: ", ")))
+        }
+    }
+
+    /// "Kaynak dosyaları Çöp Sepeti'ne taşı" yeni seçildiyse kaydetmeden önce onay istenir.
+    private func requestSave(run: Bool) {
+        let alreadyOn = request.isExisting && request.routine.options.trashSourceAfterCopy
+        if routine.kind == .copy, routine.options.trashSourceAfterCopy && !routine.options.snapshots.enabled && !alreadyOn {
+            runAfterSave = run
+            confirmTrash = true
+        } else {
+            save(run: run)
+        }
     }
 
     private func preview(_ route: RoutineRoute) {
@@ -505,13 +547,19 @@ struct RoutineEditorSheet: View {
         let name = routine.name.isEmpty ? (route.source?.lastPathComponent ?? "") : routine.name
         previewTask = Task {
             if let report = await model.previewRoute(route, of: routine), !Task.isCancelled, report.result.kind != .cancelled {
-                previewPresentation = PreviewPresentation(jobName: name, report: report, deleteEnabled: false)
+                previewPresentation = PreviewPresentation(jobName: name, report: report, deleteEnabled: false, sync: routine.kind == .sync)
             }
             previewTask = nil
         }
     }
 
     private func save(run: Bool) {
+        if routine.options.snapshots.enabled { routine.options.trashSourceAfterCopy = false }
+        if !ConflictPolicy.choices(for: routine.jobKind).contains(routine.options.conflictPolicy) { routine.options.conflictPolicy = .ask }
+        if routine.kind == .sync {
+            routine.options.snapshots.enabled = false
+            routine.options.trashSourceAfterCopy = false
+        }
         if let message = model.saveRoutine(routine) {
             problem = message
             return
@@ -554,7 +602,8 @@ struct RoutineDetailView: View {
                         .help(settings.t(.routineMore))
                         .accessibilityLabel(settings.t(.routineMore))
                     }
-                    Text(routine.lastRunAt.map { settings.t(.routineLastRun, settings.date($0)) } ?? settings.t(.routineNeverRun))
+                    Text((routine.kind == .sync ? settings.t(.routineKindSync) + " • " : "")
+                         + (routine.lastRunAt.map { settings.t(.routineLastRun, settings.date($0)) } ?? settings.t(.routineNeverRun)))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -563,8 +612,9 @@ struct RoutineDetailView: View {
 
             ForEach(Array(routine.routes.enumerated()), id: \.element.id) { index, route in
                 Section(settings.t(.routineRoute, index + 1)) {
-                    LabeledContent(settings.t(.newJobSource), value: OpenSafety.visibleName(route.source?.path ?? ""))
-                    LabeledContent(settings.t(.newJobDestination), value: OpenSafety.visibleName(route.destination?.path ?? ""))
+                    let sync = routine.kind == .sync
+                    LabeledContent(settings.t(sync ? .syncFolderA : .newJobSource), value: OpenSafety.visibleName(route.source?.path ?? ""))
+                    LabeledContent(settings.t(sync ? .syncFolderB : .newJobDestination), value: OpenSafety.visibleName(route.destination?.path ?? ""))
                     // Uzun kurallar kesilmeden, etiketin altında okunur (liste kaydırılabilir; yükseklik sütunu etkilemez).
                     VStack(alignment: .leading, spacing: 4) {
                         Text(settings.t(.routineRules))

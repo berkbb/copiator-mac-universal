@@ -101,6 +101,13 @@ struct DestinationSummaryRequest: Identifiable {
     var destination: URL
 }
 
+/// Temizleme aracı: kaynakta olup hedefte aynı içerikte kopyası bulunan dosyaları Çöp Sepeti'ne taşır.
+struct CleanupRequest: Identifiable {
+    let id = UUID()
+    var source: URL?
+    var destination: URL?
+}
+
 /// Kenar çubuğunun seçimi: bir iş süzgeci ya da bir rutin.
 enum SidebarItem: Hashable {
     case filter(JobFilter)
@@ -182,6 +189,8 @@ final class AppModel {
     var routinePicker: RoutinePickerRequest?
     /// Hedef özeti sayfası.
     var summaryRequest: DestinationSummaryRequest?
+    /// Arşivlenmiş kaynakları temizleme sayfası.
+    var cleanupRequest: CleanupRequest?
 
     /// Kenar çubuğunun seçimi: süzgeç ya da rutin.
     var sidebarSelection: SidebarItem {
@@ -251,6 +260,66 @@ final class AppModel {
     @ObservationIgnored var notifier: (_ title: String, _ body: String) -> Void = AppModel.postUserNotification
     /// Motorlar (iş türü → motor); testler sahte bir motor verebilir.
     @ObservationIgnored var engineProvider: (JobKind) -> any TransferEngine = TransferEngines.engine(for:)
+    /// Öneriler için cihaz üstü dil modeli (testler sahte bir model verir).
+    var suggestionModel: any SuggestionModel = OnDeviceSuggestionModel()
+    /// Yerel sunuculardaki modeller (son yoklama; bulut modelleri yok) ve çalışan sunucular.
+    var localModels: [LocalModelServer: [String]] = [:]
+    var runningServers: Set<LocalModelServer> = []
+    /// Testler sahte sunucunun (ya da boş bir portun) numarasını verir; adres her zaman 127.0.0.1'dir.
+    @ObservationIgnored var localServerPorts: [LocalModelServer: Int] = [:]
+
+    /// Yapay zekâ önerileri sunulur mu (ayar açık ve bu Mac'te cihaz üstü model var).
+    var canSuggestWithAI: Bool { settings.aiSuggestions && suggestionModel.isAvailable }
+
+    /// Kullanılacak yerel sunucuların (seçilen ya da Otomatik sıradakiler) modellerini yoklar (yalnızca 127.0.0.1) ve öneri
+    /// modelini günceller; seçili model yoksa ilk yerel model seçilir. Yalnızca Apple Intelligence kullanılıyorsa bir şey
+    /// yapmaz. Sunucu yanıt vermezse hata gösterilmez: o sağlayıcı kullanılamaz sayılır.
+    func refreshLocalModels() async {
+        let servers = settings.activeProviders.compactMap(\.server)
+        guard !servers.isEmpty else { return }
+        for server in servers {
+            if let found = await server.models(port: localServerPorts[server]) {
+                runningServers.insert(server)
+                localModels[server] = found
+                if settings.aiModel(for: server).isEmpty, let first = found.first { settings.setAIModel(first, for: server) }
+            } else {
+                runningServers.remove(server)
+                localModels[server] = []
+            }
+        }
+        updateSuggestionModel()
+    }
+
+    /// Ayarlardaki sağlayıcıya göre öneri modeli; Otomatik'te sıradaki modellerin zinciri.
+    func updateSuggestionModel() {
+        if settings.aiProvider == .automatic {
+            suggestionModel = FallbackSuggestionModel(settings.automaticProviders.map { (name: sourceName(for: $0), model: model(for: $0)) })
+        } else {
+            suggestionModel = model(for: settings.aiProvider)
+        }
+    }
+
+    private func model(for provider: SuggestionProvider) -> any SuggestionModel {
+        guard let server = provider.server else { return OnDeviceSuggestionModel() }
+        let name = settings.aiModel(for: server)
+        return LocalServerSuggestionModel(server: server, model: name, isAvailable: localModels[server]?.contains(name) == true,
+                                          port: localServerPorts[server])
+    }
+
+    /// Sağlayıcı kullanılabilir mi (Apple Intelligence açık, yerel sunucu çalışıyor ve seçili model yerel)?
+    func isReady(_ provider: SuggestionProvider) -> Bool { model(for: provider).isAvailable }
+
+    /// Sağlayıcının adı ("Apple Intelligence", "Ollama · gemma…").
+    func sourceName(for provider: SuggestionProvider) -> String {
+        guard let server = provider.server, !settings.aiModel(for: server).isEmpty else { return provider.displayName }
+        return provider.displayName + " · " + settings.aiModel(for: server)
+    }
+
+    /// Önerinin kaynağı: Otomatik'te son yanıtı veren model.
+    var suggestionSourceName: String {
+        guard settings.aiProvider == .automatic else { return sourceName(for: settings.aiProvider) }
+        return (suggestionModel as? FallbackSuggestionModel)?.lastSource ?? t(.settingsAIAutomatic)
+    }
     /// Son ilerleme kaydının zamanı: ilerleme diske en çok bu aralıkla yazılır.
     @ObservationIgnored private var lastProgressSave = Date.distantPast
     /// Uygulama kapanıyor: çalışan iş durdurulup "kesildi" olarak kaydedildi, kuyruk ilerlemez.
@@ -277,6 +346,7 @@ final class AppModel {
         sleepGuard = SleepGuard(reason: sleepReason)
         loadJobs()
         loadRoutines()
+        updateSuggestionModel()
     }
 
     private func t(_ key: LKey) -> String { settings.t(key) }
@@ -321,6 +391,8 @@ final class AppModel {
         refreshShortcutParameters()
         await refreshEngine()
         scheduleNext()
+        // Yerel model sunucusu (yalnızca 127.0.0.1; internete istek değildir, izin istenmez).
+        await refreshLocalModels()
         if !settings.updateConsentAsked {
             consentPending = true
             presentPendingConsentIfIdle()
@@ -656,8 +728,8 @@ final class AppModel {
                 JobQueue.requeue(&jobs[index])
                 jobs[index].appendLog(JobLogEntry(level: .info, key: .logRoutineRun, arguments: [routine.name]))
             } else {
-                var job = TransferJob(source: route.source ?? URL(fileURLWithPath: "/"), destination: route.destination ?? URL(fileURLWithPath: "/"),
-                                      options: routine.jobOptions(for: route))
+                var job = TransferJob(kind: routine.jobKind, source: route.source ?? URL(fileURLWithPath: "/"),
+                                      destination: route.destination ?? URL(fileURLWithPath: "/"), options: routine.jobOptions(for: route))
                 job.routineID = routine.id
                 job.routeID = route.id
                 job.routineName = routine.name
@@ -680,6 +752,10 @@ final class AppModel {
         routinePicker = RoutinePickerRequest(items: items)
     }
 
+    func beginCleanup(source: URL? = nil, destination: URL? = nil) {
+        cleanupRequest = CleanupRequest(source: source, destination: destination)
+    }
+
     func showDestinationSummary(_ destination: URL) {
         summaryRequest = DestinationSummaryRequest(destination: destination)
     }
@@ -696,6 +772,7 @@ final class AppModel {
             return message
         }
         guard !items.isEmpty else { return fail(t(.sendToRoutineNoItems)) }
+        guard routine.kind == .copy else { return fail(t(.sendToRoutineSync)) }
         let problems = routine.problems(checkPaths: false).filter {
             if case .missingSource = $0 { return false }
             return true
@@ -752,6 +829,34 @@ final class AppModel {
         scheduleNext()
     }
 
+    /// "Klasörü sor" kararlarını kaydeder ve işi yeniden sıraya alır. `remember` (yol → klasör) verilen seçimler rotanın
+    /// öğrenilmiş klasörleri olur: benzer adlı dosyalar sonraki çalıştırmalarda sorulmaz.
+    func resolvePlacements(_ id: TransferJob.ID, resolution: PlacementResolution, remember: [String: String]) {
+        guard let job = job(id) else { return }
+        var learned: [String: String] = [:]
+        for (path, folder) in remember {
+            if let key = PlacementMemory.key(for: path) { learned[key] = PlacementResolution.clean(folder) }
+        }
+        update(id) {
+            var merged = $0.placementResolution ?? PlacementResolution()
+            merged.folders.merge(resolution.folders.mapValues(PlacementResolution.clean)) { _, new in new }
+            merged.skipped.formUnion(resolution.skipped)
+            $0.placementResolution = merged
+            $0.pendingPlacements = nil
+            $0.options.placement?.learnedFolders.merge(learned) { _, new in new }
+            JobQueue.requeue(&$0)
+            $0.appendLog(JobLogEntry(level: .info, key: .logPlacementsDecided))
+        }
+        if !learned.isEmpty, let routineID = job.routineID, let index = routines.firstIndex(where: { $0.id == routineID }),
+           let route = routines[index].routes.firstIndex(where: { $0.id == job.routeID }) {
+            routines[index].routes[route].placement.learnedFolders.merge(learned) { _, new in new }
+            saveRoutines()
+        }
+        if conflictPrompt?.id == id { conflictPrompt = nil }
+        save()
+        scheduleNext()
+    }
+
     /// Karar bekleyen işler.
     var jobsAwaitingDecision: [TransferJob] { jobs.filter(\.isAwaitingDecision) }
 
@@ -759,6 +864,7 @@ final class AppModel {
     private func apply(_ route: RoutineRoute, of routine: Routine, to job: inout TransferJob) {
         if let source = route.source { job.source = source }
         if let destination = route.destination { job.destination = destination }
+        job.kind = routine.jobKind
         job.options = routine.jobOptions(for: route)
         job.routineName = routine.name
     }
@@ -766,7 +872,7 @@ final class AppModel {
     /// Bir rotanın kuru çalıştırması: hangi dosyaların kopyalanacağı.
     func previewRoute(_ route: RoutineRoute, of routine: Routine) async -> VerifyReport? {
         guard let source = route.source, let destination = route.destination else { return nil }
-        return await preview(source: source, destination: destination, options: routine.jobOptions(for: route))
+        return await preview(source: source, destination: destination, options: routine.jobOptions(for: route), kind: routine.jobKind)
     }
 
     // MARK: - İş kuyruğu: kayıt
@@ -857,13 +963,13 @@ final class AppModel {
     }
 
     /// İşi değişiklik yapmadan çalıştırıp neyin kopyalanacağını, güncelleneceğini ve silineceğini listeler.
-    func preview(source: URL, destination: URL, options: CopyOptions) async -> VerifyReport {
+    func preview(source: URL, destination: URL, options: CopyOptions, kind: JobKind = .rsync) async -> VerifyReport {
         await ensureEngine()
         guard let engineURL, let engineInfo else {
             return VerifyReport(entries: [], result: JobResult(kind: .engineMissing), checksum: false)
         }
         let context = EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine)
-        let job = TransferJob(source: source, destination: destination, options: options)
+        let job = TransferJob(kind: kind, source: source, destination: destination, options: options)
         return await engineProvider(job.kind).verify(job, context: context, checksum: false)
     }
 
@@ -898,7 +1004,7 @@ final class AppModel {
         for id in ids {
             guard let job = job(id), JobQueue.canResume(job) || JobQueue.canRunAgain(job) else { continue }
             // Karar bekleyen iş kararsız yeniden çalışmaz: karar sayfası açılır.
-            if job.isAwaitingDecision, job.conflictResolution == nil {
+            if job.isAwaitingDecision, job.pendingPlacements != nil || job.conflictResolution == nil {
                 conflictPrompt = ConflictPrompt(id: id)
                 continue
             }
@@ -1072,7 +1178,7 @@ final class AppModel {
     private func apply(_ event: TransferEvent, to id: TransferJob.ID) {
         update(id) { JobQueue.apply(event, to: &$0) }
         switch event {
-        case .phase, .log, .logBatch, .conflicts, .conflictsSettled:
+        case .phase, .log, .logBatch, .conflicts, .conflictsSettled, .placements:
             save()
         case .progress:
             if Date().timeIntervalSince(lastProgressSave) > 5 {
@@ -1141,7 +1247,7 @@ final class AppModel {
         if result.kind == .stoppedAtLimit {
             notifier(t(.notifyStoppedTitle), t(.notifyStoppedBody, name))
         } else if result.kind == .awaitingDecision {
-            notifier(t(.notifyDecisionTitle), t(.notifyDecisionBody, name, result.noteCount))
+            notifier(t(.notifyDecisionTitle), t(result.detail == JobResult.placementsDetail ? .notifyPlacementBody : .notifyDecisionBody, name, result.noteCount))
         } else if result.kind.isSuccess {
             notifier(t(.notifyFinishedTitle), t(.notifyFinishedBody, name))
         } else {

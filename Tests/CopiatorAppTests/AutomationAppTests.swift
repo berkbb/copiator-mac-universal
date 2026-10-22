@@ -210,6 +210,8 @@ struct AutomationAppTests {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         let model = fixture.model
+        await IntentTargetLock.shared.acquire()
+        defer { IntentTargetLock.shared.release() }
         IntentTarget.model = { model }
         defer { IntentTarget.model = { AppModel.shared } }
         model.toggleQueueHold()

@@ -126,6 +126,11 @@ public enum FolderSuggester {
         /// Köke göre göreli yol ("Özel/Ev/Tapu").
         public var path: String
         public var score: Double
+
+        public init(path: String, score: Double) {
+            self.path = path
+            self.score = score
+        }
     }
 
     /// Kökün altındaki klasörler (göreli yollar; gizli klasörler ve paketlerin içi hariç).

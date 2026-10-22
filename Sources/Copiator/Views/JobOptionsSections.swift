@@ -152,6 +152,8 @@ struct PreviewPresentation: Identifiable {
     let report: VerifyReport
     /// `--delete` seçili: hedefte fazla olanlar silinecek.
     let deleteEnabled: Bool
+    /// Eşitleme rutininin önizlemesi: "eksik" A → B, "fazla" B → A, "değişmiş" iki yanda farklı.
+    var sync = false
 }
 
 /// İş eklenmeden önce neyin kopyalanacağını, güncelleneceğini ve (seçiliyse) silineceğini gösterir.
@@ -228,6 +230,9 @@ struct PreviewSheet: View {
         if !report.entries.contains(where: { $0.kind != .attributes && ($0.kind != .extra || presentation.deleteEnabled) }) {
             return settings.t(.previewNothing)
         }
+        if presentation.sync {
+            return settings.t(.syncPreviewSummary, report.count(.missing), report.count(.extra), report.count(.changed))
+        }
         let key: LKey = presentation.deleteEnabled ? .previewSummary : .previewSummaryKept
         return settings.t(key, report.count(.missing), report.count(.changed), report.count(.extra))
     }
@@ -243,7 +248,14 @@ struct PreviewSheet: View {
     }
 
     private func key(for kind: DiffEntry.Kind) -> LKey {
-        switch kind {
+        if presentation.sync {
+            switch kind {
+            case .missing: return .syncPreviewToB
+            case .extra: return .syncPreviewToA
+            case .changed, .attributes: return .syncPreviewDiffer
+            }
+        }
+        return switch kind {
         case .missing: .previewWillCopy
         case .changed: .previewWillUpdate
         case .attributes: .previewAttributes
@@ -252,7 +264,8 @@ struct PreviewSheet: View {
     }
 
     private func color(for kind: DiffEntry.Kind) -> Color {
-        switch kind {
+        if presentation.sync { return kind == .changed ? .orange : .green }
+        return switch kind {
         case .missing: .green
         case .changed: .blue
         case .attributes: .secondary

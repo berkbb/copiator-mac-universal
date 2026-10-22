@@ -21,6 +21,27 @@ let rsyncURL: URL? = {
 /// Paketin dil tabloları (Resources/<dil>.lproj): testler ve ekran görüntüleri gerçek metinlerle çalışır.
 let resourcesBundle = Bundle(url: packageRoot.appendingPathComponent("Resources")) ?? .main
 
+/// `IntentTarget.model` uygulama genelinde tek bir değişkendir: onu değiştiren testler (ayrı takımlarda olsalar da) sırayla
+/// çalışır; yoksa paralel bir test kestirmeyi kendi modeline yönlendirebilir.
+@MainActor
+final class IntentTargetLock {
+    static let shared = IntentTargetLock()
+    private var busy = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async {
+        guard busy else {
+            busy = true
+            return
+        }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func release() {
+        if waiters.isEmpty { busy = false } else { waiters.removeFirst().resume() }
+    }
+}
+
 /// Her test kendi geçici klasörü, kendi UserDefaults alanı, kendi kayıt dosyası ve gerçek rsync ile çalışan bir
 /// AppModel kurar.
 @MainActor
@@ -41,6 +62,8 @@ final class Fixture {
         settings = AppSettings(defaults: defaults, bundle: resourcesBundle)
         settings.customEnginePath = rsyncURL?.path
         settings.updateConsentAsked = true
+        // Testler bu Mac'teki gerçek Ollama ya da LM Studio'ya istek göndermesin (Otomatik kip ikisini de yoklar).
+        settings.aiProvider = .apple
         store = JobStore(url: workspace.appendingPathComponent("Destek/jobs.json"))
         model = AppModel(settings: settings, store: store, sleepReason: "Copiator test \(suiteName)")
         attach(model)

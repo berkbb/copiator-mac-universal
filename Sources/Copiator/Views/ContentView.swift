@@ -67,6 +67,7 @@ struct ContentView: View {
         .sheet(item: $model.conflictPrompt) { ConflictSheet(prompt: $0) }
         .sheet(item: $model.routinePicker) { RoutinePickerSheet(request: $0) }
         .sheet(item: $model.summaryRequest) { DestinationSummarySheet(request: $0) }
+        .sheet(item: $model.cleanupRequest) { CleanupSheet(request: $0) }
         .sheet(item: $model.verifyPresentation) { VerifyResultSheet(presentation: $0) }
         .confirmationDialog(
             settings.t(.verifyChooseTitle),

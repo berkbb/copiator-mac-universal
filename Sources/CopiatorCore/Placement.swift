@@ -18,17 +18,30 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
     /// Ay adlarının dili ("tr", "en", "ro"). Şablon kurulurken uygulamanın dili yazılır; arayüz dili sonradan değişse de
     /// klasör adları değişmez.
     public var language: String
+    /// Ad şablonundan sonra, sırayla uygulanan ad düzeltmeleri (ör. baştaki kodu büyük harf yapmak).
+    public var nameFixes: [NameFix]
+    /// Her dosyanın hedefteki klasörü sorulur: klasörler önerilir, kullanıcı onaylar (bkz. `PlacementQuestions`).
+    /// Alt klasör şablonu seçilen klasörün altında uygulanır.
+    public var askFolder: Bool
+    /// "Bunu hatırla" ile öğrenilen klasörler: `PlacementMemory.key` → hedefe göre göreli klasör.
+    public var learnedFolders: [String: String]
 
     public init(folderTemplate: String = "", keepStructure: Bool = false, nameTemplate: String = "",
-                dateSource: PlacementDateSource = .automatic, language: String = "tr") {
+                dateSource: PlacementDateSource = .automatic, language: String = "tr", nameFixes: [NameFix] = [],
+                askFolder: Bool = false, learnedFolders: [String: String] = [:]) {
         self.folderTemplate = folderTemplate
         self.keepStructure = keepStructure
         self.nameTemplate = nameTemplate
         self.dateSource = dateSource
         self.language = language
+        self.nameFixes = nameFixes
+        self.askFolder = askFolder
+        self.learnedFolders = learnedFolders
     }
 
-    private enum CodingKeys: String, CodingKey { case folderTemplate, keepStructure, nameTemplate, dateSource, language }
+    private enum CodingKeys: String, CodingKey {
+        case folderTemplate, keepStructure, nameTemplate, dateSource, language, nameFixes, askFolder, learnedFolders
+    }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -37,14 +50,18 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         nameTemplate = (try? c.decodeIfPresent(String.self, forKey: .nameTemplate)) ?? ""
         dateSource = (try? c.decodeIfPresent(PlacementDateSource.self, forKey: .dateSource)) ?? .automatic
         language = (try? c.decodeIfPresent(String.self, forKey: .language)) ?? "tr"
+        nameFixes = (try? c.decodeIfPresent([NameFix].self, forKey: .nameFixes)) ?? []
+        askFolder = (try? c.decodeIfPresent(Bool.self, forKey: .askFolder)) ?? false
+        learnedFolders = (try? c.decodeIfPresent([String: String].self, forKey: .learnedFolders)) ?? [:]
     }
 
     /// Hazır alt klasör şablonları: yıl/ay adı, yıl/ay, yıl.
     public static let folderPresets = ["{year}/{month}-{monthName}", "{year}/{month}", "{year}"]
 
-    /// Şablonlardan biri dolu: dosyalar yerleştirilerek kopyalanır.
+    /// Şablonlardan biri dolu, bir ad düzeltmesi var ya da klasör sorulur: dosyalar yerleştirilerek kopyalanır.
     public var isActive: Bool {
-        !folderTemplate.trimmingCharacters(in: .whitespaces).isEmpty || !nameTemplate.trimmingCharacters(in: .whitespaces).isEmpty
+        askFolder || !folderTemplate.trimmingCharacters(in: .whitespaces).isEmpty || !nameTemplate.trimmingCharacters(in: .whitespaces).isEmpty
+            || nameFixes.contains { !$0.pattern.isEmpty }
     }
 
     /// Şablonlarda bir tarih belirteci var (dosyanın tarihi bulunmalı).
@@ -59,6 +76,11 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         case slashInName
         /// Klasör şablonunda "..": hedefin dışına çıkılamaz.
         case parentFolder
+        /// Ad düzeltmesinin düzenli ifadesi geçersiz.
+        case invalidFix(String)
+        /// Ad düzeltmesinin yerine yazılacak metninde anlaşılmayan bölüm: ifadede olmayan grup ("$3") ya da bilinmeyen
+        /// dönüşüm ("${1:foo}").
+        case fixReplacement(String)
     }
 
     public func problems() -> [Problem] {
@@ -71,6 +93,13 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         if folderTemplate.split(separator: "/").contains(where: { $0.trimmingCharacters(in: .whitespaces) == ".." }) {
             problems.append(.parentFolder)
         }
+        for fix in nameFixes where !fix.pattern.isEmpty {
+            guard let regex = fix.regex else {
+                problems.append(.invalidFix(fix.pattern))
+                continue
+            }
+            problems += fix.replacementProblems(groups: regex.numberOfCaptureGroups).map(Problem.fixReplacement)
+        }
         return problems
     }
 
@@ -78,26 +107,63 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
     /// - Parameters:
     ///   - relativePath: Kaynağa göre göreli yol ("2026/Faturalar/fatura.pdf").
     ///   - date: Dosyanın tarihi (yıl ve ay; gün yoksa "01").
-    public func target(for relativePath: String, date: DateComponents?) -> String {
+    ///   - destination: Rotanın hedefinin yolu (`{targetFolder}` ve `{targetNumber}` için).
+    ///   - folder: "Klasörü sor"da seçilen, hedefe göre göreli klasör; dosya (klasör yapısı korunmuyorsa) doğrudan oraya,
+    ///     alt klasör şablonu varsa onun altına düşer.
+    public func target(for relativePath: String, date: DateComponents?, destination: String = "", folder: String? = nil) -> String {
         let components = relativePath.split(separator: "/").map(String.init)
         let name = components.last ?? relativePath
         let folders = Array(components.dropLast())
         let ext = (name as NSString).pathExtension
         let base = ext.isEmpty ? name : (name as NSString).deletingPathExtension
-        let values = PlacementToken.values(base: base, folder: folders.last ?? "", date: date, language: language)
+        let destinationFolders = destination.split(separator: "/").map(String.init)
+        var values = PlacementToken.values(base: base, folder: folders.last ?? "", date: date, language: language)
 
+        // Klasör şablonunda hedef belirteçleri rotanın hedefini (ve seçilen klasörü) anlatır; ad şablonunda dosyanın düştüğü
+        // en derin klasörü.
+        let chosen = folder.map { $0.split(separator: "/").map { Self.component(String($0)) }.filter { !$0.isEmpty } }
+        var placedFolders = chosen.map { $0 + (keepStructure ? folders : []) } ?? folders
+        if !folderTemplate.trimmingCharacters(in: .whitespaces).isEmpty {
+            PlacementToken.addTarget(destinationFolders + (chosen ?? []), to: &values)
+            let templateFolders = PlacementToken.render(folderTemplate, values).split(separator: "/")
+                .map { Self.component(String($0)) }.filter { !$0.isEmpty }
+            placedFolders = (chosen ?? []) + templateFolders + (keepStructure ? folders : [])
+        }
+        PlacementToken.addTarget(destinationFolders + placedFolders, to: &values)
+
+        // Şablon ve düzeltme yoksa ad olduğu gibi kalır (".gizli" ya da "a:b.txt" de).
         var newName = name
-        if !nameTemplate.trimmingCharacters(in: .whitespaces).isEmpty {
-            var rendered = Self.component(PlacementToken.render(nameTemplate, values))
-            if rendered.isEmpty { rendered = base }
-            newName = ext.isEmpty ? rendered : rendered + "." + ext
+        let hasTemplate = !nameTemplate.trimmingCharacters(in: .whitespaces).isEmpty
+        let fixes = nameFixes.filter { !$0.pattern.isEmpty }
+        if hasTemplate || !fixes.isEmpty {
+            var newBase = base
+            if hasTemplate {
+                newBase = Self.component(Self.renderName(nameTemplate, values, base: base))
+                if newBase.isEmpty { newBase = base }
+            }
+            if !fixes.isEmpty {
+                let fixed = Self.component(NameFix.apply(fixes, to: newBase, language: language))
+                if !fixed.isEmpty { newBase = fixed }
+            }
+            newName = ext.isEmpty ? newBase : newBase + "." + ext
         }
-        guard !folderTemplate.trimmingCharacters(in: .whitespaces).isEmpty else {
-            return (folders + [newName]).joined(separator: "/")
-        }
-        let templateFolders = PlacementToken.render(folderTemplate, values).split(separator: "/")
-            .map { Self.component(String($0)) }.filter { !$0.isEmpty }
-        return (templateFolders + (keepStructure ? folders : []) + [newName]).joined(separator: "/")
+        return (placedFolders + [newName]).joined(separator: "/")
+    }
+
+    /// Ad şablonu; `{name}`in önündeki ya da ardındaki metin adda zaten varsa yeniden eklenmez ("128_El_{name}" ile
+    /// "128_El_Ekim" yine "128_El_Ekim" olur; harf büyüklüğü ve aksan fark etmez). Böylece aynı dosyaya şablon iki kez
+    /// uygulansa da ad uzamaz.
+    static func renderName(_ template: String, _ values: [PlacementToken: String], base: String) -> String {
+        let parts = template.components(separatedBy: PlacementToken.name.text)
+        guard parts.count == 2 else { return PlacementToken.render(template, values) }
+        var prefix = PlacementToken.render(parts[0], values)
+        var suffix = PlacementToken.render(parts[1], values)
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        let trimmedPrefix = prefix.trimmingCharacters(in: .whitespaces)
+        if !trimmedPrefix.isEmpty, base.range(of: trimmedPrefix, options: options.union(.anchored)) != nil { prefix = "" }
+        let trimmedSuffix = suffix.trimmingCharacters(in: .whitespaces)
+        if !trimmedSuffix.isEmpty, base.range(of: trimmedSuffix, options: options.union([.anchored, .backwards])) != nil { suffix = "" }
+        return prefix + base + suffix
     }
 
     /// Ad ya da klasör adı olarak güvenli metin: "/" ve ":" tireye döner, denetim karakterleri silinir, baştaki boşluk ve
@@ -119,6 +185,152 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
     }
 }
 
+/// Ad düzeltmesi: adın düzenli ifadeye uyan her parçası yerine yazılacak metinle değişir (uzantıya dokunulmaz). Yerine
+/// yazılacak metinde `$1` ya da `${1}` grubun kendisi; `${1:upper}`, `${1:lower}`, `${1:title}` büyük harfli, küçük harfli
+/// ya da sözcük başları büyük hali (rotanın dilinde: Türkçede "i" → "İ"); `$0` uyan parçanın tamamı, `$$` dolar işareti.
+/// İfade harf büyüklüğüne duyarlıdır; adım sınırını aşan bir ifade adı değiştirmez.
+public struct NameFix: Codable, Equatable, Sendable, Identifiable {
+    public var id: UUID
+    public var pattern: String
+    public var replacement: String
+
+    public init(id: UUID = UUID(), pattern: String = "", replacement: String = "") {
+        self.id = id
+        self.pattern = pattern
+        self.replacement = replacement
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, pattern, replacement }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID()
+        pattern = (try? c.decodeIfPresent(String.self, forKey: .pattern)) ?? ""
+        replacement = (try? c.decodeIfPresent(String.self, forKey: .replacement)) ?? ""
+    }
+
+    /// Hazır düzeltmeler: baştaki harf ve rakam kodunu büyük harf yapmak ("ab1234 fatura" → "AB1234 fatura"), boşlukları
+    /// alt çizgiye çevirmek, art arda gelen alt çizgileri teke indirmek. Eklenirken yeni bir kimlikle kopyalanır.
+    public static let presets = [
+        NameFix(pattern: "^([A-Za-z]+[0-9]+)", replacement: "${1:upper}"),
+        NameFix(pattern: "\\s+", replacement: "_"),
+        NameFix(pattern: "_{2,}", replacement: "_"),
+    ]
+
+    /// Büyük-küçük harf dönüşümü.
+    public enum Case: String, Sendable { case upper, lower, title }
+
+    /// Yerine yazılacak metnin parçaları.
+    enum Piece: Equatable {
+        case text(String)
+        /// Grup numarası ve dönüşüm adı (`${1:upper}` → 1, "upper").
+        case group(Int, String?)
+    }
+
+    var regex: NSRegularExpression? { try? NSRegularExpression(pattern: pattern.precomposedStringWithCanonicalMapping) }
+
+    /// Yerine yazılacak metinde anlaşılmayan bölümler: ifadede olmayan grup ya da bilinmeyen dönüşüm ("${1:foo}").
+    func replacementProblems(groups: Int) -> [String] {
+        Self.pieces(replacement).compactMap { piece in
+            guard case .group(let number, let name) = piece else { return nil }
+            let known = name.map { Case(rawValue: $0) != nil } ?? true
+            guard number > groups || !known else { return nil }
+            return name.map { "${\(number):\($0)}" } ?? "$\(number)"
+        }
+    }
+
+    static func pieces(_ replacement: String) -> [Piece] {
+        var pieces: [Piece] = []
+        var text = ""
+        func flush() {
+            if !text.isEmpty { pieces.append(.text(text)) }
+            text = ""
+        }
+        var index = replacement.startIndex
+        while index < replacement.endIndex {
+            let character = replacement[index]
+            let next = replacement.index(after: index)
+            guard character == "$", next < replacement.endIndex else {
+                text.append(character)
+                index = next
+                continue
+            }
+            if replacement[next] == "$" {
+                text.append("$")
+                index = replacement.index(after: next)
+                continue
+            }
+            let digits = replacement[next...].prefix { $0.isASCII && $0.isNumber }
+            if !digits.isEmpty {
+                flush()
+                pieces.append(.group(Int(digits) ?? Int.max, nil))
+                index = digits.endIndex
+                continue
+            }
+            if replacement[next] == "{", let close = replacement[next...].firstIndex(of: "}") {
+                let inner = replacement[replacement.index(after: next)..<close].split(separator: ":", maxSplits: 1,
+                                                                                    omittingEmptySubsequences: false)
+                if let first = inner.first, !first.isEmpty, first.allSatisfy({ $0.isASCII && $0.isNumber }) {
+                    flush()
+                    pieces.append(.group(Int(first) ?? Int.max, inner.count > 1 ? String(inner[1]) : nil))
+                    index = replacement.index(after: close)
+                    continue
+                }
+            }
+            text.append(character)
+            index = next
+        }
+        flush()
+        return pieces
+    }
+
+    /// Düzeltmeleri sırayla uygular; geçersiz ifade atlanır.
+    static func apply(_ fixes: [NameFix], to name: String, language: String) -> String {
+        let locale = Locale(identifier: language)
+        var result = name.precomposedStringWithCanonicalMapping
+        for fix in fixes where !fix.pattern.isEmpty {
+            guard let regex = fix.regex else { continue }
+            result = fix.replace(in: result, regex: regex, locale: locale)
+        }
+        return result
+    }
+
+    /// Adım sınırlı değiştirme (bkz. `RuleEvaluator.regexStepBudget`): sınır aşılırsa ad olduğu gibi kalır.
+    private func replace(in text: String, regex: NSRegularExpression, locale: Locale) -> String {
+        var ticks = 0
+        var matches: [NSTextCheckingResult] = []
+        regex.enumerateMatches(in: text, options: [.reportProgress], range: NSRange(text.startIndex..., in: text)) { match, _, stop in
+            if let match { matches.append(match) } else { ticks += 1 }
+            if ticks > RuleEvaluator.regexStepBudget || matches.count > 1_000 { stop.pointee = true }
+        }
+        guard ticks <= RuleEvaluator.regexStepBudget, !matches.isEmpty else { return text }
+        let pieces = Self.pieces(replacement)
+        var result = ""
+        var last = text.startIndex
+        for match in matches {
+            guard let range = Range(match.range, in: text), range.lowerBound >= last else { continue }
+            result += text[last..<range.lowerBound]
+            for piece in pieces {
+                switch piece {
+                case .text(let value):
+                    result += value
+                case .group(let number, let name):
+                    guard number <= match.numberOfRanges - 1, let group = Range(match.range(at: number), in: text) else { continue }
+                    let value = String(text[group])
+                    switch name.flatMap(Case.init(rawValue:)) {
+                    case .upper?: result += value.uppercased(with: locale)
+                    case .lower?: result += value.lowercased(with: locale)
+                    case .title?: result += value.capitalized(with: locale)
+                    case nil: result += value
+                    }
+                }
+            }
+            last = range.upperBound
+        }
+        return result + text[last...]
+    }
+}
+
 /// Tarih belirteçlerinin kaynağı.
 public enum PlacementDateSource: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Çekim tarihi, yoksa dosya adındaki, yoksa içerikteki tarih, o da yoksa değiştirilme tarihi.
@@ -133,13 +345,30 @@ public enum PlacementDateSource: String, Codable, CaseIterable, Identifiable, Se
 }
 
 /// Şablon belirteçleri: `{name}` dosyanın uzantısız adı, `{folder}` bulunduğu klasörün adı, `{year}` 2026, `{yy}` 26,
-/// `{month}` 01–12, `{monthName}` ay adı (rotanın dilinde), `{day}` 01–31.
+/// `{month}` 01–12, `{monthName}` ay adı (rotanın dilinde), `{day}` 01–31, `{targetFolder}` hedefte düştüğü klasörün adı,
+/// `{targetNumber}` hedef yolundaki parantez içi numara ("Elektrik (123456789)" → 123456789; en derindeki).
 public enum PlacementToken: String, CaseIterable, Identifiable, Sendable {
-    case name, folder, year, yy, month, monthName, day
+    case name, folder, year, yy, month, monthName, day, targetFolder, targetNumber
 
     public var id: String { rawValue }
     public var text: String { "{\(rawValue)}" }
-    var isDate: Bool { self != .name && self != .folder }
+    var isDate: Bool { ![.name, .folder, .targetFolder, .targetNumber].contains(self) }
+
+    private static let numberPattern = try? NSRegularExpression(pattern: "\\(\\s*([0-9]+)\\s*\\)")
+
+    /// Hedef belirteçleri: yolun son klasörü ve parantez içindeki en derin numara.
+    static func addTarget(_ folders: [String], to values: inout [PlacementToken: String]) {
+        values[.targetFolder] = folders.last ?? ""
+        values[.targetNumber] = ""
+        guard let numberPattern else { return }
+        for folder in folders.reversed() {
+            let matches = numberPattern.matches(in: folder, range: NSRange(folder.startIndex..., in: folder))
+            if let match = matches.last, let range = Range(match.range(at: 1), in: folder) {
+                values[.targetNumber] = String(folder[range])
+                return
+            }
+        }
+    }
 
     private static let pattern = try? NSRegularExpression(pattern: "\\{([A-Za-z]+)\\}")
 
@@ -209,8 +438,11 @@ public enum PlacementStaging {
     /// - Parameters:
     ///   - paths: Kaynağa göre göreli seçilen yollar (dosyalar ve paketler).
     ///   - folder: Hazırlık ağacının kurulacağı, var olmayan klasör (işin özel geçici klasörünün içinde).
+    ///   - destination: Rotanın hedefi (`{targetFolder}` ve `{targetNumber}` için).
+    ///   - folders: "Klasörü sor"da her yol için seçilen klasör (bkz. `PlacementQuestions`).
     public static func build(
-        paths: [String], source: URL, placement: RoutePlacement, in folder: URL, isCancelled: () -> Bool = { false }
+        paths: [String], source: URL, placement: RoutePlacement, in folder: URL, destination: URL? = nil,
+        folders: [String: String]? = nil, isCancelled: () -> Bool = { false }
     ) async throws -> Result {
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -228,7 +460,7 @@ public enum PlacementStaging {
                 continue
             }
             let date = placement.usesDate ? await PlacementDate.resolve(url, relativePath: path, source: placement.dateSource) : nil
-            var target = placement.target(for: path, date: date)
+            var target = placement.target(for: path, date: date, destination: destination?.path ?? "", folder: folders?[path])
             // Aynı hedefe düşen iki dosya: sonraki Finder gibi numaralanır ("ad 2.pdf").
             if taken.contains(target.lowercased()) {
                 let directory = (target as NSString).deletingLastPathComponent

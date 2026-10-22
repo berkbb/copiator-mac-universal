@@ -195,11 +195,18 @@ final class AppSettings {
         static let defaultConflictPolicy = "defaultConflictPolicy"
         static let showMenuBarIcon = "showMenuBarIcon"
         static let showDockProgress = "showDockProgress"
+        static let aiSuggestions = "aiSuggestions"
+        static let aiProvider = "aiProvider"
+        static let aiOllamaModel = "aiOllamaModel"
+        static let aiLMStudioModel = "aiLMStudioModel"
+        static let aiAutomaticOrder = "aiAutomaticOrder"
+        static let aiAutomaticOff = "aiAutomaticOff"
         static let all = [
             language, appearance, notifyOnFinish, resumeInterruptedAtLaunch, defaultCopyMode, defaultPreservePermissions,
             defaultPreserveXattrs, defaultExcludeSystemFolders, customEnginePath, checkUpdatesAtLaunch, updateConsentAsked,
             sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, defaultAdvanced, defaultVerifyAfterCopy,
-            showMenuBarIcon, showDockProgress, defaultConflictPolicy,
+            showMenuBarIcon, showDockProgress, defaultConflictPolicy, aiSuggestions, aiProvider, aiOllamaModel, aiLMStudioModel,
+            aiAutomaticOrder, aiAutomaticOff,
         ]
     }
 
@@ -255,6 +262,33 @@ final class AppSettings {
     var showMenuBarIcon: Bool { didSet { defaults.set(showMenuBarIcon, forKey: Key.showMenuBarIcon) } }
     /// Dock simgesinde çalışan işin ilerlemesi ve bekleyen işlerin sayısı.
     var showDockProgress: Bool { didSet { defaults.set(showDockProgress, forKey: Key.showDockProgress) } }
+    /// Cihaz üstü yapay zekâ önerileri (klasör sıralaması, ad şablonu); yalnızca bu Mac'te, internetsiz.
+    var aiSuggestions: Bool { didSet { defaults.set(aiSuggestions, forKey: Key.aiSuggestions) } }
+    /// Önerilerin modeli: Otomatik (varsayılan; sırayla ilk yanıt veren), Apple Intelligence ya da bu Mac'teki yerel sunucu
+    /// (Ollama, LM Studio; yalnızca 127.0.0.1).
+    var aiProvider: SuggestionProvider { didSet { defaults.set(aiProvider.rawValue, forKey: Key.aiProvider) } }
+    /// Otomatik kipte deneme sırası (her gerçek sağlayıcı bir kez) ve sıradan çıkarılanlar.
+    var aiAutomaticOrder: [SuggestionProvider] {
+        didSet { defaults.set(aiAutomaticOrder.map(\.rawValue), forKey: Key.aiAutomaticOrder) }
+    }
+    var aiAutomaticOff: Set<SuggestionProvider> {
+        didSet { defaults.set(aiAutomaticOff.map(\.rawValue).sorted(), forKey: Key.aiAutomaticOff) }
+    }
+
+    /// Otomatik kipte sırayla denenecek sağlayıcılar.
+    var automaticProviders: [SuggestionProvider] { aiAutomaticOrder.filter { !aiAutomaticOff.contains($0) } }
+
+    /// Seçime göre kullanılabilecek sağlayıcılar (Otomatik'te sıradakiler, yoksa seçilen).
+    var activeProviders: [SuggestionProvider] { aiProvider == .automatic ? automaticProviders : [aiProvider] }
+    /// Yerel sunucularda seçilen model adları.
+    var aiOllamaModel: String { didSet { defaults.set(aiOllamaModel, forKey: Key.aiOllamaModel) } }
+    var aiLMStudioModel: String { didSet { defaults.set(aiLMStudioModel, forKey: Key.aiLMStudioModel) } }
+
+    func aiModel(for server: LocalModelServer) -> String { server == .ollama ? aiOllamaModel : aiLMStudioModel }
+
+    func setAIModel(_ name: String, for server: LocalModelServer) {
+        if server == .ollama { aiOllamaModel = name } else { aiLMStudioModel = name }
+    }
     /// Kullanıcının özelleştirdiği kısayollar; varsayılandan farklı olanlar saklanır.
     var customShortcuts: [String: KeyboardShortcutData] {
         didSet {
@@ -287,6 +321,13 @@ final class AppSettings {
         defaultConflictPolicy = ConflictPolicy(rawValue: defaults.string(forKey: Key.defaultConflictPolicy) ?? "") ?? .ask
         showMenuBarIcon = defaults.object(forKey: Key.showMenuBarIcon) as? Bool ?? true
         showDockProgress = defaults.object(forKey: Key.showDockProgress) as? Bool ?? true
+        aiSuggestions = defaults.object(forKey: Key.aiSuggestions) as? Bool ?? true
+        aiProvider = SuggestionProvider(rawValue: defaults.string(forKey: Key.aiProvider) ?? "") ?? .automatic
+        aiAutomaticOrder = SuggestionProvider.order(defaults.stringArray(forKey: Key.aiAutomaticOrder) ?? [])
+        aiAutomaticOff = Set((defaults.stringArray(forKey: Key.aiAutomaticOff) ?? []).compactMap(SuggestionProvider.init(rawValue:)))
+            .subtracting([.automatic])
+        aiOllamaModel = defaults.string(forKey: Key.aiOllamaModel) ?? ""
+        aiLMStudioModel = defaults.string(forKey: Key.aiLMStudioModel) ?? ""
         if let data = defaults.data(forKey: Key.customShortcuts),
            let decoded = try? JSONDecoder().decode([String: KeyboardShortcutData].self, from: data) {
             customShortcuts = decoded
@@ -325,6 +366,12 @@ final class AppSettings {
         defaultConflictPolicy = .ask
         showMenuBarIcon = true
         showDockProgress = true
+        aiSuggestions = true
+        aiProvider = .automatic
+        aiAutomaticOrder = SuggestionProvider.models
+        aiAutomaticOff = []
+        aiOllamaModel = ""
+        aiLMStudioModel = ""
         customShortcuts = [:]
         // Özellik gözlemcileri değerleri yeniden yazdı; ilk kurulumdaki gibi hiçbir tercih kalmasın.
         // "AppleLanguages" en sonda silinir: dil atanırken yeniden yazılıyordu.

@@ -609,7 +609,7 @@ struct ChaosAndSecurityMatrixTests {
 
     /// Gelen öğe hedefte başka türde, aynı adlı bir öğenin yerine geçecekse (klasör ↔ dosya, dosya ↔ boş klasör, dosya ↔
     /// bağlantı) rsync oradakini sessizce silerdi: bunlar da sorulur ve her karar tam olarak uygulanır.
-    @Test(.enabled(if: live), arguments: ConflictDecision.allCases)
+    @Test(.enabled(if: live), arguments: ConflictDecision.choices(for: .rsync) + [.reverse])
     func redTeamItemsOfAnotherTypeAreAskedAbout(decision: ConflictDecision) async throws {
         let w = try Workspace("CopiatorMatrix")
         let (context, _) = try await matrixContext(w)
@@ -641,7 +641,8 @@ struct ChaosAndSecurityMatrixTests {
             #expect(copied == ["belgeler/x.txt": "yeni klasördeki\n", "belgeler 2": "önemli dosya\n", "bos 2": "yeni dosya\n",
                                "baglanti 2.txt": "yeni bağlantı yerine\n"])
             #expect(entries(w.url("Hedef/bos")).isEmpty && isLink(w.url("Hedef/baglanti.txt")))
-        case .skip:
+        case .skip, .reverse:
+            // "Ters" yalnızca eşitlemede anlamlıdır; kopyalama işinde "atla" gibi davranır.
             #expect(copied == ["belgeler": "önemli dosya\n"])
             #expect(entries(w.url("Hedef/bos")).isEmpty && isLink(w.url("Hedef/baglanti.txt")))
         }
@@ -684,6 +685,26 @@ struct ChaosAndSecurityMatrixTests {
         #expect(entries(scratch).isEmpty)
     }
 
+    /// Elle hazırlanmış bir iş kaydındaki klasör kararı ("../../Disari/./..") ve öğrenilmiş klasör ("../../Disari2") de
+    /// dosyaları hedefin dışına çıkaramaz: yalnızca hedefin içindeki klasörler kullanılır.
+    @Test(.enabled(if: live))
+    func redTeamChosenFoldersNeverLeaveTheDestination() async throws {
+        let w = try Workspace("CopiatorMatrix")
+        let (context, scratch) = try await matrixContext(w)
+        try w.write("Kaynak/rapor.txt", "rapor\n")
+        try w.write("Kaynak/fatura.txt", "fatura\n")
+        try w.mkdir("Hedef/Disari2")
+        let placement = RoutePlacement(askFolder: true, learnedFolders: ["fatura.txt": "../../Disari2"])
+        var job = TransferJob(source: w.url("Kaynak"), destination: w.url("Hedef"),
+                              options: CopyOptions(copyMode: .contents, rules: RuleGroup(), placement: placement))
+        job.placementResolution = PlacementResolution(folders: ["rapor.txt": "../../Disari/./.."])
+        let result = await run(&job, context)
+        #expect(result.kind == .succeeded, "\(result) \(job.log.suffix(5))")
+        #expect(files(w.url("Hedef")) == ["Disari/rapor.txt": "rapor\n", "Disari2/fatura.txt": "fatura\n"])
+        #expect(!w.exists("Disari") && !w.exists("Disari2"))
+        #expect(entries(scratch).isEmpty)
+    }
+
     // MARK: 10 Fuzz
 
     /// Rastgele şablonlar ve adlarla yerleşim: hedef yolu mutlak değildir, "..", "." ya da boş bileşen içermez; şablonun
@@ -694,27 +715,38 @@ struct ChaosAndSecurityMatrixTests {
     func fuzzPlacementAndDatesStaySafe(seed: UInt64) {
         var generator = SplitMix64(seed: seed)
         let pieces = ["{year}", "{yy}", "{month}", "{monthName}", "{day}", "{name}", "{folder}", "{yil}", "..", "/", ".", ":", " ",
-                      "\n", "a", "ğ", "İ", "\u{202E}", String(repeating: "u", count: 120), "{", "}"]
+                      "\n", "a", "ğ", "İ", "\u{202E}", String(repeating: "u", count: 120), "{", "}", "{targetFolder}", "{targetNumber}"]
+        let patterns = ["", "a", "^", ".*", "(\\w+)", "(.)(.)", "([a-z", "\\s+", "(a+)+$", "^([A-Za-z]+[0-9]+)", ".", "$"]
+        let replacements = ["", "..", "/", ".", "../x", "$1", "${1:upper}", "${2:title}", "$9", "${1:x}", "$$", "\n", ":", "${0:lower}"]
+        let destinations = ["", "/", "/Volumes/A (1)/B (22)", "/x/(..)/../.", "/a/(9999999999999999999999)", "/a/Ğ (İ)"]
         let names = ["rapor.pdf", ".gizli", "a:b.txt", "Ekim 2026.pdf", "ş", String(repeating: "ö", count: 120) + ".txt", "x.tar.gz", "-n"]
         let words = ["Ekim", "2026", "15.08.26", "mart", "martie", "/", "-", "_", " ", "99", "00", "13", "aralık", "ARALIK", "Ağustos", "08/2026"]
         for _ in 0..<500 {
             func pick(_ list: [String], _ count: Int) -> String {
                 (0..<count).map { _ in list[Int(generator.next() % UInt64(list.count))] }.joined()
             }
+            let fixes = (0..<Int(generator.next() % 3)).map { _ in
+                NameFix(pattern: patterns[Int(generator.next() % UInt64(patterns.count))],
+                        replacement: replacements[Int(generator.next() % UInt64(replacements.count))])
+            }
             let placement = RoutePlacement(folderTemplate: pick(pieces, Int(generator.next() % 6)), keepStructure: generator.next() % 2 == 0,
-                                           nameTemplate: pick(pieces, Int(generator.next() % 5)), language: ["tr", "en", "ro"][Int(generator.next() % 3)])
+                                           nameTemplate: pick(pieces, Int(generator.next() % 5)), language: ["tr", "en", "ro"][Int(generator.next() % 3)],
+                                           nameFixes: fixes)
             let path = (0..<Int(1 + generator.next() % 3)).map { _ in names[Int(generator.next() % UInt64(names.count))] }.joined(separator: "/")
             let date = generator.next() % 4 == 0 ? nil : DateComponents(year: 1980 + Int(generator.next() % 120), month: 1 + Int(generator.next() % 12))
-            let target = placement.target(for: path, date: date)
+            let folder = generator.next() % 3 == 0 ? pick(pieces, Int(generator.next() % 4)) : nil
+            let target = placement.target(for: path, date: date, destination: destinations[Int(generator.next() % UInt64(destinations.count))],
+                                          folder: folder)
             let components = target.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
             #expect(!target.hasPrefix("/"), "\(target.debugDescription)")
             #expect(components.allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." }, "\(target.debugDescription)")
             var generated: [String] = []
-            if !placement.folderTemplate.trimmingCharacters(in: .whitespaces).isEmpty, !placement.keepStructure {
+            if !placement.folderTemplate.trimmingCharacters(in: .whitespaces).isEmpty || folder != nil, !placement.keepStructure {
                 generated += components.dropLast()
             }
             let original = (path as NSString).lastPathComponent
-            if !placement.nameTemplate.trimmingCharacters(in: .whitespaces).isEmpty, let name = components.last,
+            if !placement.nameTemplate.trimmingCharacters(in: .whitespaces).isEmpty || fixes.contains(where: { !$0.pattern.isEmpty }),
+               let name = components.last,
                name != original, !original.hasPrefix(".") || !name.hasPrefix(".") {
                 generated.append(name)
             }

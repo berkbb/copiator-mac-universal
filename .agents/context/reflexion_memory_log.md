@@ -140,3 +140,32 @@
 ## Episode 33: A Fixed Sleep Before Cancel in the Resume Test
 - **Root Cause:** `interruptedCopyResumesWithTheSameCommand` cancelled after 400 ms. With the larger suite running in parallel, the cancel sometimes landed before the same-name check finished, so no `.conflictsSettled` event existed and the test's expectation about the resolution failed (the same timing flaw as Episode 23).
 - **Guardrail:** cancel once a progress event reports transferred bytes; never cancel on a fixed delay in engine tests.
+
+## Episode 34: The On-Device Model Wrapped Tokens in Brackets
+- **Root Cause:** asked for a name template, Apple's on-device model answered `123456789_El_({month}_{yy}).pdf`: right idea, wrong form. Model output cannot be used as is.
+- **Guardrail:** `Suggestions.cleanTemplate` strips quotes, brackets, prefixes and extensions and validates tokens; ranking answers are reduced to candidate numbers. Tests use a fake model; a live smoke test only checks that results are valid.
+
+
+## Episode 35: Packages With the Same Total Size Looked Identical to Sync
+- **Root Cause:** `SyncPlanner.same` treated two package folders (.app, .photoslibrary…) as the same when their total sizes matched, so a changed package whose files happened to add up to the same size was never synced. Found when a mutation (sync with `--delete`) went unnoticed and the package test written to catch it failed for this other reason.
+- **Guardrail:** packages are compared file by file (`sameTree`: same names, sizes, and equal times or SHA-256); `packagesAreCopiedWithoutDeletingInside` also proves that a sync never deletes inside a package.
+
+## Episode 36: Name Fixes Renamed Files That Had No Fixes
+- **Root Cause:** the first version of `RoutePlacement.target` ran every name through `component()` after the (empty) fix list, so with only a folder template `.gizli` became `gizli` and `a:b.txt` became `a-b.txt`. No existing test pinned the name of a file whose route had no name template.
+- **Guardrail:** names change only when a name template or a fix with a pattern exists; `namingModes` asserts that hidden and `:` names pass through unchanged, and the mutation round checks that guard.
+
+## Episode 37: A Real Account Number in Tests and Docs
+- **Root Cause:** an example template copied from the user's own scripts carried what looks like a real subscriber number into tests, README, CHANGELOG and a code comment (commit 178c8b4, not pushed). A test folder also used the user's first name.
+- **Guardrail:** examples and fixtures use dummy values (`123456789`, `987654321`, `Belgeler(MacBook)`-style names); before writing a sample from the user's files, replace every identifier. Search with `grep -rI` over the working tree, not `git grep`: the first sweep used `git grep` and missed two untracked test files. The pushed history has no copy; the unpushed commit still does and needs the user's decision.
+
+## Episode 38: The App Fixture Already Had Files in Its Source Folder
+- **Root Cause:** the first app test for suggested placement used `Kaynak`, where `Fixture` already writes `not.txt` and `alt/b.txt`; three files were undecided instead of one, so the job kept asking after the test answered for one file.
+- **Guardrail:** app tests that count selected files use their own source folder (`Faturalar`), not the fixture's `Kaynak`.
+
+## Episode 39: A Local Model Server Is Not Automatically Local
+- **Root Cause:** the user's Ollama lists cloud models (`…:cloud`, `remote_host: https://ollama.com:443`) next to local ones; picking one would send file names and contents to the internet through 127.0.0.1. A local server can also redirect a request elsewhere, and a system proxy could see localhost traffic.
+- **Guardrail:** `LocalModelServer` filters cloud models from the list and `LocalServerSuggestionModel` refuses them by name, the address is fixed to 127.0.0.1, the session has no proxy, cache or cookies, redirects are refused (`localServersAreAskedOnLoopbackOnly` redirects to a 200 endpoint so following it would pass), and only 200 responses from 127.0.0.1 are read.
+
+## Episode 40: Two Suites Raced on the Shortcut Target
+- **Root Cause:** `IntentTarget.model` is one process-wide closure. `AutomationAppTests` and `RoutineAppTests` are each `.serialized`, but they run in parallel with each other; a routine test reset the target to `AppModel.shared` while the shortcut test was still calling it, so "job not found" came from another model. Added suites shifted the timing and exposed it.
+- **Guardrail:** tests that set `IntentTarget.model` take `IntentTargetLock` first (an async FIFO lock on the main actor) and release it after restoring the target.

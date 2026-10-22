@@ -3,47 +3,50 @@ import CopiatorCore
 import SwiftUI
 
 extension AppSettings {
-    func title(_ decision: ConflictDecision) -> String {
+    /// Kararın adı; eşitlemede "değiştir" A'dakinin B'ye, "ters" B'dekinin A'ya yazılmasıdır.
+    func title(_ decision: ConflictDecision, kind: JobKind = .rsync) -> String {
         switch decision {
-        case .replace: t(.conflictReplace)
+        case .replace: t(kind == .sync ? .conflictSyncUseA : .conflictReplace)
         case .keepBoth: t(.conflictKeepBoth)
         case .skip: t(.conflictSkip)
+        case .reverse: t(.conflictSyncUseB)
         }
     }
 
-    func title(_ policy: ConflictPolicy) -> String {
+    func title(_ policy: ConflictPolicy, kind: JobKind = .rsync) -> String {
         switch policy {
         case .ask: t(.conflictPolicyAsk)
-        case .replace: t(.conflictPolicyReplace)
+        case .replace: t(kind == .sync ? .conflictPolicyUseA : .conflictPolicyReplace)
         case .keepBoth: t(.conflictPolicyKeepBoth)
         case .skip: t(.conflictPolicySkip)
+        case .reverse: t(.conflictPolicyUseB)
+        case .newer: t(.conflictPolicyNewer)
         }
     }
 }
 
 extension ConflictDecision {
-    /// Sayfadaki numara ve kısayol (1 · Değiştir, 2 · İkisini de sakla, 3 · Atla).
-    var number: Int {
-        switch self {
-        case .replace: 1
-        case .keepBoth: 2
-        case .skip: 3
-        }
+    /// Sayfadaki numara ve kısayol: iş türündeki sırası (1 · Değiştir, 2 · İkisini de sakla, 3 · Atla; eşitlemede
+    /// 1 · A'dakini B'ye, 2 · B'dekini A'ya, 3 · Atla).
+    func number(for kind: JobKind) -> Int {
+        (Self.choices(for: kind).firstIndex(of: self) ?? 0) + 1
     }
 }
 
 /// "Hedefte aynı adlı dosya varsa" seçimi (Yeni İş, rutin ve Ayarlar › Kopyalama).
 struct ConflictPolicyPicker: View {
     @Binding var selection: ConflictPolicy
+    /// Eşitleme rutininde "yenisi kazansın", "A kazansın", "B kazansın" sunulur.
+    var kind: JobKind = .rsync
     @Environment(AppSettings.self) private var settings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Picker(settings.t(.optionConflictPolicy), selection: $selection) {
-                ForEach(ConflictPolicy.allCases) { Text(settings.title($0)).tag($0) }
+            Picker(settings.t(kind == .sync ? .optionSyncPolicy : .optionConflictPolicy), selection: $selection) {
+                ForEach(ConflictPolicy.choices(for: kind)) { Text(settings.title($0, kind: kind)).tag($0) }
             }
             .accessibilityIdentifier("copiator.conflictPolicy")
-            Text(settings.t(.optionConflictPolicyNote))
+            Text(settings.t(kind == .sync ? .optionSyncPolicyNote : .optionConflictPolicyNote))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -51,7 +54,8 @@ struct ConflictPolicyPicker: View {
     }
 }
 
-/// Hedefte aynı adlı dosyalar için karar: tümüne ya da dosya dosya 1 · Değiştir, 2 · İkisini de sakla, 3 · Atla.
+/// Hedefte aynı adlı dosyalar için karar: tümüne ya da dosya dosya 1 · Değiştir, 2 · İkisini de sakla, 3 · Atla. "Klasörü
+/// sor" rotasında klasörü seçilmemiş dosyalar varsa önce onlar sorulur (`PlacementDecisionView`).
 struct ConflictSheet: View {
     let prompt: ConflictPrompt
     @Environment(AppModel.self) private var model
@@ -65,7 +69,9 @@ struct ConflictSheet: View {
 
     var body: some View {
         Group {
-            if let job = model.job(prompt.id), let report = job.pendingConflicts {
+            if let job = model.job(prompt.id), let report = job.pendingPlacements {
+                PlacementDecisionView(job: job, report: report)
+            } else if let job = model.job(prompt.id), let report = job.pendingConflicts {
                 content(job, report)
             } else {
                 VStack {
@@ -86,6 +92,8 @@ struct ConflictSheet: View {
 
     private func content(_ job: TransferJob, _ report: ConflictReport) -> some View {
         let identical = report.items.lazy.filter(\.identical).count
+        let kind = job.kind
+        let choices = ConflictDecision.choices(for: kind)
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "doc.on.doc.fill")
@@ -93,9 +101,10 @@ struct ConflictSheet: View {
                     .foregroundStyle(.orange)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(settings.t(.conflictTitle, report.total)).font(.headline)
-                    Text(settings.t(.conflictSubtitle, OpenSafety.visibleName(job.source.lastPathComponent),
-                                    OpenSafety.visibleName(job.destination.path)))
+                    Text(settings.t(kind == .sync ? .conflictSyncTitle : .conflictTitle, report.total)).font(.headline)
+                    Text(kind == .sync
+                         ? settings.t(.conflictSyncSubtitle, OpenSafety.visibleName(job.source.path), OpenSafety.visibleName(job.destination.path))
+                         : settings.t(.conflictSubtitle, OpenSafety.visibleName(job.source.lastPathComponent), OpenSafety.visibleName(job.destination.path)))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -108,9 +117,9 @@ struct ConflictSheet: View {
 
             HStack(spacing: 8) {
                 Text(settings.t(.conflictApplyAll))
-                ForEach(ConflictDecision.allCases) { decision in
-                    Button("\(decision.number) · " + settings.title(decision)) { applyAll(decision, report) }
-                        .keyboardShortcut(KeyEquivalent(Character(String(decision.number))), modifiers: [])
+                ForEach(choices) { decision in
+                    Button("\(decision.number(for: kind)) · " + settings.title(decision, kind: kind)) { applyAll(decision, report) }
+                        .keyboardShortcut(KeyEquivalent(Character(String(decision.number(for: kind)))), modifiers: [])
                         .buttonStyle(.bordered)
                         .tint(others == decision ? .accentColor : nil)
                         .accessibilityIdentifier("copiator.conflict.all.\(decision.rawValue)")
@@ -137,8 +146,8 @@ struct ConflictSheet: View {
                 }
                 TableColumn(settings.t(.conflictDecisionColumn)) { item in
                     Picker(settings.t(.conflictDecisionColumn), selection: binding(for: item)) {
-                        ForEach(ConflictDecision.allCases) { decision in
-                            Text("\(decision.number) · " + settings.title(decision)).tag(Optional(decision))
+                        ForEach(choices) { decision in
+                            Text("\(decision.number(for: kind)) · " + settings.title(decision, kind: kind)).tag(Optional(decision))
                         }
                     }
                     .labelsHidden()
@@ -151,7 +160,7 @@ struct ConflictSheet: View {
                 if report.isTruncated {
                     Text(settings.t(.conflictTruncated, report.items.count, report.total))
                 }
-                Text(settings.t(.conflictKeepBothNote))
+                Text(settings.t(kind == .sync ? .conflictSyncNote : .conflictKeepBothNote))
                 if report.items.contains(where: \.incomingFolder) {
                     Text(settings.t(.conflictKeepBothFolderNote))
                 }

@@ -14,6 +14,8 @@ public enum TransferEvent: Sendable, Equatable {
     /// Çakışmalar bu geçiş için karara bağlandı (ya da hiç yoktu); kopyalama başlıyor. İş duraklatılıp sürdürülürse bu
     /// geçişin hedefe yazdığı dosyalar yeniden sorulmaz.
     case conflictsSettled
+    /// "Klasörü sor" rotasında klasörü seçilmemiş dosyalar var (iş ardından `.awaitingDecision` ile biter).
+    case placements(PlacementReport)
 }
 
 /// Motoru çalıştırmak için gereken ortam: hangi ikili, hangi yetenekler, kum havuzu.
@@ -26,6 +28,8 @@ public struct EngineContext: Sendable {
     /// Motorun geçici listelerini (seçilen dosyalar, dışlananlar, liste kopyaları) yazdığı klasör. Her çalıştırma burada
     /// kendine özel (0700) bir alt klasör açar ve bitince siler. Testler kendi klasörlerini verir.
     public var scratchDirectory: URL
+    /// "Taşı" adımında öğeyi Çöp Sepeti'ne taşır (testler kendi klasörlerini verir).
+    public var trashItem: @Sendable (URL) -> Bool = { SourceTrash.systemTrash($0) }
 
     public init(
         executable: URL, info: EngineInfo, sandboxed: Bool = true, home: URL = FileManager.default.homeDirectoryForCurrentUser,
@@ -73,6 +77,7 @@ public enum TransferEngines {
     public static func engine(for kind: JobKind) -> any TransferEngine {
         switch kind {
         case .rsync: RsyncEngine()
+        case .sync: SyncEngine()
         }
     }
 }

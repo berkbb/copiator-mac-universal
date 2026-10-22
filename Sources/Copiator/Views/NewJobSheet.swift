@@ -15,6 +15,7 @@ struct NewJobSheet: View {
     @State private var problem: String?
     @State private var confirmDelete = false
     @State private var confirmRetention = false
+    @State private var confirmTrash = false
     @State private var isSourceTargeted = false
     @State private var showAdvanced = false
     @State private var previewTask: Task<Void, Never>?
@@ -75,6 +76,9 @@ struct NewJobSheet: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    option(.optionTrashSource, note: settings.t(.optionTrashSourceNote), isOn: $options.trashSourceAfterCopy)
+                        .disabled(options.snapshots.enabled)
+                        .accessibilityIdentifier("copiator.newjob.trashSource")
                 }
 
                 SnapshotSection(options: $options.snapshots)
@@ -153,13 +157,27 @@ struct NewJobSheet: View {
         .sheet(item: $previewPresentation) { PreviewSheet(presentation: $0) }
         .confirmationDialog(settings.t(.deleteConfirmTitle), isPresented: $confirmDelete, titleVisibility: .visible) {
             Button(settings.t(.deleteConfirmButton), role: .destructive) {
-                // İkinci onay, birinci kapandıktan sonra açılır.
-                if needsRetentionConfirmation { DispatchQueue.main.async { confirmRetention = true } } else { commit() }
+                // Sonraki onay, öncekisi kapandıktan sonra açılır.
+                if needsTrashConfirmation {
+                    DispatchQueue.main.async { confirmTrash = true }
+                } else if needsRetentionConfirmation {
+                    DispatchQueue.main.async { confirmRetention = true }
+                } else {
+                    commit()
+                }
             }
             Button(settings.t(.newJobPreview)) { runPreview() }
             Button(settings.t(.buttonCancel), role: .cancel) {}
         } message: {
             Text(settings.t(.deleteConfirmMessage, OpenSafety.visibleName(targetPath ?? "")))
+        }
+        .confirmationDialog(settings.t(.trashConfirmTitle), isPresented: $confirmTrash, titleVisibility: .visible) {
+            Button(settings.t(.trashConfirmButton), role: .destructive) {
+                if needsRetentionConfirmation { DispatchQueue.main.async { confirmRetention = true } } else { commit() }
+            }
+            Button(settings.t(.buttonCancel), role: .cancel) {}
+        } message: {
+            Text(settings.t(.trashConfirmMessage, OpenSafety.visibleName(source?.path ?? "")))
         }
         .confirmationDialog(settings.t(.retentionConfirmTitle), isPresented: $confirmRetention, titleVisibility: .visible) {
             Button(settings.t(.retentionConfirmButton), role: .destructive) { commit() }
@@ -172,6 +190,11 @@ struct NewJobSheet: View {
     /// `--delete` yeni seçildiyse onay gerekir (düzenlenen işte zaten seçiliyse yeniden sorulmaz).
     private var needsDeleteConfirmation: Bool {
         options.deleteExtraneous && !options.snapshots.enabled && editedJob?.options.deleteExtraneous != true
+    }
+
+    /// "Kaynak dosyaları Çöp Sepeti'ne taşı" yeni seçildiyse onay gerekir.
+    private var needsTrashConfirmation: Bool {
+        options.trashSourceAfterCopy && !options.snapshots.enabled && editedJob?.options.trashSourceAfterCopy != true
     }
 
     /// Saklama kuralları eski anlık görüntüleri siler: kurallar yeni ya da değişmişse onay gerekir.
@@ -201,7 +224,10 @@ struct NewJobSheet: View {
     /// Kaydedilecek seçenekler: anlık görüntü kipinde `--delete` kullanılmaz.
     private var finalOptions: CopyOptions {
         var options = options
-        if options.snapshots.enabled { options.deleteExtraneous = false }
+        if options.snapshots.enabled {
+            options.deleteExtraneous = false
+            options.trashSourceAfterCopy = false
+        }
         return options
     }
 
@@ -298,6 +324,8 @@ struct NewJobSheet: View {
         guard source != nil, destination != nil else { return }
         if needsDeleteConfirmation {
             confirmDelete = true
+        } else if needsTrashConfirmation {
+            confirmTrash = true
         } else if needsRetentionConfirmation {
             confirmRetention = true
         } else {

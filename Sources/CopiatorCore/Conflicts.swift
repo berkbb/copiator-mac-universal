@@ -1,23 +1,34 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import Foundation
 
-/// Hedefte aynı adlı bir dosya varken ne yapılacağı (iş ve rutin ayarı). Varsayılan: sor.
+/// Hedefte aynı adlı bir dosya varken ne yapılacağı (iş ve rutin ayarı). Varsayılan: sor. Eşitlemede (iki yönlü)
+/// "değiştir" A'dakinin B'ye yazılması, "ters" B'dekinin A'ya yazılması, "yenisi" değişiklik zamanı yeni olanın kazanmasıdır.
 public enum ConflictPolicy: String, Codable, CaseIterable, Identifiable, Sendable {
     /// İş "karar bekliyor" olarak duraklar; kullanıcı dosya dosya ya da hepsi için seçer.
     case ask
     case replace
     case keepBoth
     case skip
+    /// Yalnızca eşitleme: B'deki kazanır.
+    case reverse
+    /// Yalnızca eşitleme: değişiklik zamanı yeni olan kazanır (eşitse atlanır).
+    case newer
 
     public var id: String { rawValue }
 
-    /// Sormadan uygulanan karar (sor kipinde nil).
+    /// İş türünde sunulan seçenekler.
+    public static func choices(for kind: JobKind) -> [ConflictPolicy] {
+        kind == .sync ? [.ask, .newer, .replace, .reverse, .skip] : [.ask, .replace, .keepBoth, .skip]
+    }
+
+    /// Sormadan uygulanan karar (sor kipinde ve dosyaya göre değişen "yenisi"nde nil).
     public var decision: ConflictDecision? {
         switch self {
-        case .ask: nil
+        case .ask, .newer: nil
         case .replace: .replace
         case .keepBoth: .keepBoth
         case .skip: .skip
+        case .reverse: .reverse
         }
     }
 }
@@ -30,14 +41,22 @@ public enum ConflictDecision: String, Codable, CaseIterable, Identifiable, Senda
     case keepBoth
     /// 3 · Bu dosyayı kopyalama.
     case skip
+    /// Yalnızca eşitleme: B'deki dosya A'dakinin yerine geçer.
+    case reverse
 
     public var id: String { rawValue }
+
+    /// İş türünde sunulan kararlar (sayfadaki sırayla; numara sıradan gelir).
+    public static func choices(for kind: JobKind) -> [ConflictDecision] {
+        kind == .sync ? [.replace, .reverse, .skip] : [.replace, .keepBoth, .skip]
+    }
 
     public var policy: ConflictPolicy {
         switch self {
         case .replace: .replace
         case .keepBoth: .keepBoth
         case .skip: .skip
+        case .reverse: .reverse
         }
     }
 }

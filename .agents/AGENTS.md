@@ -10,7 +10,7 @@
 
 ### Constitutional Invariants (Non-Negotiable)
 
-1. **The Source Is Never Modified:**
+1. **The Source Is Never Modified (by rsync):** the only exception is the opt-in "move to the Trash after copying" step decided by the user on 2026-10-22: the app (never rsync) moves a source file to the Trash only after its destination counterpart is verified to have identical contents (`SourceTrash.moveVerified`); nothing is deleted permanently.
    - `RsyncCommand` must never produce `--remove-source-files` (or `--remove-sent-files`); `RsyncCommand.assertSafe` and tests enforce this.
    - The sandbox denies writes to every source **after** allowing writes to the destination (SBPL: last match wins), so a source nested inside the destination stays read-only.
    - Jobs whose source and destination target overlap are refused (`JobValidation.check`).
@@ -38,6 +38,9 @@
 18. **Literal rsync Patterns:** a path used as an rsync filter pattern goes through `RsyncCommand.escapePattern` once, as a whole (root prefix included). It escapes `*`, `?`, `[` and `\` only when the pattern contains `*`, `?` or `[`; rsync compares other patterns literally.
 19. **Bounded User Input:** user-entered rule values never run unbounded: regexes stop at `RuleEvaluator.regexStepBudget` (reported, never treated as "no match" silently), numbers are clamped before `Int` conversion, and media sizes are range-checked.
 20. **Placement Stays Inside:** placement templates never produce a path outside the destination: every rendered component goes through `RoutePlacement.component` and `PlacementStaging.build` refuses targets with "." or "..". Staging reads the source only; links in the staging tree point to source files and are followed with `--copy-unsafe-links`, so links that escape a package are never staged.
+21. **Sync Never Deletes:** `SyncEngine` only copies missing files and decided differences, each direction as a sandboxed `RsyncEngine` job with `deleteExtraneous` off; a file deleted on one side comes back from the other.
+22. **On-Device AI Only, Suggestions Only:** `Suggestions` uses `SystemLanguageModel.default`, a local model server chosen in Settings, or all of them in the automatic order (`FallbackSuggestionModel`: an unreachable, failing or invalid model is skipped silently, never an error dialog) (Ollama on 127.0.0.1:11434, LM Studio on 127.0.0.1:1234; `LocalModelServer`). Never Private Cloud Compute, Ollama cloud models (`remote_host`, `…:cloud`) or any other network service; local requests use no proxy, follow no redirects and accept only 127.0.0.1 responses; answers are validated against the candidates and the token list, and nothing is applied without the user's action. The AI only reorders suggestions, never picks a folder or a name by itself, and every AI control shows `AILanguageWarning` while Apple Intelligence is the provider (that model works best in English). AI path suggestions (a new folder for a file, a subfolder template) pass `PlacementResolution.clean` / `cleanFolderTemplate` and can never point outside the destination.
+23. **Chosen Folders Stay Inside:** in suggested placement (`RoutePlacement.askFolder`) a file is copied only into a folder the user chose (or remembered and still present); chosen and remembered folders pass through `PlacementResolution.clean` and again through `RoutePlacement.target`, so a crafted job file cannot place files outside the destination. The job waits as "Needs decision" before anything is copied.
 
 ---
 

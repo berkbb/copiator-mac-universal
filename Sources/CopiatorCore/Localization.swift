@@ -216,6 +216,15 @@ public enum LKey: String, CaseIterable, Sendable {
     case placementDateSource, placementDateAutomatic, placementDateFileName, placementDateContents, placementDateCapture
     case placementDateModified, placementDateCreated, placementExample, placementNote, placementSampleFile, placementSameName
     case problemPlacementToken, problemPlacementSlash, problemPlacementParent
+    // Adlandırma kipleri: hedef belirteçleri ve ad düzeltmeleri
+    case placementTokenTargetFolder, placementTokenTargetNumber, problemPlacementFix, problemPlacementFixReplacement
+    case placementFixes, placementFixPattern, placementFixReplacement, placementFixAdd, placementFixPresets, placementFixPresetCode
+    case placementFixPresetSpaces, placementFixPresetUnderscores, placementFixRemove, placementFixNote, placementFixesSummary
+    // Önerili yerleştirme ("Klasörü sor")
+    case logAwaitingPlacement, logPlacementsDecided, notifyPlacementBody, placementAskFolder, placementAskFolderNote, placementLearned
+    case placementForget, placementSheetTitle, placementSheetNote, placementSkip, placementNewFolder
+    case placementNewFolderPrompt, placementRoot, placementRemember, placementRememberNote, placementWillBe, placementNoSuggestion
+    case placementApply, placementMore, placementAskSummary, placementRankAll, resultAwaitingPlacement
     // Hedefte kopyası var ölçütü
     case ruleAttrInDestination, ruleOpExists, ruleOpNotExists
     // Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi
@@ -224,6 +233,23 @@ public enum LKey: String, CaseIterable, Sendable {
     case menuDestinationSummary, summaryScanning, summaryFailed, summaryVolume, summaryCounts, summaryFolders, summaryExtensions
     case summaryRootFiles, summaryNoExtension, suggestFolders, suggestFoldersQuery, suggestFoldersPrompt, suggestFoldersEmpty
     case suggestFoldersNone, suggestFoldersNote
+    // Taşıma (doğrulayıp Çöp'e) ve temizleme aracı
+    case logSourcesTrashed, logSourceTrashFailed, optionTrashSource, optionTrashSourceNote, trashConfirmTitle, trashConfirmMessage
+    case trashConfirmButton, menuCleanupArchived, cleanupTitle, cleanupNote, cleanupScan, cleanupScanning, cleanupNone, cleanupFound
+    case cleanupMove, cleanupConfirmTitle, cleanupConfirmMessage, cleanupDone, cleanupOverlap, cleanupMore
+    // Cihaz üstü yapay zekâ önerileri
+    case settingsAISuggestions, settingsAISuggestionsNote, aiRankFolders, aiRanked, aiNoAnswer, aiSuggestTemplate
+    case aiTemplateSuggestion, aiUseSuggestion, aiThinking, aiNoTemplate, aiLanguageWarning
+    // Yerel model sunucuları (Ollama, LM Studio) ve yol önerileri
+    case settingsAISection, settingsAIProvider, settingsAIModel, settingsAIRefresh, settingsAIServerOff, settingsAINoLocalModel
+    case settingsAIModelMissing, settingsAIReady, settingsAILocalNote, settingsAIAppleUnavailable, aiSuggestFolderTemplate
+    case aiNoFolderTemplate, placementAINewFolder, placementAISuggested, settingsAIAutomatic, settingsAIAutomaticNote
+    case settingsAIMoveUp, settingsAIMoveDown, settingsAIStatusReady, settingsAIStatusOff
+    // Eşitleme rutini (iki yönlü)
+    case logSyncPlanned, logSyncDirection, logSyncDone, routineKind, routineKindCopy, routineKindSync, routineKindSyncNote
+    case syncFolderA, syncFolderB, conflictSyncUseA, conflictSyncUseB, conflictPolicyNewer, conflictPolicyUseA, conflictPolicyUseB
+    case conflictSyncTitle, conflictSyncSubtitle, conflictSyncNote, syncPreviewToB, syncPreviewToA, syncPreviewDiffer, syncPreviewSummary
+    case sendToRoutineSync, optionSyncPolicy, optionSyncPolicyNote
     case problemRuleEmpty, problemRuleRegex, problemRuleKind, problemRuleDepth
     case routineRoutePrefix, routineProblemName, routineProblemNoRoutes, routineProblemSource, routineProblemDestination
     case routineProblemSourceFolder
@@ -277,7 +303,8 @@ extension StringTable {
         case .partial: return format(.resultPartial, result.noteCount)
         case .cancelled: return string(.resultCancelled, language: code)
         case .stoppedAtLimit: return string(.resultStoppedAtLimit, language: code)
-        case .awaitingDecision: return format(.resultAwaitingDecision, result.noteCount)
+        case .awaitingDecision:
+            return format(result.detail == JobResult.placementsDetail ? .resultAwaitingPlacement : .resultAwaitingDecision, result.noteCount)
         case .destinationFull:
             if let required = result.requiredBytes, let available = result.availableBytes {
                 return format(.resultDestinationFullDetail, bytes(required), bytes(available))

@@ -131,6 +131,8 @@ struct RoutineAppTests {
         defer { fixture.cleanUp() }
         let model = fixture.model
         await model.refreshEngine()
+        await IntentTargetLock.shared.acquire()
+        defer { IntentTargetLock.shared.release() }
         IntentTarget.model = { model }
         defer { IntentTarget.model = { AppModel.shared } }
         let routine = officeRoutine(fixture)
@@ -154,6 +156,8 @@ struct RoutineAppTests {
         defer { fixture.cleanUp() }
         let model = fixture.model
         await model.refreshEngine()
+        await IntentTargetLock.shared.acquire()
+        defer { IntentTargetLock.shared.release() }
         IntentTarget.model = { model }
         defer { IntentTarget.model = { AppModel.shared } }
         try fixture.write("İndirilenler/Enerjisa Ekim 2026.pdf", "fatura")

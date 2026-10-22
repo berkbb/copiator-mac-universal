@@ -65,8 +65,8 @@ import Testing
     #expect(try JSONDecoder().decode(CopyOptions.self, from: JSONEncoder().encode(legacy)).suggestsRememberingConflictChoice)
     let unknown = try JSONDecoder().decode(CopyOptions.self, from: Data(#"{"conflictPolicy": "merge"}"#.utf8))
     #expect(unknown.conflictPolicy == .ask)
-    #expect(ConflictPolicy.allCases.compactMap(\.decision) == [.replace, .keepBoth, .skip])
-    #expect(ConflictDecision.allCases.map(\.policy) == [.replace, .keepBoth, .skip])
+    #expect(ConflictPolicy.allCases.compactMap(\.decision) == [.replace, .keepBoth, .skip, .reverse])
+    #expect(ConflictDecision.allCases.map(\.policy) == [.replace, .keepBoth, .skip, .reverse])
     let resolution = ConflictResolution(decisions: ["a": .skip], others: .replace)
     #expect(resolution.decision(for: "a") == .skip && resolution.decision(for: "b") == .replace)
     #expect(ConflictResolution().decision(for: "a") == nil)
@@ -148,7 +148,8 @@ struct ConflictEngineTests {
         case .skip:
             #expect(workspace.read("Hedef/Kaynak/alt/farkli.txt") == "eski\n")
             #expect(!workspace.exists("Hedef/Kaynak/ayni 2.txt"))
-        case .ask:
+        case .ask, .reverse, .newer:
+            // Eşitlemeye özgü kurallar bu testin bağımsız değişkenleri arasında yok.
             break
         }
         // "Değiştir" ayarında denetim gerekmez (rsync'in olağan davranışı); ötekilerde kararlar günlüğe yazılır.

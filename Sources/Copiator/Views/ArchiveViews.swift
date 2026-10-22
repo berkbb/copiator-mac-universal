@@ -181,13 +181,36 @@ struct DestinationSummarySheet: View {
 
 // MARK: - Klasör önerisi
 
+/// Yapay zekâ önerilerinin dil uyarısı: Apple'ın cihaz üstü modeli en iyi İngilizcede çalışır, başka dillerdeki adlarda
+/// zayıflayabilir. Apple Intelligence kullanılabilecekken (seçiliyken ya da Otomatik sıradayken) gösterilir; yalnızca yerel
+/// sunucu (Ollama, LM Studio) kullanılıyorsa gösterilmez.
+struct AILanguageWarning: View {
+    @Environment(AppSettings.self) private var settings
+
+    static func applies(to providers: [SuggestionProvider]) -> Bool { providers.contains(.apple) }
+
+    var body: some View {
+        if Self.applies(to: settings.activeProviders) {
+            Label(settings.t(.aiLanguageWarning), systemImage: "exclamationmark.triangle.fill")
+                .font(.footnote)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("copiator.ai.languageWarning")
+        }
+    }
+}
+
 /// Rota hedefinin içinde, bir dosya adına (ya da anahtar kelimeye) en uygun klasörleri önerir; seçilen klasör rotanın
 /// hedefi olur.
 struct FolderSuggestionButton: View {
     @Binding var destination: URL?
     /// Rutin sayfasının "Dene" alanındaki yol (açılışta sorgu olarak kullanılır).
     let sample: String
+    @Environment(AppModel.self) private var model
     @Environment(AppSettings.self) private var settings
+    @State private var ranking = false
+    @State private var rankedByAI = false
+    @State private var aiFailed = false
     @State private var shown = false
     @State private var root: URL?
     @State private var query = ""
@@ -213,7 +236,7 @@ struct FolderSuggestionButton: View {
                 Text(settings.t(query.trimmingCharacters(in: .whitespaces).isEmpty ? .suggestFoldersEmpty : .suggestFoldersNone))
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(suggestions, id: \.path) { suggestion in
+                ForEach(suggestions.prefix(5), id: \.path) { suggestion in
                     Button {
                         if let root { destination = root.appendingPathComponent(suggestion.path, isDirectory: true) }
                         shown = false
@@ -225,6 +248,20 @@ struct FolderSuggestionButton: View {
                     }
                     .buttonStyle(.borderless)
                 }
+            }
+            if model.canSuggestWithAI, suggestions.count > 1 {
+                HStack {
+                    Button(settings.t(.aiRankFolders), systemImage: "sparkles") { rankWithAI() }
+                        .disabled(ranking || rankedByAI)
+                        .accessibilityIdentifier("copiator.suggest.ai")
+                    if ranking { ProgressView().controlSize(.small) }
+                    if rankedByAI {
+                        Text(settings.t(.aiRanked, model.suggestionSourceName)).font(.caption).foregroundStyle(.secondary)
+                    } else if aiFailed {
+                        Text(settings.t(.aiNoAnswer)).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                AILanguageWarning()
             }
             Text(settings.t(.suggestFoldersNote))
                 .font(.footnote)
@@ -254,13 +291,159 @@ struct FolderSuggestionButton: View {
     }
 
     /// Yazarken her harfte değil, kısa bir duraksamadan sonra hesaplanır (binlerce klasörde ana iş parçacığı boğulmasın).
+    /// Yapay zekâ sıralaması için ilk 10 aday tutulur, 5'i gösterilir.
     private func refresh() async {
         try? await Task.sleep(for: .milliseconds(200))
         guard !Task.isCancelled else { return }
         let text = query
         let candidates = folders
-        let found = await Task.detached(priority: .userInitiated) { FolderSuggester.suggestions(for: text, folders: candidates) }.value
+        let found = await Task.detached(priority: .userInitiated) {
+            FolderSuggester.suggestions(for: text, folders: candidates, limit: Suggestions.maxCandidates)
+        }.value
         guard !Task.isCancelled else { return }
         suggestions = found
+        rankedByAI = false
+        aiFailed = false
+    }
+
+    /// Kural tabanlı adayları cihaz üstü modelle sıralar (yalnızca var olan adaylar arasından).
+    private func rankWithAI() {
+        let text = query
+        let current = suggestions
+        let suggestionModel = model.suggestionModel
+        ranking = true
+        Task {
+            let ranked = await Suggestions.rankFolders(current, for: text, content: nil, model: suggestionModel)
+            ranking = false
+            if let ranked, query == text {
+                suggestions = ranked
+                rankedByAI = true
+            } else {
+                aiFailed = true
+            }
+        }
+    }
+}
+
+// MARK: - Arşivlenmiş kaynakları temizleme
+
+/// Kaynakta olup hedefte (herhangi bir yerde, herhangi bir adla) aynı içerikte kopyası bulunan dosyaları listeler ve
+/// onaylanınca Çöp Sepeti'ne taşır. Kalıcı silme yoktur.
+struct CleanupSheet: View {
+    let request: CleanupRequest
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.dismiss) private var dismiss
+    @State private var source: URL?
+    @State private var destination: URL?
+    @State private var found: [URL]?
+    @State private var bytes: Int64 = 0
+    @State private var scanning = false
+    @State private var confirm = false
+    @State private var message: String?
+
+    static let maxListed = 500
+
+    init(request: CleanupRequest) {
+        self.request = request
+        _source = State(initialValue: request.source)
+        _destination = State(initialValue: request.destination)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(settings.t(.cleanupTitle), systemImage: "trash.circle")
+                .font(.headline)
+            Form {
+                FolderChooserRow(title: settings.t(.newJobSource), url: $source, systemImage: "folder",
+                                 panelMessage: settings.t(.panelChooseSource))
+                FolderChooserRow(title: settings.t(.newJobDestination), url: $destination, systemImage: "externaldrive",
+                                 panelMessage: settings.t(.panelChooseDestination))
+            }
+            .formStyle(.grouped)
+            .frame(height: 220)
+            Text(settings.t(.cleanupNote))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if scanning {
+                ProgressView(settings.t(.cleanupScanning)).frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let found {
+                if found.isEmpty {
+                    ContentUnavailableView(settings.t(.cleanupNone), systemImage: "checkmark.circle")
+                } else {
+                    Text(settings.t(.cleanupFound, found.count, settings.bytes(bytes))).font(.callout.weight(.semibold))
+                    List {
+                        ForEach(found.prefix(Self.maxListed), id: \.self) { url in
+                            Text(OpenSafety.visibleName(relative(url)))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        if found.count > Self.maxListed {
+                            Text(settings.t(.cleanupMore, found.count - Self.maxListed)).foregroundStyle(.secondary)
+                        }
+                    }
+                    .listStyle(.inset)
+                }
+            } else {
+                Spacer()
+            }
+            if let message {
+                Text(message).font(.callout).foregroundStyle(.secondary)
+            }
+            HStack {
+                Spacer()
+                Button(settings.t(.buttonClose)) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button(settings.t(.cleanupScan)) { scan() }
+                    .disabled(source == nil || destination == nil || scanning)
+                    .accessibilityIdentifier("copiator.cleanup.scan")
+                Button(settings.t(.cleanupMove), role: .destructive) { confirm = true }
+                    .buttonStyle(.glassProminent)
+                    .disabled(found?.isEmpty ?? true)
+                    .accessibilityIdentifier("copiator.cleanup.move")
+            }
+        }
+        .padding(20)
+        .frame(width: 620, height: 600)
+        .onChange(of: source) { found = nil }
+        .onChange(of: destination) { found = nil }
+        .confirmationDialog(settings.t(.cleanupConfirmTitle, found?.count ?? 0), isPresented: $confirm, titleVisibility: .visible) {
+            Button(settings.t(.trashConfirmButton), role: .destructive) { move() }
+            Button(settings.t(.buttonCancel), role: .cancel) {}
+        } message: {
+            Text(settings.t(.cleanupConfirmMessage))
+        }
+    }
+
+    private func relative(_ url: URL) -> String {
+        guard let source else { return url.path }
+        let base = source.standardizedFileURL.path
+        return url.path.hasPrefix(base + "/") ? String(url.path.dropFirst(base.count + 1)) : url.lastPathComponent
+    }
+
+    private func scan() {
+        guard let source, let destination else { return }
+        message = nil
+        if JobValidation.check(source: source, destination: destination, copyMode: .contents) == .overlapping {
+            message = settings.t(.cleanupOverlap)
+            return
+        }
+        scanning = true
+        Task {
+            let result = await Task.detached(priority: .userInitiated) { () -> ([URL], Int64)? in
+                guard let urls = try? SourceTrash.archivedFiles(in: source, destination: destination) else { return nil }
+                return (urls, DiskSpace.totalSize(of: urls))
+            }.value
+            found = result?.0 ?? []
+            bytes = result?.1 ?? 0
+            scanning = false
+        }
+    }
+
+    private func move() {
+        guard let source, let found else { return }
+        let outcome = SourceTrash.move(found, root: source)
+        message = settings.t(.cleanupDone, outcome.moved, settings.bytes(outcome.bytes), outcome.failed.count)
+        self.found = nil
     }
 }

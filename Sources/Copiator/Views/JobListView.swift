@@ -138,6 +138,10 @@ struct JobListView: View {
         Button(settings.t(.menuShowSource), systemImage: "folder") { model.revealSource(job.id) }
         Button(settings.t(.menuShowDestination), systemImage: "externaldrive") { model.revealDestination(job.id) }
         Button(settings.t(.menuDestinationSummary), systemImage: "chart.bar.doc.horizontal") { model.showDestinationSummary(job.destination) }
+        Button(settings.t(.menuCleanupArchived), systemImage: "trash.circle") {
+            model.beginCleanup(source: RsyncEngine.isDirectory(job.source) ? job.source : job.source.deletingLastPathComponent(),
+                               destination: job.destination)
+        }
         Divider()
         Button(settings.t(.menuRemoveJob), systemImage: "trash", role: .destructive) { model.remove(ids) }
             .disabled(!JobQueue.canRemove(job))
@@ -167,7 +171,7 @@ struct JobRow: View {
                     Text(OpenSafety.visibleName(job.source.lastPathComponent))
                         .font(.headline)
                         .lineLimit(1)
-                    Image(systemName: "arrow.right")
+                    Image(systemName: job.kind == .sync ? "arrow.left.arrow.right" : "arrow.right")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .accessibilityHidden(true)
@@ -329,7 +333,7 @@ struct JobDetailView: View {
                             row(.detailSelectedItems, items.map(OpenSafety.visibleName).joined(separator: ", "), lineLimit: nil)
                         }
                         row(.detailMode, settings.t(job.options.copyMode == .folder ? .modeFolder : .modeContents))
-                        row(.detailOptions, optionsSummary(job.options), lineLimit: nil)
+                        row(.detailOptions, optionsSummary(job.options, kind: job.kind), lineLimit: nil)
                         row(.detailStatus, settings.t(job.status.titleKey))
                         if let result = job.result {
                             row(.detailResult, settings.result(result))
@@ -396,15 +400,16 @@ struct JobDetailView: View {
         }
     }
 
-    private func optionsSummary(_ options: CopyOptions) -> String {
+    private func optionsSummary(_ options: CopyOptions, kind: JobKind) -> String {
         var parts: [String] = []
         if options.preservePermissions { parts.append(settings.t(.optionPreservePermissions)) }
         if options.preserveExtendedAttributes { parts.append(settings.t(.optionXattrs)) }
         if options.excludeSystemFolders { parts.append(settings.t(.optionExcludeSystem)) }
         if options.deleteExtraneous { parts.append(settings.t(.optionDelete)) }
+        if options.trashSourceAfterCopy { parts.append(settings.t(.optionTrashSource)) }
         if options.snapshots.enabled { parts.append(settings.t(.optionSnapshots)) }
         if options.runWhenConnected { parts.append(settings.t(.optionRunWhenConnected)) }
-        parts.append(settings.t(.optionConflictPolicy) + ": " + settings.title(options.conflictPolicy))
+        parts.append(settings.t(.optionConflictPolicy) + ": " + settings.title(options.conflictPolicy, kind: kind))
         switch options.verifyAfterCopy {
         case .off: break
         case .quick: parts.append(settings.t(.optionVerifyAfterCopy) + ": " + settings.t(.verifyAfterQuick))

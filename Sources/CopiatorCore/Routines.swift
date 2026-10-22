@@ -9,6 +9,8 @@ import Foundation
 public struct Routine: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
     public var name: String
+    /// Kopyalama (kaynaktan hedefe) ya da iki yönlü eşitleme (her rota A ↔ B).
+    public var kind: RoutineKind = .copy
     public var routes: [RoutineRoute]
     /// Tüm rotaların kopyalama seçenekleri. Kip her zaman "içeriği" kopyalamaktır ve `--delete` kullanılmaz: kurallar
     /// dosya seçer, hedefteki öteki dosyalara dokunulmaz.
@@ -18,11 +20,12 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
     public var lastRunAt: Date?
 
     public init(
-        id: UUID = UUID(), name: String = "", routes: [RoutineRoute] = [RoutineRoute()], options: CopyOptions = CopyOptions(),
-        createdAt: Date = Date()
+        id: UUID = UUID(), name: String = "", kind: RoutineKind = .copy, routes: [RoutineRoute] = [RoutineRoute()],
+        options: CopyOptions = CopyOptions(), createdAt: Date = Date()
     ) {
         self.id = id
         self.name = name
+        self.kind = kind
         self.routes = routes
         self.options = options
         self.createdAt = createdAt
@@ -30,12 +33,13 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
         self.lastRunAt = nil
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, routes, options, createdAt, updatedAt, lastRunAt }
+    private enum CodingKeys: String, CodingKey { case id, name, kind, routes, options, createdAt, updatedAt, lastRunAt }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? ""
+        kind = (try? c.decodeIfPresent(RoutineKind.self, forKey: .kind)) ?? .copy
         routes = ((try? c.decodeIfPresent([Lossy<RoutineRoute>].self, forKey: .routes)) ?? nil)?.compactMap(\.value) ?? []
         options = (try? c.decodeIfPresent(CopyOptions.self, forKey: .options)) ?? CopyOptions()
         createdAt = (try? c.decodeIfPresent(Date.self, forKey: .createdAt)) ?? Date()
@@ -43,15 +47,26 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
         lastRunAt = (try? c.decodeIfPresent(Date.self, forKey: .lastRunAt)) ?? nil
     }
 
-    /// Bir rotanın işi için seçenekler: rotanın kuralları, "içeriği" kipi, `--delete` kapalı.
+    /// Bir rotanın işi için seçenekler: rotanın kuralları, "içeriği" kipi, `--delete` kapalı. Eşitlemede yerleşim,
+    /// anlık görüntü ve "taşı" kullanılmaz (iki yan da kaynak ve hedeftir).
     public func jobOptions(for route: RoutineRoute) -> CopyOptions {
         var options = options
         options.copyMode = .contents
         options.deleteExtraneous = false
         options.rules = route.rules
-        options.placement = route.placement.isActive ? route.placement : nil
+        options.placement = route.placement.isActive && kind == .copy ? route.placement : nil
+        if kind == .sync {
+            options.snapshots.enabled = false
+            options.trashSourceAfterCopy = false
+            if options.conflictPolicy == .keepBoth { options.conflictPolicy = .ask }
+        } else if options.conflictPolicy == .reverse || options.conflictPolicy == .newer {
+            options.conflictPolicy = .ask
+        }
         return options
     }
+
+    /// Rotanın işinin türü.
+    public var jobKind: JobKind { kind == .sync ? .sync : .rsync }
 
     /// Rutin sorunları; sorunlu rutin kaydedilmez ve çalıştırılmaz.
     public enum Problem: Equatable, Sendable {
@@ -95,6 +110,16 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
         problems += jobOptions(for: routes.first ?? RoutineRoute()).problems(source: routes.first?.source).map { .options($0) }
         return problems
     }
+}
+
+/// Rutinin türü.
+public enum RoutineKind: String, Codable, CaseIterable, Identifiable, Sendable {
+    /// Kaynaktan hedefe kopyalama (klasör yapısı ya da yerleşim şablonlarıyla).
+    case copy
+    /// İki yönlü eşitleme: her rotada A ile B karşılaştırılır, eksikler iki yöne kopyalanır, hiçbir şey silinmez.
+    case sync
+
+    public var id: String { rawValue }
 }
 
 /// Rutinin bir rotası: kaynak klasör, kurallar, hedef klasör ve hedefte yerleşim (alt klasör ve ad şablonları).
@@ -213,9 +238,11 @@ public enum RuleSelection {
     ///     olanlar atlanarak yazılır.
     ///   - skippedPaths: Taranmayacak göreli yollar (kum havuzunun okutmadığı kişisel klasörler).
     ///   - scratch: Listenin özel (0700) klasörünün açılacağı yer.
+    ///   - askFolders: "Klasörü sor"da klasörü bilinmeyen dosya için `PlacementQuestions.DecisionNeeded` atılsın; false ise
+    ///     (önizleme) ilk öneri kullanılır.
     public static func prepare(
         _ job: inout TransferJob, zeroTerminated: Bool, skippedPaths: Set<String>,
-        scratch: URL = FileManager.default.temporaryDirectory, isCancelled: () -> Bool
+        scratch: URL = FileManager.default.temporaryDirectory, askFolders: Bool = true, isCancelled: () -> Bool
     ) async throws -> Prepared? {
         guard let rules = job.options.rules else { return nil }
         let skippedNames = job.options.excludeSystemFolders ? Set(RsyncCommand.systemExclusions) : []
@@ -229,9 +256,28 @@ public enum RuleSelection {
         job.options.deleteExtraneous = false
         // Yerleştirme: hedefteki düzen hazırlık ağacında kurulur, iş onu kopyalar (liste gerekmez).
         if let placement = job.options.placement, placement.isActive {
-            let staged = try await PlacementStaging.build(paths: result.paths, source: source, placement: placement,
+            // "Klasörü sor": klasörü bilinmeyen dosya varsa iş karar bekler (önizlemede ilk öneri kullanılır).
+            var paths = result.paths
+            var folders: [String: String]?
+            if placement.askFolder {
+                let plan: PlacementQuestions.Plan
+                do {
+                    plan = try PlacementQuestions.plan(paths: paths, source: source, destination: job.destination, placement: placement,
+                                                       resolution: job.placementResolution, decide: askFolders, isCancelled: isCancelled)
+                } catch {
+                    try? FileManager.default.removeItem(at: folder)
+                    throw error
+                }
+                if let report = plan.report {
+                    try? FileManager.default.removeItem(at: folder)
+                    throw PlacementQuestions.DecisionNeeded(report: report)
+                }
+                paths = plan.paths
+                folders = plan.folders
+            }
+            let staged = try await PlacementStaging.build(paths: paths, source: source, placement: placement,
                                                           in: folder.appendingPathComponent("yerlesim", isDirectory: true),
-                                                          isCancelled: isCancelled)
+                                                          destination: job.destination, folders: folders, isCancelled: isCancelled)
             job.source = staged.root
             job.options.placement = nil
             job.options.advanced.filesFromFile = nil
