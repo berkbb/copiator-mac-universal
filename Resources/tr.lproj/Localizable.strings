@@ -826,7 +826,6 @@
 "settingsAIModelMissing" = "Seçili model sunucuda bulunamadı: %@";
 "settingsAIReady" = "Hazır; yerel model sayısı: %ld";
 "settingsAILocalNote" = "İstekler yalnızca bu Mac'teki sunucuya (%@) gider: vekil sunucu kullanılmaz, yönlendirme izlenmez, bulut modelleri listelenmez ve kullanılmaz.";
-"settingsAIAppleUnavailable" = "Apple Intelligence bu Mac'te kullanılamıyor (kapalı ya da desteklenmiyor); Ollama ya da LM Studio seçilebilir.";
 "aiSuggestFolderTemplate" = "Alt Klasör Şablonu Öner";
 "aiNoFolderTemplate" = "Hedefteki klasörlerden bir şablon çıkarılamadı.";
 "placementAINewFolder" = "%@ (yapay zekâ önerisi, yeni klasör)";
@@ -838,6 +837,19 @@
 "settingsAIStatusReady" = "Hazır";
 "settingsAIStatusOff" = "Şu an kullanılamıyor";
 "aiEngineUnavailable" = "Öneri motoru şu an kullanılamıyor; kural tabanlı öneriler geçerli.";
+"settingsAIChecking" = "Ön koşullar denetleniyor (bir modelin ilk yüklenmesi biraz sürebilir)…";
+"settingsAIRecheck" = "Yeniden Denetle";
+"settingsAINotEnabled" = "Yapay zekâ önerileri açılmadı: hiçbir model hazır değil. Sorunları giderip yeniden deneyin.";
+"aiCheckReady" = "%@: hazır";
+"aiCheckReadyModel" = "%1$@: hazır (%2$@)";
+"aiCheckDeviceNotEligible" = "Apple Intelligence: bu Mac desteklemiyor.";
+"aiCheckAppleOff" = "Apple Intelligence: kapalı; Sistem Ayarları › Apple Intelligence ve Siri'den açın.";
+"aiCheckModelNotReady" = "Apple Intelligence: model henüz hazır değil (indiriliyor olabilir); biraz sonra yeniden denetleyin.";
+"aiCheckAppleUnavailable" = "Apple Intelligence: şu an kullanılamıyor.";
+"aiCheckServerOff" = "%1$@: 127.0.0.1:%2$@ adresinde çalışmıyor; uygulamayı açın.";
+"aiCheckNoModel" = "%@: yerel sohbet modeli yok; bir model indirin (bulut ve gömme modelleri sayılmaz).";
+"aiCheckModelMissing" = "%1$@: seçili model (%2$@) bulunamadı; başka bir model seçin.";
+"aiCheckNoAnswer" = "%@: deneme sorusuna yanıt vermedi.";
 
 /* Eşitleme rutini (iki yönlü) */
 "logSyncPlanned" = "Eşitleme planı: A → B %1$@ dosya, B → A %2$@ dosya, iki yanda farklı %3$@ dosya.";

@@ -40,6 +40,7 @@
 | `SourceTrash.swift` | `SourceTrash` (`pairs`, `moveVerified`, `archivedFiles`, `move`, `systemTrash`) | Verified move to the Trash, clean-up of archived sources |
 | `Sync.swift` | `SyncPlan`, `SyncPlanner`, `SyncEngine` | Two-way sync without deletions |
 | `Suggestions.swift` | `SuggestionModel`, `OnDeviceSuggestionModel`, `Suggestions` (`rankFolders`, `placeFile`/`parsePlacement`/`FilePlacement`, `nameTemplate`, `cleanTemplate`, `folderTemplate`, `cleanFolderTemplate`, `exampleNames`, `exampleFolders`) | AI suggestions (rank, place, name and folder templates) |
+| `AIPrerequisites.swift` | `AIPrerequisites` (`Problem`, `Check`, `appleProblem`, `checkApple`, `checkServer`, `testTimeout`) | Prerequisite checks when AI suggestions are turned on |
 | `TemplateInference.swift` | `TemplateInference` (`nameTemplate`, `folderTemplate`, `date`, `tokens`, `symbols`, `infer`) | Rule-based name and subfolder templates from examples |
 | `LocalModels.swift` | `SuggestionProvider` (`order`), `FallbackSuggestionModel` (`members`, `lastSource`), `LocalModelServer` (`models`, `request`, `ollamaModels`, `openAIModels`, `isCloud`, `withoutThinking`), `LocalServerSuggestionModel` | Ollama and LM Studio on 127.0.0.1 only, cloud models filtered |
 | `ArchiveTools.swift` | `DestinationIndex`, `DestinationSummary`, `FolderSuggester` | Same contents at the destination, destination overview, folder suggestions |

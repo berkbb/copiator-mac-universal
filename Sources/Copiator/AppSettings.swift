@@ -262,7 +262,7 @@ final class AppSettings {
     var showMenuBarIcon: Bool { didSet { defaults.set(showMenuBarIcon, forKey: Key.showMenuBarIcon) } }
     /// Dock simgesinde çalışan işin ilerlemesi ve bekleyen işlerin sayısı.
     var showDockProgress: Bool { didSet { defaults.set(showDockProgress, forKey: Key.showDockProgress) } }
-    /// Cihaz üstü yapay zekâ önerileri (klasör sıralaması, ad şablonu); yalnızca bu Mac'te, internetsiz.
+    /// Yapay zekâ önerileri (isteğe bağlı, varsayılan kapalı; açılırken ön koşullar denetlenir); yalnızca bu Mac'te.
     var aiSuggestions: Bool { didSet { defaults.set(aiSuggestions, forKey: Key.aiSuggestions) } }
     /// Önerilerin modeli: Otomatik (varsayılan; sırayla ilk yanıt veren), Apple Intelligence ya da bu Mac'teki yerel sunucu
     /// (Ollama, LM Studio; yalnızca 127.0.0.1).
@@ -321,7 +321,7 @@ final class AppSettings {
         defaultConflictPolicy = ConflictPolicy(rawValue: defaults.string(forKey: Key.defaultConflictPolicy) ?? "") ?? .ask
         showMenuBarIcon = defaults.object(forKey: Key.showMenuBarIcon) as? Bool ?? true
         showDockProgress = defaults.object(forKey: Key.showDockProgress) as? Bool ?? true
-        aiSuggestions = defaults.object(forKey: Key.aiSuggestions) as? Bool ?? true
+        aiSuggestions = defaults.object(forKey: Key.aiSuggestions) as? Bool ?? false
         aiProvider = SuggestionProvider(rawValue: defaults.string(forKey: Key.aiProvider) ?? "") ?? .automatic
         aiAutomaticOrder = SuggestionProvider.order(defaults.stringArray(forKey: Key.aiAutomaticOrder) ?? [])
         aiAutomaticOff = Set((defaults.stringArray(forKey: Key.aiAutomaticOff) ?? []).compactMap(SuggestionProvider.init(rawValue:)))
@@ -366,7 +366,7 @@ final class AppSettings {
         defaultConflictPolicy = .ask
         showMenuBarIcon = true
         showDockProgress = true
-        aiSuggestions = true
+        aiSuggestions = false
         aiProvider = .automatic
         aiAutomaticOrder = SuggestionProvider.models
         aiAutomaticOff = []

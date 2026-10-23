@@ -306,3 +306,44 @@ func liveLMStudioGivesValidPathSuggestions() async throws {
         #expect(placement.newFolder.map { !$0.contains("..") && !$0.hasPrefix("/") } ?? true)
     }
 }
+
+/// Açarken ön koşullar: Apple'ın sistem durumu sorun olarak döner; yerel sunucuda kapalı sunucu, yalnızca gömme modeli,
+/// bulunmayan seçili model, deneme sorusuna yanıt yok ve hazır durumları ayrılır. Hiçbir denetim hata atmaz.
+@Test func prerequisitesAreCheckedPerProvider() async throws {
+    struct Model: SuggestionModel {
+        var isAvailable = true
+        var answer: String?
+        func respond(instructions: String, prompt: String) async throws -> String {
+            guard let answer else { throw LocalModelServer.Failure.unavailable }
+            return answer
+        }
+    }
+    #expect(await AIPrerequisites.checkApple(problem: .appleIntelligenceOff, model: Model(answer: "OK"))
+        == .init(provider: .apple, problem: .appleIntelligenceOff))
+    #expect(await AIPrerequisites.checkApple(problem: nil, model: Model(answer: "OK")) == .init(provider: .apple))
+    #expect(await AIPrerequisites.checkApple(problem: nil, model: Model(answer: nil)) == .init(provider: .apple, problem: .noAnswer))
+    #expect(await AIPrerequisites.checkServer(.ollama, selected: "", port: 1) == .init(provider: .ollama, problem: .serverNotRunning))
+
+    let working = try FakeModelServer { request in
+        switch request.path {
+        case "/api/tags": FakeModelServer.json(["models": [["name": "yerel:1b"], ["name": "uzak:cloud"]]])
+        case "/api/chat": FakeModelServer.json(["message": ["content": "OK"]])
+        case "/v1/models": FakeModelServer.json(["data": [["id": "text-embedding-nomic-embed-text-v1.5"]]])
+        default: FakeModelServer.json([:], status: 404)
+        }
+    }
+    defer { working.stop() }
+    #expect(await AIPrerequisites.checkServer(.ollama, selected: "", port: working.port) == .init(provider: .ollama, model: "yerel:1b"))
+    #expect(await AIPrerequisites.checkServer(.ollama, selected: "silindi:1b", port: working.port)
+        == .init(provider: .ollama, problem: .modelMissing("silindi:1b")))
+    #expect(await AIPrerequisites.checkServer(.ollama, selected: "uzak:cloud", port: working.port)
+        == .init(provider: .ollama, problem: .modelMissing("uzak:cloud")))
+    #expect(await AIPrerequisites.checkServer(.lmStudio, selected: "", port: working.port) == .init(provider: .lmStudio, problem: .noLocalModel))
+
+    let silent = try FakeModelServer { request in
+        request.path == "/api/tags" ? FakeModelServer.json(["models": [["name": "yerel:1b"]]]) : FakeModelServer.json([:], status: 500)
+    }
+    defer { silent.stop() }
+    #expect(await AIPrerequisites.checkServer(.ollama, selected: "yerel:1b", port: silent.port)
+        == .init(provider: .ollama, model: "yerel:1b", problem: .noAnswer))
+}

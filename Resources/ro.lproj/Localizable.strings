@@ -826,7 +826,6 @@
 "settingsAIModelMissing" = "Modelul selectat nu a fost găsit pe server: %@";
 "settingsAIReady" = "Pregătit; modele locale: %ld";
 "settingsAILocalNote" = "Cererile merg doar la serverul de pe acest Mac (%@): nu se folosește niciun proxy, redirecționările nu sunt urmate, iar modelele din cloud nu sunt listate și nu sunt folosite.";
-"settingsAIAppleUnavailable" = "Apple Intelligence nu este disponibil pe acest Mac (dezactivat sau neacceptat); puteți alege Ollama sau LM Studio.";
 "aiSuggestFolderTemplate" = "Sugerează un șablon de subdosar";
 "aiNoFolderTemplate" = "Nu s-a putut deduce un șablon din dosarele de la destinație.";
 "placementAINewFolder" = "%@ (sugestie AI, dosar nou)";
@@ -838,6 +837,19 @@
 "settingsAIStatusReady" = "Pregătit";
 "settingsAIStatusOff" = "Indisponibil acum";
 "aiEngineUnavailable" = "Motorul de sugestii nu este disponibil acum; rămân sugestiile bazate pe reguli.";
+"settingsAIChecking" = "Se verifică cerințele (prima încărcare a unui model poate dura)…";
+"settingsAIRecheck" = "Verifică din nou";
+"settingsAINotEnabled" = "Sugestiile AI nu au fost activate: niciun model nu este pregătit. Rezolvați problemele și încercați din nou.";
+"aiCheckReady" = "%@: pregătit";
+"aiCheckReadyModel" = "%1$@: pregătit (%2$@)";
+"aiCheckDeviceNotEligible" = "Apple Intelligence: acest Mac nu îl acceptă.";
+"aiCheckAppleOff" = "Apple Intelligence: dezactivat; activați-l din Configurări sistem › Apple Intelligence și Siri.";
+"aiCheckModelNotReady" = "Apple Intelligence: modelul nu este încă pregătit (poate se descarcă); verificați din nou mai târziu.";
+"aiCheckAppleUnavailable" = "Apple Intelligence: indisponibil acum.";
+"aiCheckServerOff" = "%1$@: nu rulează la 127.0.0.1:%2$@; deschideți aplicația.";
+"aiCheckNoModel" = "%@: niciun model local de chat; descărcați unul (modelele din cloud și cele de embedding nu contează).";
+"aiCheckModelMissing" = "%1$@: modelul selectat (%2$@) nu a fost găsit; alegeți alt model.";
+"aiCheckNoAnswer" = "%@: nu a răspuns la întrebarea de test.";
 
 /* Eşitleme rutini (iki yönlü) */
 "logSyncPlanned" = "Plan de sincronizare: %1$@ fișiere A → B, %2$@ fișiere B → A, %3$@ fișiere diferă în ambele părți.";

@@ -111,39 +111,46 @@ private struct GeneralSettingsView: View {
 
             Section(settings.t(.settingsAISection)) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle(settings.t(.settingsAISuggestions), isOn: $settings.aiSuggestions)
+                    // İsteğe bağlı: açılırken ön koşullar denetlenir; hiçbir model hazır değilse açılmaz.
+                    Toggle(settings.t(.settingsAISuggestions), isOn: Binding(
+                        get: { settings.aiSuggestions },
+                        set: { isOn in Task { await model.setAISuggestions(isOn) } }
+                    ))
+                    .disabled(model.isCheckingAI)
+                    .accessibilityIdentifier("copiator.settings.aiSuggestions")
                     Text(settings.t(.settingsAISuggestionsNote))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                // Kaynak, açmadan önce de seçilebilir (açarken onun ön koşulları denetlenir).
+                Picker(settings.t(.settingsAIProvider), selection: $settings.aiProvider) {
+                    ForEach(SuggestionProvider.allCases) { provider in
+                        Text(provider == .automatic ? settings.t(.settingsAIAutomatic) : provider.displayName).tag(provider)
+                    }
+                }
+                .disabled(model.isCheckingAI)
+                .accessibilityIdentifier("copiator.settings.aiProvider")
+                .onChange(of: settings.aiProvider) {
+                    model.updateSuggestionModel()
+                    if settings.aiSuggestions {
+                        Task { await model.checkAIPrerequisites() }
+                    } else {
+                        model.aiChecks = []
+                    }
+                }
                 if settings.aiSuggestions {
-                    Picker(settings.t(.settingsAIProvider), selection: $settings.aiProvider) {
-                        ForEach(SuggestionProvider.allCases) { provider in
-                            Text(provider == .automatic ? settings.t(.settingsAIAutomatic) : provider.displayName).tag(provider)
-                        }
-                    }
-                    .accessibilityIdentifier("copiator.settings.aiProvider")
-                    .onChange(of: settings.aiProvider) {
-                        model.updateSuggestionModel()
-                        Task { await model.refreshLocalModels() }
-                    }
                     if settings.aiProvider == .automatic {
                         automaticRows
                     }
                     ForEach(settings.activeProviders.compactMap(\.server)) { server in
                         localServerRows(server)
                     }
-                    if settings.activeProviders.contains(.apple), !OnDeviceSuggestionModel().isAvailable {
-                        Text(settings.t(.settingsAIAppleUnavailable))
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                     AILanguageWarning()
                 }
+                aiCheckRows
             }
-            .task { await model.refreshLocalModels() }
+            .task { if settings.aiSuggestions { await model.refreshLocalModels() } }
 
             Section(settings.t(.settingsPowerSection)) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -160,6 +167,38 @@ private struct GeneralSettingsView: View {
             Button(settings.t(.buttonOK), role: .cancel) {}
         } message: {
             Text(settings.t(.restartMenuBarNotice))
+        }
+    }
+
+    /// Ön koşul denetimi: sürerken ilerleme, sonra her sağlayıcının durumu (hazır ya da sorun ve çözümü) ve "Yeniden Denetle".
+    @ViewBuilder
+    private var aiCheckRows: some View {
+        if model.isCheckingAI {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text(settings.t(.settingsAIChecking)).font(.footnote).foregroundStyle(.secondary)
+            }
+        } else if !model.aiChecks.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(model.aiChecks.enumerated()), id: \.offset) { _, check in
+                    Label(settings.checkText(check), systemImage: check.isReady ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(check.isReady ? Color.green : Color.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !settings.aiSuggestions {
+                    Text(settings.t(.settingsAINotEnabled))
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button(settings.t(.settingsAIRecheck), systemImage: "arrow.clockwise") {
+                    Task {
+                        if settings.aiSuggestions { await model.checkAIPrerequisites() } else { await model.setAISuggestions(true) }
+                    }
+                }
+                .accessibilityIdentifier("copiator.settings.aiRecheck")
+            }
         }
     }
 
@@ -703,5 +742,23 @@ private struct ShortcutsSettingsView: View {
             self.stopRecording()
         }
         return nil
+    }
+}
+
+extension AppSettings {
+    /// Ön koşul denetiminin bir sağlayıcı için sonucu.
+    func checkText(_ check: AIPrerequisites.Check) -> String {
+        let name = check.provider.displayName
+        switch check.problem {
+        case nil: return check.model.map { t(.aiCheckReadyModel, name, $0) } ?? t(.aiCheckReady, name)
+        case .deviceNotEligible?: return t(.aiCheckDeviceNotEligible)
+        case .appleIntelligenceOff?: return t(.aiCheckAppleOff)
+        case .modelNotReady?: return t(.aiCheckModelNotReady)
+        case .appleUnavailable?: return t(.aiCheckAppleUnavailable)
+        case .serverNotRunning?: return t(.aiCheckServerOff, name, String(check.provider.server?.port ?? 0))
+        case .noLocalModel?: return t(.aiCheckNoModel, name)
+        case .modelMissing(let model)?: return t(.aiCheckModelMissing, name, model)
+        case .noAnswer?: return t(.aiCheckNoAnswer, name)
+        }
     }
 }

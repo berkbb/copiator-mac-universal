@@ -271,6 +271,49 @@ final class AppModel {
     /// Yapay zekâ önerileri sunulur mu (ayar açık ve bu Mac'te cihaz üstü model var).
     var canSuggestWithAI: Bool { settings.aiSuggestions && suggestionModel.isAvailable }
 
+    /// Ön koşul denetiminin son sonucu (Ayarlar'da gösterilir) ve denetimin sürdüğü.
+    var aiChecks: [AIPrerequisites.Check] = []
+    var isCheckingAI = false
+    /// Apple Intelligence'ın sistem durumu ve deneme modeli (testler kendi değerlerini verir).
+    @ObservationIgnored var appleProblem: () -> AIPrerequisites.Problem? = AIPrerequisites.appleProblem
+    @ObservationIgnored var appleTestModel: any SuggestionModel = OnDeviceSuggestionModel()
+
+    /// Yapay zekâ önerilerini açar ya da kapatır. Açarken kullanılacak sağlayıcıların (Otomatik'te sıradakilerin) ön
+    /// koşulları denetlenir; hiçbiri hazır değilse öneriler kapalı kalır ve sorunlar Ayarlar'da gösterilir.
+    @discardableResult
+    func setAISuggestions(_ on: Bool) async -> Bool {
+        guard on else {
+            settings.aiSuggestions = false
+            aiChecks = []
+            return false
+        }
+        let ready = await checkAIPrerequisites()
+        settings.aiSuggestions = ready
+        return ready
+    }
+
+    /// Ön koşulları denetler: Apple Intelligence'ın sistem durumu ve yerel sunucuların modelleri, ardından her birine kısa
+    /// bir deneme sorusu. En az bir sağlayıcı hazırsa true. Hiçbir sorun hata olarak dışarı taşmaz.
+    @discardableResult
+    func checkAIPrerequisites() async -> Bool {
+        isCheckingAI = true
+        defer { isCheckingAI = false }
+        var checks: [AIPrerequisites.Check] = []
+        for provider in settings.activeProviders {
+            if let server = provider.server {
+                let check = await AIPrerequisites.checkServer(server, selected: settings.aiModel(for: server), port: localServerPorts[server])
+                if let name = check.model, settings.aiModel(for: server).isEmpty { settings.setAIModel(name, for: server) }
+                checks.append(check)
+            } else {
+                checks.append(await AIPrerequisites.checkApple(problem: appleProblem(), model: appleTestModel))
+            }
+        }
+        aiChecks = checks
+        await refreshLocalModels()
+        updateSuggestionModel()
+        return checks.contains(where: \.isReady)
+    }
+
     /// Kullanılacak yerel sunucuların (seçilen ya da Otomatik sıradakiler) modellerini yoklar (yalnızca 127.0.0.1) ve öneri
     /// modelini günceller; seçili model yoksa ilk yerel model seçilir. Yalnızca Apple Intelligence kullanılıyorsa bir şey
     /// yapmaz. Sunucu yanıt vermezse hata gösterilmez: o sağlayıcı kullanılamaz sayılır.

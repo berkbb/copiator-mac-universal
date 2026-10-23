@@ -826,7 +826,6 @@
 "settingsAIModelMissing" = "The selected model was not found on the server: %@";
 "settingsAIReady" = "Ready; local models: %ld";
 "settingsAILocalNote" = "Requests go only to the server on this Mac (%@): no proxy is used, redirects are not followed, and cloud models are neither listed nor used.";
-"settingsAIAppleUnavailable" = "Apple Intelligence is not available on this Mac (turned off or not supported); you can choose Ollama or LM Studio.";
 "aiSuggestFolderTemplate" = "Suggest a Subfolder Template";
 "aiNoFolderTemplate" = "No template could be derived from the folders at the destination.";
 "placementAINewFolder" = "%@ (AI suggestion, new folder)";
@@ -838,6 +837,19 @@
 "settingsAIStatusReady" = "Ready";
 "settingsAIStatusOff" = "Not available now";
 "aiEngineUnavailable" = "The suggestion engine is not available right now; the rule-based suggestions stay.";
+"settingsAIChecking" = "Checking the prerequisites (loading a model for the first time can take a while)…";
+"settingsAIRecheck" = "Check Again";
+"settingsAINotEnabled" = "AI suggestions were not turned on: no model is ready. Fix the problems and try again.";
+"aiCheckReady" = "%@: ready";
+"aiCheckReadyModel" = "%1$@: ready (%2$@)";
+"aiCheckDeviceNotEligible" = "Apple Intelligence: this Mac does not support it.";
+"aiCheckAppleOff" = "Apple Intelligence: turned off; turn it on in System Settings › Apple Intelligence & Siri.";
+"aiCheckModelNotReady" = "Apple Intelligence: the model is not ready yet (it may be downloading); check again later.";
+"aiCheckAppleUnavailable" = "Apple Intelligence: not available right now.";
+"aiCheckServerOff" = "%1$@: not running at 127.0.0.1:%2$@; open the app.";
+"aiCheckNoModel" = "%@: no local chat model; download one (cloud and embedding models do not count).";
+"aiCheckModelMissing" = "%1$@: the selected model (%2$@) was not found; choose another model.";
+"aiCheckNoAnswer" = "%@: did not answer the test question.";
 
 /* Eşitleme rutini (iki yönlü) */
 "logSyncPlanned" = "Sync plan: %1$@ files A → B, %2$@ files B → A, %3$@ files differ on both sides.";

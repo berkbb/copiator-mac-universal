@@ -54,12 +54,14 @@ struct SyncAndAIAppTests {
         #expect(ConflictDecision.reverse.number(for: .sync) == 2 && ConflictDecision.skip.number(for: .rsync) == 3)
     }
 
-    /// Yapay zekâ önerileri yalnızca ayar açıkken ve bu Mac'te model varken sunulur.
+    /// Yapay zekâ önerileri yalnızca ayar açıkken (varsayılan kapalı) ve bu Mac'te model varken sunulur.
     @Test func aiSuggestionsFollowTheSettingAndTheModel() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         let model = fixture.model
         model.suggestionModel = AppFakeSuggestionModel(isAvailable: true)
+        #expect(!fixture.settings.aiSuggestions && !model.canSuggestWithAI)
+        fixture.settings.aiSuggestions = true
         #expect(model.canSuggestWithAI)
         fixture.settings.aiSuggestions = false
         #expect(!model.canSuggestWithAI)
@@ -148,6 +150,7 @@ struct SyncAndAIAppTests {
         let model = fixture.model
         let settings = fixture.settings
         model.localServerPorts = [.ollama: 1, .lmStudio: 1]
+        settings.aiSuggestions = true
         settings.aiProvider = .ollama
         await model.refreshLocalModels()
         #expect(!model.runningServers.contains(.ollama) && !model.canSuggestWithAI && settings.aiOllamaModel.isEmpty)
@@ -192,6 +195,38 @@ struct SyncAndAIAppTests {
         #expect(fixture.defaults.stringArray(forKey: "aiAutomaticOff") == ["apple"])
         let reopened = AppSettings(defaults: fixture.defaults, bundle: resourcesBundle)
         #expect(reopened.aiProvider == .automatic && reopened.automaticProviders == [.lmStudio, .ollama])
+    }
+
+    /// Yapay zekâ önerileri isteğe bağlıdır (varsayılan kapalı). Açarken ön koşullar denetlenir: hiçbir model hazır değilse
+    /// kapalı kalır ve her sağlayıcının sorunu listelenir; hazır bir model varsa açılır. Kapatınca sonuçlar silinir.
+    /// Testte yerel sunucu portları boştur (gerçek Ollama'ya dokunulmaz).
+    @Test func aiSuggestionsAreOptInAndCheckedWhenTurnedOn() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        let settings = fixture.settings
+        settings.language = .tr
+        #expect(!settings.aiSuggestions)
+        model.localServerPorts = [.ollama: 1, .lmStudio: 1]
+        model.appleProblem = { .appleIntelligenceOff }
+        settings.aiProvider = .automatic
+        #expect(await model.setAISuggestions(true) == false)
+        #expect(!settings.aiSuggestions && !model.isCheckingAI)
+        #expect(model.aiChecks.map(\.problem) == [.appleIntelligenceOff, .serverNotRunning, .serverNotRunning])
+        #expect(settings.checkText(model.aiChecks[1]) == "Ollama: 127.0.0.1:11434 adresinde çalışmıyor; uygulamayı açın.")
+        render(AnyView(SettingsView().environment(model).environment(settings)), NSSize(width: 580, height: 1000), "settings-ai-not-ready")
+
+        model.appleProblem = { nil }
+        model.appleTestModel = AppFakeSuggestionModel(isAvailable: true, answer: "OK")
+        #expect(await model.setAISuggestions(true))
+        #expect(settings.aiSuggestions && model.aiChecks.first == AIPrerequisites.Check(provider: .apple))
+        #expect(settings.checkText(model.aiChecks[0]) == "Apple Intelligence: hazır")
+        render(AnyView(SettingsView().environment(model).environment(settings)), NSSize(width: 580, height: 1100), "settings-ai-ready")
+
+        await model.setAISuggestions(false)
+        #expect(!settings.aiSuggestions && model.aiChecks.isEmpty)
+        let reopened = AppSettings(defaults: fixture.defaults, bundle: resourcesBundle)
+        #expect(!reopened.aiSuggestions)
     }
 
     /// Yeni sayfalar ekran dışı çizilir: temizleme aracı, eşitleme rutini düzenleyicisi, yapay zekâ düğmeli yerleşim.

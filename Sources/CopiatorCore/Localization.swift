@@ -242,9 +242,13 @@ public enum LKey: String, CaseIterable, Sendable {
     case aiTemplateSuggestion, aiUseSuggestion, aiThinking, aiNoTemplate, aiLanguageWarning
     // Yerel model sunucuları (Ollama, LM Studio) ve yol önerileri
     case settingsAISection, settingsAIProvider, settingsAIModel, settingsAIRefresh, settingsAIServerOff, settingsAINoLocalModel
-    case settingsAIModelMissing, settingsAIReady, settingsAILocalNote, settingsAIAppleUnavailable, aiSuggestFolderTemplate
+    case settingsAIModelMissing, settingsAIReady, settingsAILocalNote, aiSuggestFolderTemplate
     case aiNoFolderTemplate, placementAINewFolder, placementAISuggested, settingsAIAutomatic, settingsAIAutomaticNote
     case settingsAIMoveUp, settingsAIMoveDown, settingsAIStatusReady, settingsAIStatusOff, aiEngineUnavailable
+    // Yapay zekâ önerilerini açarken ön koşul denetimi
+    case settingsAIChecking, settingsAIRecheck, settingsAINotEnabled, aiCheckReady, aiCheckReadyModel, aiCheckDeviceNotEligible
+    case aiCheckAppleOff, aiCheckModelNotReady, aiCheckAppleUnavailable, aiCheckServerOff, aiCheckNoModel, aiCheckModelMissing
+    case aiCheckNoAnswer
     // Eşitleme rutini (iki yönlü)
     case logSyncPlanned, logSyncDirection, logSyncDone, routineKind, routineKindCopy, routineKindSync, routineKindSyncNote
     case syncFolderA, syncFolderB, conflictSyncUseA, conflictSyncUseB, conflictPolicyNewer, conflictPolicyUseA, conflictPolicyUseB
