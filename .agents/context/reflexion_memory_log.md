@@ -169,3 +169,7 @@
 ## Episode 40: Two Suites Raced on the Shortcut Target
 - **Root Cause:** `IntentTarget.model` is one process-wide closure. `AutomationAppTests` and `RoutineAppTests` are each `.serialized`, but they run in parallel with each other; a routine test reset the target to `AppModel.shared` while the shortcut test was still calling it, so "job not found" came from another model. Added suites shifted the timing and exposed it.
 - **Guardrail:** tests that set `IntentTarget.model` take `IntentTargetLock` first (an async FIFO lock on the main actor) and release it after restoring the target.
+
+## Episode 41: A Successful Push Reported as Rejected
+- **Root Cause:** git spoke HTTP/2 to GitHub. GitHub's activity log shows a single push (f0594b0 → 623b80a) and the local tracking ref was updated by that push, yet the client printed `cannot lock ref 'refs/heads/main': is at 623b80a but expected f0594b0`: the ref update was sent a second time after the server had applied the first one.
+- **Guardrail:** the repository is pinned to `http.version HTTP/1.1` (local git config). After every push, `git ls-remote origin refs/heads/main` must equal the local SHA and the GitHub activity log must show exactly one push; a reported rejection is checked on the server before anything else, never retried blindly and never force-pushed.
