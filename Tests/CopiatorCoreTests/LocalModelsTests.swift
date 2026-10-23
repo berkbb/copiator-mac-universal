@@ -155,7 +155,7 @@ final class FakeModelServer: @unchecked Sendable {
 
     let lmStudio = LocalServerSuggestionModel(server: .lmStudio, model: "qwen3-8b", isAvailable: true, port: server.port)
     let placement = await Suggestions.placeFile("su ekim.pdf", content: nil, candidates: ["Elektrik", "Sigorta"], model: lmStudio)
-    #expect(placement == Suggestions.FilePlacement(order: [], newFolder: "Faturalar/Su"))
+    #expect(placement == .value(Suggestions.FilePlacement(order: [], newFolder: "Faturalar/Su")))
     #expect(server.requests.last?.path == "/v1/chat/completions")
 
     await #expect(throws: (any Error).self) { _ = try await LocalModelServer.request("/yonlendir", port: server.port, body: nil, timeout: 3) }
@@ -201,11 +201,12 @@ final class FakeModelServer: @unchecked Sendable {
         var answer: String
         func respond(instructions: String, prompt: String) async throws -> String { answer }
     }
-    #expect(await Suggestions.folderTemplate(examples: ["2026/10-Ekim"], model: Model(answer: "{year}/{month}-{monthName}")) == "{year}/{month}-{monthName}")
-    #expect(await Suggestions.folderTemplate(examples: [], model: Model(answer: "{year}")) == nil)
-    #expect(await Suggestions.folderTemplate(examples: ["x"], model: Model(isAvailable: false, answer: "{year}")) == nil)
-    #expect(await Suggestions.placeFile("a.pdf", content: "içerik", candidates: [], model: Model(answer: "NEW: Belgeler")) == .init(order: [], newFolder: "Belgeler"))
-    #expect(await Suggestions.placeFile("a.pdf", content: nil, candidates: ["A", "B"], model: Model(isAvailable: false, answer: "1")) == nil)
+    #expect(await Suggestions.folderTemplate(examples: ["2026/10-Ekim"], model: Model(answer: "{year}/{month}-{monthName}")) == .value("{year}/{month}-{monthName}"))
+    #expect(await Suggestions.folderTemplate(examples: ["Faturalar/Su"], model: Model(answer: "{year}/{month}")) == .noSuggestion)
+    #expect(await Suggestions.folderTemplate(examples: [], model: Model(answer: "{year}")) == .noSuggestion)
+    #expect(await Suggestions.folderTemplate(examples: ["x"], model: Model(isAvailable: false, answer: "{year}")) == .unavailable)
+    #expect(await Suggestions.placeFile("a.pdf", content: "içerik", candidates: [], model: Model(answer: "NEW: Belgeler")) == .value(.init(order: [], newFolder: "Belgeler")))
+    #expect(await Suggestions.placeFile("a.pdf", content: nil, candidates: ["A", "B"], model: Model(isAvailable: false, answer: "1")) == .unavailable)
 }
 
 /// Otomatik kip: kullanılamayan model sorulmaz; hata veren ve geçersiz yanıt veren modelden sonra sıradaki sorulur, geçerli
@@ -230,22 +231,23 @@ final class FakeModelServer: @unchecked Sendable {
     }
     let calls = Calls()
     let chain = FallbackSuggestionModel([
-        (name: "Kapalı", model: Member(name: "Kapalı", isAvailable: false, answer: "Rapor_{year}", calls: calls)),
+        (name: "Kapalı", model: Member(name: "Kapalı", isAvailable: false, answer: "1", calls: calls)),
         (name: "Hatalı", model: Member(name: "Hatalı", answer: nil, calls: calls)),
-        (name: "Geçersiz", model: Member(name: "Geçersiz", answer: "Rapor_{yil}", calls: calls)),
-        (name: "İyi", model: Member(name: "İyi", answer: "Rapor_{year}", calls: calls)),
-        (name: "Sonraki", model: Member(name: "Sonraki", answer: "Başka_{year}", calls: calls)),
+        (name: "Geçersiz", model: Member(name: "Geçersiz", answer: "bilmiyorum", calls: calls)),
+        (name: "İyi", model: Member(name: "İyi", answer: "2", calls: calls)),
+        (name: "Sonraki", model: Member(name: "Sonraki", answer: "1", calls: calls)),
     ])
     #expect(chain.isAvailable && chain.lastSource == nil)
-    #expect(await Suggestions.nameTemplate(for: "a.pdf", examples: ["Rapor_2025.pdf"], model: chain) == "Rapor_{year}")
+    let pair = ["X", "Y"].map { FolderSuggester.Suggestion(path: $0, score: 0) }
+    #expect(await Suggestions.rankFolders(pair, for: "a.pdf", content: nil, model: chain).value?.map(\.path) == ["Y", "X"])
     #expect(calls.all == ["Hatalı", "Geçersiz", "İyi"] && chain.lastSource == "İyi")
 
     let dead = FallbackSuggestionModel([
         (name: "A", model: Member(name: "A", answer: nil, calls: calls)),
         (name: "B", model: Member(name: "B", isAvailable: false, answer: "1", calls: calls)),
     ])
-    #expect(await Suggestions.placeFile("a.pdf", content: nil, candidates: ["X", "Y"], model: dead) == nil)
-    #expect(await Suggestions.folderTemplate(examples: ["2026/10"], model: dead) == nil && dead.lastSource == nil)
+    #expect(await Suggestions.placeFile("a.pdf", content: nil, candidates: ["X", "Y"], model: dead) == .unavailable)
+    #expect(await Suggestions.folderTemplate(examples: ["Faturalar/Su"], model: dead) == .unavailable && dead.lastSource == nil)
     await #expect(throws: (any Error).self) { _ = try await dead.respond(instructions: "", prompt: "") }
     #expect(!FallbackSuggestionModel([]).isAvailable)
 
@@ -258,7 +260,7 @@ final class FakeModelServer: @unchecked Sendable {
         (name: "Ollama", model: LocalServerSuggestionModel(server: .ollama, model: "yerel:1b", isAvailable: true, port: 1)),
         (name: "LM Studio", model: LocalServerSuggestionModel(server: .lmStudio, model: "qwen3-8b", isAvailable: true, port: server.port)),
     ])
-    #expect(await Suggestions.placeFile("su.pdf", content: nil, candidates: ["Elektrik", "Su"], model: local) == .init(order: ["Su"], newFolder: nil))
+    #expect(await Suggestions.placeFile("su.pdf", content: nil, candidates: ["Elektrik", "Su"], model: local) == .value(.init(order: ["Su"], newFolder: nil)))
     #expect(local.lastSource == "LM Studio")
 
     #expect(SuggestionProvider.order(["lmStudio", "bilinmeyen", "automatic", "lmStudio"]) == [.lmStudio, .apple, .ollama])
@@ -274,15 +276,33 @@ func liveOllamaGivesValidPathSuggestions() async throws {
     let name = try #require(models.first, "Ollama'da yerel model yok")
     let model = LocalServerSuggestionModel(server: .ollama, model: name, isAvailable: true)
     let placement = await Suggestions.placeFile("Enerjisa elektrik faturası Ekim 2026.pdf", content: "ENERJİSA elektrik faturası",
-                                                candidates: ["Faturalar/Su", "Faturalar/Elektrik", "Sigorta"], model: model)
+                                                candidates: ["Faturalar/Su", "Faturalar/Elektrik", "Sigorta"], model: model).value
     print("Ollama \(name) yer önerisi: \(String(describing: placement))")
     if let placement {
         #expect(placement.order.allSatisfy { ["Faturalar/Su", "Faturalar/Elektrik", "Sigorta"].contains($0) })
         #expect(placement.newFolder.map { !$0.contains("..") && !$0.hasPrefix("/") } ?? true)
     }
-    let template = await Suggestions.folderTemplate(examples: ["2025/01-Ocak", "2025/02-Şubat", "2026/10-Ekim"], model: model)
+    let template = await Suggestions.folderTemplate(examples: ["2025/01-Ocak", "2025/02-Şubat", "2026/10-Ekim"], model: model).value
     print("Ollama \(name) alt klasör şablonu: \(String(describing: template))")
     if let template {
         #expect(RoutePlacement(folderTemplate: template).problems().isEmpty)
+    }
+}
+
+/// İsteğe bağlı: bu Mac'teki gerçek LM Studio (Bionic) sunucusuyla (COPIATOR_LMSTUDIO_TESTS=1). Gömme modelleri listede
+/// yoktur; bir sohbet modeli varsa yol önerisi geçerli bir yanıt verir.
+@Test(.enabled(if: ProcessInfo.processInfo.environment["COPIATOR_LMSTUDIO_TESTS"] == "1", "COPIATOR_LMSTUDIO_TESTS verilmedi"))
+func liveLMStudioGivesValidPathSuggestions() async throws {
+    let models = try #require(await LocalModelServer.lmStudio.models(), "LM Studio (Bionic) sunucusu çalışmıyor")
+    print("LM Studio sohbet modelleri: \(models)")
+    #expect(models.allSatisfy { !$0.lowercased().contains("embed") })
+    guard let name = models.first else { return }
+    let model = LocalServerSuggestionModel(server: .lmStudio, model: name, isAvailable: true)
+    let placement = await Suggestions.placeFile("Enerjisa elektrik faturası Ekim 2026.pdf", content: "ENERJİSA elektrik faturası",
+                                                candidates: ["Faturalar/Su", "Faturalar/Elektrik", "Sigorta"], model: model).value
+    print("LM Studio \(name) yer önerisi: \(String(describing: placement))")
+    if let placement {
+        #expect(placement.order.allSatisfy { ["Faturalar/Su", "Faturalar/Elektrik", "Sigorta"].contains($0) })
+        #expect(placement.newFolder.map { !$0.contains("..") && !$0.hasPrefix("/") } ?? true)
     }
 }

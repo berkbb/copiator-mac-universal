@@ -837,6 +837,7 @@
 "settingsAIMoveDown" = "Aşağı Taşı";
 "settingsAIStatusReady" = "Hazır";
 "settingsAIStatusOff" = "Şu an kullanılamıyor";
+"aiEngineUnavailable" = "Öneri motoru şu an kullanılamıyor; kural tabanlı öneriler geçerli.";
 
 /* Eşitleme rutini (iki yönlü) */
 "logSyncPlanned" = "Eşitleme planı: A → B %1$@ dosya, B → A %2$@ dosya, iki yanda farklı %3$@ dosya.";

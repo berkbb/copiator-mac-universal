@@ -24,6 +24,8 @@ struct PlacementDecisionView: View {
     @State private var dates: [String: DateComponents] = [:]
     @State private var ranking = false
     @State private var rankedByAI = false
+    /// Yapay zekâ hiçbir dosya için öneri veremediyse nedeni.
+    @State private var aiNote: LKey?
 
     private static let skip = "\u{0}skip"
     private static let new = "\u{0}new"
@@ -55,6 +57,10 @@ struct PlacementDecisionView: View {
                     if ranking { ProgressView().controlSize(.small) }
                     if rankedByAI {
                         Text(settings.t(.placementAISuggested, model.suggestionSourceName)).font(.caption).foregroundStyle(.secondary)
+                    } else if let aiNote {
+                        Text(settings.t(aiNote))
+                            .font(.caption)
+                            .foregroundStyle(aiNote == .aiEngineUnavailable ? Color.orange : Color.secondary)
                     }
                 }
                 AILanguageWarning()
@@ -209,7 +215,10 @@ struct PlacementDecisionView: View {
         let source = job.source
         let items = Array(report.items.prefix(Self.maxRanked))
         ranking = true
+        aiNote = nil
         Task {
+            var answered = false
+            var reached = false
             for item in items {
                 let current = suggestions(for: item)
                 let url = source.appendingPathComponent(item.path)
@@ -217,14 +226,19 @@ struct PlacementDecisionView: View {
                     ContentReader.canRead(UTType(filenameExtension: url.pathExtension)) ? ContentReader.text(of: url) : nil
                 }.value
                 let name = (item.path as NSString).lastPathComponent
-                guard let answer = await Suggestions.placeFile(name, content: content, candidates: current, model: suggestionModel) else { continue }
+                let result = await Suggestions.placeFile(name, content: content, candidates: current, model: suggestionModel)
+                if result != .unavailable { reached = true }
+                guard let answer = result.value else { continue }
+                answered = true
                 let untouched = selection[item.path] == (current.first ?? Self.skip)
                 ordered[item.path] = answer.order + current.filter { !answer.order.contains($0) }
                 if let folder = answer.newFolder { proposed[item.path] = folder }
                 if untouched, let first = answer.order.first ?? answer.newFolder { selection[item.path] = first }
             }
             ranking = false
-            rankedByAI = true
+            // Hiçbir model yanıt veremediyse motor kullanılamıyor; yanıt verip öneri çıkmadıysa kural tabanlı öneriler kalır.
+            rankedByAI = answered
+            if !answered { aiNote = reached ? .aiNoAnswer : .aiEngineUnavailable }
         }
     }
 

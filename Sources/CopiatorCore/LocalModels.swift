@@ -203,7 +203,10 @@ public struct LocalServerSuggestionModel: SuggestionModel {
             "messages": [["role": "system", "content": instructions], ["role": "user", "content": prompt]],
             "stream": false,
         ]
-        if server == .ollama { body["options"] = ["temperature": 0.2] } else { body["temperature"] = 0.2 }
+        // Rastgelelik yok: aynı soru aynı yanıtı alır.
+        if server == .ollama { body["options"] = ["temperature": 0] } else { body["temperature"] = 0 }
+        // Geçersiz bir nesne JSONSerialization'da hata değil çökme olurdu: önce denetlenir.
+        guard JSONSerialization.isValidJSONObject(body) else { throw LocalModelServer.Failure.badResponse }
         let data = try await LocalModelServer.request(server.chatPath, port: port, body: JSONSerialization.data(withJSONObject: body),
                                                       timeout: 60)
         guard let answer = server == .ollama ? LocalModelServer.ollamaAnswer(data) : LocalModelServer.openAIAnswer(data)

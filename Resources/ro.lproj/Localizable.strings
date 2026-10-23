@@ -837,6 +837,7 @@
 "settingsAIMoveDown" = "Mută în jos";
 "settingsAIStatusReady" = "Pregătit";
 "settingsAIStatusOff" = "Indisponibil acum";
+"aiEngineUnavailable" = "Motorul de sugestii nu este disponibil acum; rămân sugestiile bazate pe reguli.";
 
 /* Eşitleme rutini (iki yönlü) */
 "logSyncPlanned" = "Plan de sincronizare: %1$@ fișiere A → B, %2$@ fișiere B → A, %3$@ fișiere diferă în ambele părți.";

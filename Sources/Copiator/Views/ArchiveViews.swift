@@ -210,7 +210,8 @@ struct FolderSuggestionButton: View {
     @Environment(AppSettings.self) private var settings
     @State private var ranking = false
     @State private var rankedByAI = false
-    @State private var aiFailed = false
+    /// Yapay zekâ sıralayamadıysa nedeni: geçerli öneri yok ya da öneri motoru kullanılamıyor.
+    @State private var aiFailure: LKey?
     @State private var shown = false
     @State private var root: URL?
     @State private var query = ""
@@ -257,8 +258,10 @@ struct FolderSuggestionButton: View {
                     if ranking { ProgressView().controlSize(.small) }
                     if rankedByAI {
                         Text(settings.t(.aiRanked, model.suggestionSourceName)).font(.caption).foregroundStyle(.secondary)
-                    } else if aiFailed {
-                        Text(settings.t(.aiNoAnswer)).font(.caption).foregroundStyle(.secondary)
+                    } else if let aiFailure {
+                        Text(settings.t(aiFailure))
+                            .font(.caption)
+                            .foregroundStyle(aiFailure == .aiEngineUnavailable ? Color.orange : Color.secondary)
                     }
                 }
                 AILanguageWarning()
@@ -303,7 +306,7 @@ struct FolderSuggestionButton: View {
         guard !Task.isCancelled else { return }
         suggestions = found
         rankedByAI = false
-        aiFailed = false
+        aiFailure = nil
     }
 
     /// Kural tabanlı adayları cihaz üstü modelle sıralar (yalnızca var olan adaylar arasından).
@@ -313,13 +316,17 @@ struct FolderSuggestionButton: View {
         let suggestionModel = model.suggestionModel
         ranking = true
         Task {
-            let ranked = await Suggestions.rankFolders(current, for: text, content: nil, model: suggestionModel)
+            let result = await Suggestions.rankFolders(current, for: text, content: nil, model: suggestionModel)
             ranking = false
-            if let ranked, query == text {
+            switch result {
+            case .value(let ranked):
+                guard query == text else { return }
                 suggestions = ranked
                 rankedByAI = true
-            } else {
-                aiFailed = true
+            case .noSuggestion:
+                aiFailure = .aiNoAnswer
+            case .unavailable:
+                aiFailure = .aiEngineUnavailable
             }
         }
     }

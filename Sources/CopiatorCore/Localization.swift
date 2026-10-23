@@ -244,7 +244,7 @@ public enum LKey: String, CaseIterable, Sendable {
     case settingsAISection, settingsAIProvider, settingsAIModel, settingsAIRefresh, settingsAIServerOff, settingsAINoLocalModel
     case settingsAIModelMissing, settingsAIReady, settingsAILocalNote, settingsAIAppleUnavailable, aiSuggestFolderTemplate
     case aiNoFolderTemplate, placementAINewFolder, placementAISuggested, settingsAIAutomatic, settingsAIAutomaticNote
-    case settingsAIMoveUp, settingsAIMoveDown, settingsAIStatusReady, settingsAIStatusOff
+    case settingsAIMoveUp, settingsAIMoveDown, settingsAIStatusReady, settingsAIStatusOff, aiEngineUnavailable
     // Eşitleme rutini (iki yönlü)
     case logSyncPlanned, logSyncDirection, logSyncDone, routineKind, routineKindCopy, routineKindSync, routineKindSyncNote
     case syncFolderA, syncFolderB, conflictSyncUseA, conflictSyncUseB, conflictPolicyNewer, conflictPolicyUseA, conflictPolicyUseB

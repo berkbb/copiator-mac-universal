@@ -60,6 +60,10 @@ struct PlacementEditor: View {
     @Environment(AppModel.self) private var model
     @Environment(AppSettings.self) private var settings
     @State private var expanded = false
+    /// Son şablon önerisinin örnekleri (ay adı dilini bulmak için) ve dilin öneriden geldiği.
+    @State private var nameExamples: [String] = []
+    @State private var folderExamples: [String] = []
+    @State private var keepLanguage = false
 
     var body: some View {
         DisclosureGroup(isExpanded: $expanded) {
@@ -112,13 +116,20 @@ struct PlacementEditor: View {
                         tokenMenu { placement.nameTemplate += $0 }
                     }
                 }
-                if model.canSuggestWithAI, let destination {
+                // Şablonlar önce kurala bağlı çıkarılır (yapay zekâ kapalıyken de); yapay zekâ yalnızca kural çözemezse sorulur.
+                if let destination {
                     AITemplateSuggestionRow(title: .aiSuggestFolderTemplate, failure: .aiNoFolderTemplate,
                                             identifier: "copiator.placement.aiFolderTemplate",
-                                            fetch: { await folderTemplate(in: destination) }, use: { placement.folderTemplate = $0 })
+                                            fetch: { await folderTemplate(in: destination) }) { template in
+                        useLanguage(Suggestions.folderLanguage(template, examples: folderExamples), for: template)
+                        placement.folderTemplate = template
+                    }
                     AITemplateSuggestionRow(title: .aiSuggestTemplate, failure: .aiNoTemplate, identifier: "copiator.placement.aiTemplate",
-                                            fetch: { await nameTemplate(in: destination) }, use: { placement.nameTemplate = $0 })
-                    AILanguageWarning()
+                                            fetch: { await nameTemplate(in: destination) }) { template in
+                        useLanguage(Suggestions.nameLanguage(template, examples: nameExamples), for: template)
+                        placement.nameTemplate = template
+                    }
+                    if model.canSuggestWithAI { AILanguageWarning() }
                 }
                 fixesEditor
                 Picker(settings.t(.placementDateSource), selection: $placement.dateSource) {
@@ -159,24 +170,34 @@ struct PlacementEditor: View {
         .task { await model.refreshLocalModels() }
         // Ay adları şablonun kurulduğu dilde kalır (arayüz dili sonra değişse de klasör adları değişmez).
         .onChange(of: placement.isActive) { _, active in
-            if active { placement.language = settings.languageCode }
+            if active, !keepLanguage { placement.language = settings.languageCode }
         }
     }
 
     /// Hedefteki dosya adlarından seçilen modelle (bu Mac'te) ad şablonu önerisi.
-    private func nameTemplate(in destination: URL) async -> String? {
+    private func nameTemplate(in destination: URL) async -> SuggestionResult<String> {
         let trimmed = sample.trimmingCharacters(in: .whitespaces)
         let name = ((trimmed.isEmpty ? settings.t(.placementSampleFile) : trimmed) as NSString).lastPathComponent
-        let suggestionModel = model.suggestionModel
+        let suggestionModel = model.canSuggestWithAI ? model.suggestionModel : nil
         let examples = await Task.detached(priority: .userInitiated) { Suggestions.exampleNames(in: destination) }.value
+        nameExamples = examples
         return await Suggestions.nameTemplate(for: name, examples: examples, model: suggestionModel)
     }
 
     /// Hedefteki klasör yollarından seçilen modelle (bu Mac'te) alt klasör şablonu önerisi.
-    private func folderTemplate(in destination: URL) async -> String? {
-        let suggestionModel = model.suggestionModel
+    private func folderTemplate(in destination: URL) async -> SuggestionResult<String> {
+        let suggestionModel = model.canSuggestWithAI ? model.suggestionModel : nil
         let examples = await Task.detached(priority: .userInitiated) { Suggestions.exampleFolders(in: destination) }.value
+        folderExamples = examples
         return await Suggestions.folderTemplate(examples: examples, model: suggestionModel)
+    }
+
+    /// Ay adı içeren önerilen şablonun dili, örneklerin dilidir (Türkçe "Ağustos" örneklerinden çıkan şablon, arayüz
+    /// İngilizce olsa da Türkçe ay adı yazar).
+    private func useLanguage(_ language: String?, for template: String) {
+        guard let language, template.contains(PlacementToken.monthName.text) else { return }
+        keepLanguage = true
+        placement.language = language
     }
 
     /// Ad düzeltmeleri: düzenli ifade → yerine yazılacak metin satırları ve hazır düzeltmeler.
@@ -253,15 +274,16 @@ struct PlacementEditor: View {
 /// Yapay zekâ ile şablon önerisi: düğme, bekleme, öneri ve "Kullan"; öneri ancak "Kullan" ile uygulanır.
 struct AITemplateSuggestionRow: View {
     let title: LKey
-    /// Öneri çıkmadığında gösterilen metin.
+    /// Geçerli öneri çıkmadığında gösterilen metin.
     let failure: LKey
     let identifier: String
-    let fetch: () async -> String?
+    let fetch: () async -> SuggestionResult<String>
     let use: (String) -> Void
     @Environment(AppSettings.self) private var settings
     @State private var thinking = false
     @State private var suggestion: String?
-    @State private var failed = false
+    /// Öneri yoksa gösterilen not: `failure` ya da öneri motoru kullanılamıyor.
+    @State private var note: LKey?
 
     var body: some View {
         HStack {
@@ -279,8 +301,10 @@ struct AITemplateSuggestionRow: View {
                     use(suggestion)
                     self.suggestion = nil
                 }
-            } else if failed {
-                Text(settings.t(failure)).font(.caption).foregroundStyle(.secondary)
+            } else if let note {
+                Text(settings.t(note))
+                    .font(.caption)
+                    .foregroundStyle(note == .aiEngineUnavailable ? Color.orange : Color.secondary)
             }
         }
     }
@@ -288,12 +312,15 @@ struct AITemplateSuggestionRow: View {
     private func run() {
         thinking = true
         suggestion = nil
-        failed = false
+        note = nil
         Task {
             let result = await fetch()
             thinking = false
-            suggestion = result
-            failed = result == nil
+            switch result {
+            case .value(let value): suggestion = value
+            case .noSuggestion: note = failure
+            case .unavailable: note = .aiEngineUnavailable
+            }
         }
     }
 }

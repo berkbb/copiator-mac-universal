@@ -837,6 +837,7 @@
 "settingsAIMoveDown" = "Move Down";
 "settingsAIStatusReady" = "Ready";
 "settingsAIStatusOff" = "Not available now";
+"aiEngineUnavailable" = "The suggestion engine is not available right now; the rule-based suggestions stay.";
 
 /* Eşitleme rutini (iki yönlü) */
 "logSyncPlanned" = "Sync plan: %1$@ files A → B, %2$@ files B → A, %3$@ files differ on both sides.";
