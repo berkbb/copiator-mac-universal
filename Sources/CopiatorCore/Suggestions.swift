@@ -341,9 +341,12 @@ public enum Suggestions {
         for case let url as URL in enumerator {
             visited += 1
             if visited > 20_000 { break }
-            if enumerator.level > 5 { enumerator.skipDescendants() }
             guard let values = try? url.resourceValues(forKeys: Set(keys)) else { continue }
-            if values.isDirectory == true, values.isPackage != true { continue }
+            if values.isDirectory == true, values.isPackage != true {
+                // Derinlik sınırı yalnızca klasörde uygulanır (dosyada atlama klasörün geri kalanını atlardı).
+                if enumerator.level > 5 { enumerator.skipDescendants() }
+                continue
+            }
             let folder = (url.relativePath as NSString).deletingLastPathComponent
             guard !folder.isEmpty else { continue }
             let date = values.contentModificationDate ?? .distantPast

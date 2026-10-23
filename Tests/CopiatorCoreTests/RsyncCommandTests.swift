@@ -11,7 +11,8 @@ private func env(_ fs: FileSystemKind = .apfs, engine: EngineInfo = fullEngine, 
     RsyncCommand.Environment(engine: engine, destinationFileSystem: fs, sourceIsDirectory: directory, protectedPaths: protected)
 }
 
-private let systemExcludes = RsyncCommand.systemExclusions.map { "--exclude=\($0)" }
+/// Sistem klasörleri ve hedefin kökündeki arşiv bütünlüğü listesi (silinmesin diye her zaman dışlanır).
+private let systemExcludes = (RsyncCommand.systemExclusions + ["/" + ArchiveIntegrity.manifestName]).map { "--exclude=\($0)" }
 
 /// Varsayılan yerel kopya: -rltDhX --info=progress2 --partial, sistem klasörleri dışarıda, "--"dan sonra yollar.
 @Test func defaultTransferArguments() {
@@ -73,7 +74,7 @@ func fatLikeDestinationsDropPermissionFlags(fs: FileSystemKind) {
 
 @Test func systemFolderExclusionCanBeTurnedOff() {
     let arguments = RsyncCommand.transfer(job(options: CopyOptions(excludeSystemFolders: false)), environment: env())
-    #expect(!arguments.contains { $0.hasPrefix("--exclude=") })
+    #expect(arguments.filter { $0.hasPrefix("--exclude=") } == ["--exclude=/" + ArchiveIntegrity.manifestName])
     #expect(RsyncCommand.systemExclusions.contains(".Spotlight-V100"))
     #expect(RsyncCommand.systemExclusions.contains(".fseventsd"))
     #expect(RsyncCommand.systemExclusions.contains(".Trashes"))

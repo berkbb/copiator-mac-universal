@@ -21,11 +21,11 @@
 9c. ⬜ **[Low] `--read-batch` as its own job kind** (apply a batch file to a destination).
 9e. ⬜ **[Medium] Apple Foundation Models adapter (real fine-tuning) — decision pending, raised on 2026-10-23.** A LoRA adapter for the on-device model needs Apple's Foundation Models adapter training toolkit (Apple Developer download, Python, a Mac with a lot of memory), a labelled dataset of folder and template choices in Turkish, English and Romanian, the Foundation Models adapter entitlement for the app, delivery through Background Assets, and retraining for every new system model version. Until then the app tunes Apple through guided generation, greedy sampling and order-reversal checks.
 9d. ⬜ **[Medium] Undo the last run — deferred by the user on 2026-10-22.** Only files a run created can be removed; replaced files would need a backup folder. Needs an explicit decision before any work.
+9f. ⬜ **[Low] Backup status widget — deferred on 2026-10-23.** Proposed together with the old backup reminder, snapshot restore, integrity check, duplicate finder and routine export/import (all shipped). A WidgetKit extension needs an app group shared with the app and a signed extension, so it waits for item 11 (Developer ID signing).
 
 ### Verification & Distribution
 
 9. 🟡 **[High] Real-app stress round:** `Scripts/stress-test.sh` is written; its accessibility-driven app round has not run yet because the development session lacked the Accessibility permission. Run it from Terminal before 1.0 is published.
 10. ⬜ **[High] Intel verification:** run the universal app and bundled rsync on an Intel Mac (the x86_64 slices are built and linked but untested).
 11. ⬜ **[Medium] Developer ID signing and notarization** (`SIGN_IDENTITY` is supported by `build_app.sh`). Distribution channel decided on 2026-10-21: **GitHub Releases** (`Scripts/release.sh` with `gh release create`); signing is still recommended so Gatekeeper does not block downloads.
-12. ⬜ **[Low] Final app icon** (current `make_icon.swift` design is temporary).
-13. ⬜ **[Medium] Hands-on check of the new automation in the installed app:** Shortcuts/Siri actions (after launching from `/Applications`), the menu bar window, the Dock progress and a real external disk mount/eject cycle.
+13. ⬜ **[Medium] Hands-on check of the new automation in the installed app:** Shortcuts/Siri actions (after launching from `/Applications`), the menu bar window, the Dock progress and a real external disk mount/eject cycle, including the old backup reminder and the integrity check on connect (both covered only by tests and off-screen rendering so far).

@@ -25,6 +25,9 @@
 | `N_ORPHANS` | `ChildProcessGuard` | `Sources/CopiatorCore/ChildProcessGuard.swift` | Child registry, crash handlers, launch reaping |
 | `N_VOLUMES` | `VolumeWatcher` | `Sources/Copiator/StatusItems.swift` | Mount/unmount events → `AppModel` |
 | `N_INTENTS` | `RunJobIntent` & co. | `Sources/Copiator/Intents.swift` | Shortcuts and Siri entry points |
+| `N_FRESHNESS` | `BackupFreshness` | `Sources/CopiatorCore/BackupFreshness.swift` | Stale jobs and routines; reminded from `N_VOLUMES` mounts and at launch |
+| `N_INTEGRITY` | `ArchiveIntegrity` | `Sources/CopiatorCore/ArchiveIntegrity.swift` | Integrity list and check; started by the user or from `N_VOLUMES` mounts |
+| `N_RESTORE` | `SnapshotRestore` | `Sources/CopiatorCore/SnapshotRestore.swift` | Reads `N_SNAPSHOTS` folders, builds an ordinary copy job for `N_QUEUE` |
 
 ## 2. Job State Machine
 

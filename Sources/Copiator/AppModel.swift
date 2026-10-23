@@ -95,6 +95,49 @@ struct RoutinePickerRequest: Identifiable {
     var items: [URL]
 }
 
+/// Bir işin anlık görüntülerine göz atma ve geri yükleme sayfası.
+struct SnapshotBrowserRequest: Identifiable {
+    let id = UUID()
+    var jobID: TransferJob.ID
+}
+
+/// Bir hedefin arşiv bütünlüğü sayfası.
+struct IntegrityRequest: Identifiable {
+    let id = UUID()
+    var destination: URL
+}
+
+/// İçe aktarılacak rutinler (dosyadan okunmuş, yeni kimlikli).
+struct RoutineImportRequest: Identifiable {
+    let id = UUID()
+    var routines: [Routine]
+}
+
+/// Bir hedefte yinelenen dosyalar sayfası.
+struct DuplicatesRequest: Identifiable {
+    let id = UUID()
+    var destination: URL
+}
+
+/// Süren bir bütünlük denetiminin ilerlemesi ve son sonucu.
+struct IntegrityProgress: Equatable {
+    var files = 0
+    var bytes: Int64 = 0
+}
+
+enum IntegrityOutcome: Equatable {
+    case report(ArchiveIntegrity.Report)
+    case failed(String)
+}
+
+/// Arka plandaki bir işin iptal bayrağı (ayrı görevden okunur).
+nonisolated final class CancelFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+    var isCancelled: Bool { lock.withLock { cancelled } }
+    func cancel() { lock.withLock { cancelled = true } }
+}
+
 /// Bir hedef klasörün özeti (doluluk, klasörlere ve uzantılara göre boyut).
 struct DestinationSummaryRequest: Identifiable {
     let id = UUID()
@@ -191,6 +234,16 @@ final class AppModel {
     var summaryRequest: DestinationSummaryRequest?
     /// Arşivlenmiş kaynakları temizleme sayfası.
     var cleanupRequest: CleanupRequest?
+    var snapshotBrowser: SnapshotBrowserRequest?
+    var integrityRequest: IntegrityRequest?
+    var duplicatesRequest: DuplicatesRequest?
+    var routineImport: RoutineImportRequest?
+    /// Dosyayı Çöp Sepeti'ne taşır (testler kendi klasörlerini verir).
+    @ObservationIgnored var trashItem: (URL) -> Bool = { SourceTrash.systemTrash($0) }
+    /// Süren bütünlük denetimleri ve son sonuçlar (hedef yolu → değer).
+    var integrityRuns: [String: IntegrityProgress] = [:]
+    var integrityResults: [String: IntegrityOutcome] = [:]
+    @ObservationIgnored private var integrityFlags: [String: CancelFlag] = [:]
 
     /// Kenar çubuğunun seçimi: süzgeç ya da rutin.
     var sidebarSelection: SidebarItem {
@@ -270,6 +323,32 @@ final class AppModel {
 
     /// Yapay zekâ önerileri sunulur mu (ayar açık ve bu Mac'te cihaz üstü model var).
     var canSuggestWithAI: Bool { settings.aiSuggestions && suggestionModel.isAvailable }
+
+    /// Eski yedekleri hatırlatır: hedefi verilen diskte (nil: erişilebilen bütün hedefler) olan iş ve rutinlerden son
+    /// başarılı yedeği eşikten eski olanlar için tek bir bildirim; aynı öğe için günde en çok bir kez. Hiçbir şeyi
+    /// kendiliğinden çalıştırmaz.
+    func remindStaleBackups(on volume: URL?, now: Date = Date()) {
+        let threshold = settings.backupReminderDays
+        guard threshold > 0 else { return }
+        let stale = BackupFreshness.stale(jobs: jobs, routines: routines, onDestination: { url in
+            if let volume { return TransferJob(source: url, destination: url).usesAsDestination(volume: volume) }
+            return FileManager.default.fileExists(atPath: url.path)
+        }, now: now, thresholdDays: threshold)
+        var reminded = settings.backupRemindedAt
+        let due = stale.filter { item in reminded[item.id.uuidString].map { now.timeIntervalSince($0) >= 86_400 } ?? true }
+        guard !due.isEmpty else { return }
+        for item in due { reminded[item.id.uuidString] = now }
+        settings.backupRemindedAt = reminded
+        notifier(t(.notifyStaleTitle), staleBody(due))
+    }
+
+    private func staleBody(_ items: [BackupFreshness.Stale]) -> String {
+        if items.count == 1, let item = items.first {
+            return item.days.map { t(.notifyStaleOne, item.name, $0) } ?? t(.notifyStaleNever, item.name)
+        }
+        let names = items.prefix(3).map { item in item.days.map { t(.staleDays, item.name, $0) } ?? t(.staleNever, item.name) }
+        return t(.notifyStaleMany, items.count, names.joined(separator: ", ") + (items.count > 3 ? "…" : ""))
+    }
 
     /// Ön koşul denetiminin son sonucu (Ayarlar'da gösterilir) ve denetimin sürdüğü.
     var aiChecks: [AIPrerequisites.Check] = []
@@ -436,6 +515,8 @@ final class AppModel {
         scheduleNext()
         // Yerel model sunucusu (yalnızca 127.0.0.1; internete istek değildir, izin istenmez).
         await refreshLocalModels()
+        // Erişilebilen hedeflerdeki eski yedekler hatırlatılır (günde en çok bir kez).
+        remindStaleBackups(on: nil)
         if !settings.updateConsentAsked {
             consentPending = true
             presentPendingConsentIfIdle()
@@ -801,6 +882,128 @@ final class AppModel {
 
     func showDestinationSummary(_ destination: URL) {
         summaryRequest = DestinationSummaryRequest(destination: destination)
+    }
+
+    /// Rutinleri (`ids` nil ise hepsini) dışa aktarma verisi.
+    func exportRoutines(_ ids: Set<Routine.ID>? = nil, to url: URL) {
+        do {
+            try RoutineTransfer.export(ids.map { ids in routines.filter { ids.contains($0.id) } } ?? routines).write(to: url, options: .atomic)
+            showToast(t(.toastRoutinesExported), systemImage: "square.and.arrow.up")
+        } catch {
+            alert = AlertItem(title: t(.exportRoutinesFailed), message: error.localizedDescription)
+        }
+    }
+
+    /// Bir rutin dosyasını okur ve içe aktarma sayfasını açar; okunamazsa nedenini bildirir.
+    func beginRoutineImport(from url: URL) {
+        do {
+            let data = try Data(contentsOf: url)
+            let read = try RoutineTransfer.read(data, existingNames: Set(routines.map(\.name)))
+            guard !read.isEmpty else { throw RoutineTransfer.Failure.notRoutines }
+            routineImport = RoutineImportRequest(routines: read)
+        } catch RoutineTransfer.Failure.newerVersion {
+            alert = AlertItem(title: t(.importFailedTitle), message: t(.importNewer))
+        } catch RoutineTransfer.Failure.tooLarge {
+            alert = AlertItem(title: t(.importFailedTitle), message: t(.importTooLarge))
+        } catch {
+            alert = AlertItem(title: t(.importFailedTitle), message: t(.importInvalid))
+        }
+    }
+
+    /// Rutinleri kaydeder; kaydedilemeyenlerin nedeni (rutin kimliğine göre) döner.
+    func importRoutines(_ imported: [Routine]) -> [Routine.ID: String] {
+        var failures: [Routine.ID: String] = [:]
+        for routine in imported { if let problem = saveRoutine(routine) { failures[routine.id] = problem } }
+        let count = imported.count - failures.count
+        if count > 0 { showToast(t(.importDone, count), systemImage: "square.and.arrow.down") }
+        return failures
+    }
+
+    func showDuplicates(_ destination: URL) {
+        duplicatesRequest = DuplicatesRequest(destination: destination)
+    }
+
+    /// Yinelenen dosyaların fazlalarını Çöp'e taşır (her grupta seçilen dosya kalır; değişmiş dosyalara dokunulmaz).
+    func trashDuplicates(_ groups: [(group: DuplicateFinder.Group, keep: String)], in destination: URL) -> (moved: Int, skipped: [String]) {
+        let result = DuplicateFinder.trashExtras(groups, in: destination, trash: trashItem)
+        showToast(t(.duplicatesDone, result.moved, result.skipped.count), systemImage: "trash")
+        return result
+    }
+
+    func showIntegrity(_ destination: URL) {
+        integrityRequest = IntegrityRequest(destination: destination)
+    }
+
+    /// Hedefin arşiv bütünlüğünü arka planda denetler (aynı hedef için bir denetim sürüyorsa yenisi başlamaz); bitince
+    /// sonuç saklanır ve "iş bitince bildirim" açıksa bildirilir. Hiçbir dosya değiştirilmez, yalnızca liste yazılır.
+    func startIntegrityCheck(_ destination: URL) {
+        let key = destination.path
+        guard integrityFlags[key] == nil else { return }
+        let flag = CancelFlag()
+        integrityFlags[key] = flag
+        integrityRuns[key] = IntegrityProgress()
+        integrityResults[key] = nil
+        Task { [weak self] in
+            let outcome: IntegrityOutcome?
+            do {
+                let report = try await Task.detached(priority: .utility) {
+                    try ArchiveIntegrity.check(destination, progress: { files, bytes in
+                        Task { @MainActor [weak self] in
+                            if self?.integrityRuns[key] != nil { self?.integrityRuns[key] = IntegrityProgress(files: files, bytes: bytes) }
+                        }
+                    }, isCancelled: { flag.isCancelled })
+                }.value
+                outcome = .report(report)
+            } catch is CancellationError {
+                outcome = nil
+            } catch {
+                outcome = .failed(error.localizedDescription)
+            }
+            self?.finishIntegrityCheck(key, outcome: outcome)
+        }
+    }
+
+    func cancelIntegrityCheck(_ destination: URL) {
+        integrityFlags[destination.path]?.cancel()
+    }
+
+    private func finishIntegrityCheck(_ key: String, outcome: IntegrityOutcome?) {
+        integrityFlags[key] = nil
+        integrityRuns[key] = nil
+        integrityResults[key] = outcome
+        guard settings.notifyOnFinish, let outcome else { return }
+        let name = OpenSafety.visibleName((key as NSString).lastPathComponent)
+        switch outcome {
+        case .report(let report) where report.hasProblems:
+            notifier(t(.notifyIntegrityTitle), t(.notifyIntegrityProblems, name, report.corrupted.count, report.missing.count, report.unreadable.count))
+        case .report(let report):
+            notifier(t(.notifyIntegrityTitle), t(.notifyIntegrityIntact, name, report.intact + report.added + report.updated))
+        case .failed(let message):
+            notifier(t(.notifyIntegrityTitle), t(.notifyIntegrityFailed, name, message))
+        }
+    }
+
+    func showSnapshots(_ id: TransferJob.ID) {
+        snapshotBrowser = SnapshotBrowserRequest(jobID: id)
+    }
+
+    /// Anlık görüntüdeki bir öğeyi asıl yerine (`folder` nil) ya da seçilen klasöre geri yükler: kuyruğa sıradan bir
+    /// kopyalama işi eklenir (aynı adlı dosya sorulur, hiçbir şey silinmez). Asıl yerin klasörü silinmişse yeniden kurulur.
+    /// - Returns: İş eklenemediyse nedeni.
+    @discardableResult
+    func restore(_ relativePath: String, from snapshot: SnapshotRestore.Snapshot, of jobID: TransferJob.ID, to folder: URL? = nil) -> String? {
+        guard let job = job(jobID) else { return nil }
+        let target = folder ?? SnapshotRestore.originalFolder(of: relativePath, job: job)
+        if folder == nil { try? FileManager.default.createDirectory(at: target, withIntermediateDirectories: true) }
+        let restore = SnapshotRestore.restoreJob(relativePath, from: snapshot, of: job, to: target)
+        if let message = addJob(source: restore.source, destination: restore.destination, options: restore.options) { return message }
+        if let id = jobs.last?.id {
+            let item = relativePath.isEmpty ? job.source.lastPathComponent : relativePath
+            update(id) { $0.appendLog(JobLogEntry(level: .info, key: .logRestoreFrom, arguments: [snapshot.name, item])) }
+            save()
+        }
+        showToast(t(.toastRestoreQueued), systemImage: "clock.arrow.circlepath")
+        return nil
     }
 
     /// Rutini seçilen öğelerle çalıştırır: her rota, rotanın kaynak klasörü yerine öğelerin bulunduğu klasörde yalnızca bu
@@ -1177,6 +1380,13 @@ final class AppModel {
             }
         }
         if changed { save() }
+        // Bu diske eski yedeği olan işler ve rutinler hatırlatılır (kendiliğinden başlayanlar hariç).
+        remindStaleBackups(on: volume)
+        // "Disk takılınca denetle" seçili hedeflerin bütünlüğü denetlenir.
+        for path in settings.integrityOnConnect where FileManager.default.fileExists(atPath: path) {
+            let destination = URL(fileURLWithPath: path, isDirectory: true)
+            if TransferJob(source: destination, destination: destination).usesAsDestination(volume: volume) { startIntegrityCheck(destination) }
+        }
         // "Disk takılınca başla" seçili rutinler: hiç çalıştırılmamış olsalar da her rotası kuyruğa girer (bekleyen ya da
         // çalışan rota işi olduğu gibi kalır).
         for routine in routines where routine.options.runWhenConnected {

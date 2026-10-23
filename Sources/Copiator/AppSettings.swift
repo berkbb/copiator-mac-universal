@@ -201,12 +201,15 @@ final class AppSettings {
         static let aiLMStudioModel = "aiLMStudioModel"
         static let aiAutomaticOrder = "aiAutomaticOrder"
         static let aiAutomaticOff = "aiAutomaticOff"
+        static let backupReminderDays = "backupReminderDays"
+        static let backupRemindedAt = "backupRemindedAt"
+        static let integrityOnConnect = "integrityOnConnect"
         static let all = [
             language, appearance, notifyOnFinish, resumeInterruptedAtLaunch, defaultCopyMode, defaultPreservePermissions,
             defaultPreserveXattrs, defaultExcludeSystemFolders, customEnginePath, checkUpdatesAtLaunch, updateConsentAsked,
             sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, defaultAdvanced, defaultVerifyAfterCopy,
             showMenuBarIcon, showDockProgress, defaultConflictPolicy, aiSuggestions, aiProvider, aiOllamaModel, aiLMStudioModel,
-            aiAutomaticOrder, aiAutomaticOff,
+            aiAutomaticOrder, aiAutomaticOff, backupReminderDays, backupRemindedAt, integrityOnConnect,
         ]
     }
 
@@ -267,6 +270,14 @@ final class AppSettings {
     /// Önerilerin modeli: Otomatik (varsayılan; sırayla ilk yanıt veren), Apple Intelligence ya da bu Mac'teki yerel sunucu
     /// (Ollama, LM Studio; yalnızca 127.0.0.1).
     var aiProvider: SuggestionProvider { didSet { defaults.set(aiProvider.rawValue, forKey: Key.aiProvider) } }
+    /// Eski yedek hatırlatması: son başarılı yedeği bu kadar günden eski işler ve rutinler için bildirim (0 kapalı).
+    var backupReminderDays: Int { didSet { defaults.set(backupReminderDays, forKey: Key.backupReminderDays) } }
+    /// Son hatırlatmalar (iş ya da rutin kimliği → zaman); aynı öğe için günde en çok bir bildirim.
+    var backupRemindedAt: [String: Date] { didSet { defaults.set(backupRemindedAt, forKey: Key.backupRemindedAt) } }
+
+    /// Disk takılınca bütünlüğü kendiliğinden denetlenen hedefler (yollar).
+    var integrityOnConnect: [String] { didSet { defaults.set(integrityOnConnect, forKey: Key.integrityOnConnect) } }
+
     /// Otomatik kipte deneme sırası (her gerçek sağlayıcı bir kez) ve sıradan çıkarılanlar.
     var aiAutomaticOrder: [SuggestionProvider] {
         didSet { defaults.set(aiAutomaticOrder.map(\.rawValue), forKey: Key.aiAutomaticOrder) }
@@ -323,6 +334,9 @@ final class AppSettings {
         showDockProgress = defaults.object(forKey: Key.showDockProgress) as? Bool ?? true
         aiSuggestions = defaults.object(forKey: Key.aiSuggestions) as? Bool ?? false
         aiProvider = SuggestionProvider(rawValue: defaults.string(forKey: Key.aiProvider) ?? "") ?? .automatic
+        backupReminderDays = (defaults.object(forKey: Key.backupReminderDays) as? Int).flatMap { BackupFreshness.choices.contains($0) ? $0 : nil } ?? 30
+        backupRemindedAt = (defaults.dictionary(forKey: Key.backupRemindedAt) as? [String: Date]) ?? [:]
+        integrityOnConnect = defaults.stringArray(forKey: Key.integrityOnConnect) ?? []
         aiAutomaticOrder = SuggestionProvider.order(defaults.stringArray(forKey: Key.aiAutomaticOrder) ?? [])
         aiAutomaticOff = Set((defaults.stringArray(forKey: Key.aiAutomaticOff) ?? []).compactMap(SuggestionProvider.init(rawValue:)))
             .subtracting([.automatic])
@@ -367,6 +381,9 @@ final class AppSettings {
         showMenuBarIcon = true
         showDockProgress = true
         aiSuggestions = false
+        backupReminderDays = 30
+        backupRemindedAt = [:]
+        integrityOnConnect = []
         aiProvider = .automatic
         aiAutomaticOrder = SuggestionProvider.models
         aiAutomaticOff = []

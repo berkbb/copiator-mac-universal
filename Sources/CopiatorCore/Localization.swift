@@ -249,6 +249,25 @@ public enum LKey: String, CaseIterable, Sendable {
     case settingsAIChecking, settingsAIRecheck, settingsAINotEnabled, aiCheckReady, aiCheckReadyModel, aiCheckDeviceNotEligible
     case aiCheckAppleOff, aiCheckModelNotReady, aiCheckAppleUnavailable, aiCheckServerOff, aiCheckNoModel, aiCheckModelMissing
     case aiCheckNoAnswer
+    // Eski yedek hatırlatması
+    case settingsBackupReminder, settingsBackupReminderOff, settingsBackupReminderDays, settingsBackupReminderNote, notifyStaleTitle
+    case notifyStaleOne, notifyStaleNever, notifyStaleMany, staleDays, staleNever
+    // Anlık görüntülerden geri yükleme
+    case menuSnapshots, snapshotsTitle, snapshotsNone, snapshotsUp, snapshotsRoot, snapshotsEmptyFolder, snapshotsVersions
+    case snapshotsRestoreVersion, snapshotsRestoreOriginal, snapshotsRestoreElsewhere, snapshotsRestoreNote, toastRestoreQueued
+    case logRestoreFrom, snapshotsChooseFolder
+    // Arşiv bütünlüğü
+    case menuIntegrity, integrityTitle, integrityNote, integrityNever, integrityLast, integrityCheck, integrityChecking, integrityCancel
+    case integrityFirst, integritySummary, integrityNoProblems, integrityCorrupted, integrityMissing, integrityUnreadable, integrityMore
+    case integrityOnConnect, integrityFailed, notifyIntegrityTitle, notifyIntegrityProblems, notifyIntegrityIntact, notifyIntegrityFailed
+    // Yinelenen dosyalar
+    case menuDuplicates, duplicatesTitle, duplicatesNote, duplicatesScanning, duplicatesNone, duplicatesSummary, duplicatesKeep
+    case duplicatesGroup, duplicatesTrash, duplicatesTrashConfirm, duplicatesConfirmTitle, duplicatesConfirmMessage, duplicatesDone
+    case duplicatesMore, duplicatesFailed
+    // Rutinleri dışa ve içe aktarma
+    case menuExportRoutines, menuImportRoutines, menuExportRoutine, exportRoutinesName, exportRoutinesFailed, toastRoutinesExported
+    case importTitle, importNote, importSourceMissing, importDestinationMissing, importRoutes, importButton, importDone, importInvalid
+    case importNewer, importTooLarge, importFailedTitle
     // Eşitleme rutini (iki yönlü)
     case logSyncPlanned, logSyncDirection, logSyncDone, routineKind, routineKindCopy, routineKindSync, routineKindSyncNote
     case syncFolderA, syncFolderB, conflictSyncUseA, conflictSyncUseB, conflictPolicyNewer, conflictPolicyUseA, conflictPolicyUseB

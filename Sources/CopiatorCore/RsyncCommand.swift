@@ -284,6 +284,9 @@ public enum RsyncCommand {
             patterns.append(escapePattern(sourceRootPrefix(job, environment) + path))
         }
         if job.options.excludeSystemFolders { patterns += systemExclusions }
+        // Arşiv bütünlüğü listesi hedefin kökünde durur: kaynakta yoktur, ama `--delete` onu silmemeli ve doğrulama fazla
+        // saymamalı (dışlanan dosya silinmeye karşı korunur; köke bağlı kalıp başka yerdeki aynı adlı dosyaya dokunmaz).
+        patterns.append("/" + ArchiveIntegrity.manifestName)
         let a = job.options.advanced
         // `--from0` liste seçeneklerinden önce gelmeli: rsync `--exclude-from` dosyasını seçeneği okuduğu anda işler; sonra
         // gelen `--from0` o listeye uygulanmaz (NUL ile ayrılmış listede yalnızca ilk kalıp geçerli olurdu).

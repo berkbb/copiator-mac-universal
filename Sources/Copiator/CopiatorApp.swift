@@ -120,6 +120,13 @@ struct AppCommands: Commands {
                 openWindow(id: WindowID.main)
                 model.beginCleanup()
             }
+            Divider()
+            Button(settings.t(.menuImportRoutines)) {
+                openWindow(id: WindowID.main)
+                RoutineTransferPanels.chooseImport(model: model, settings: settings)
+            }
+            Button(settings.t(.menuExportRoutines)) { RoutineTransferPanels.chooseExport(nil, model: model, settings: settings) }
+                .disabled(model.routines.isEmpty)
         }
 
         CommandMenu(settings.t(.menuJob)) {

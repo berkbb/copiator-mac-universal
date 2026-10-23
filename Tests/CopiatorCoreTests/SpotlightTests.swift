@@ -31,19 +31,22 @@ struct SpotlightContentTests {
         try Data("Başka bir şey.\n".utf8).write(to: root.appendingPathComponent("diger.txt"))
         _ = try await CommandRunner(executableURL: URL(fileURLWithPath: "/usr/bin/mdimport")).run([root.path], timeout: 30)
 
-        // Dizinleme birkaç saniye sürebilir.
-        var found = Set<String>()
-        for _ in 0..<40 {
-            found = Spotlight.relativePaths(containing: word, in: root)
-            if !found.isEmpty { break }
-            try await Task.sleep(for: .milliseconds(500))
+        // Dizinleme birkaç saniye sürebilir; yük altında dizin bir süre daha oturur, bu yüzden her arama ayrı beklenir.
+        func search(_ text: String) async throws -> Set<String> {
+            var found = Set<String>()
+            for _ in 0..<40 {
+                found = Spotlight.relativePaths(containing: text, in: root)
+                if !found.isEmpty { break }
+                try await Task.sleep(for: .milliseconds(500))
+            }
+            return found
         }
-        #expect(found == ["Alt Klasör/belge.txt"])
+        #expect(try await search(word) == ["Alt Klasör/belge.txt"])
         // Büyük/küçük harf duyarsız; başka bir sözcük hiçbir şey bulmaz.
-        #expect(Spotlight.relativePaths(containing: word.uppercased(), in: root) == ["Alt Klasör/belge.txt"])
+        #expect(try await search(word.uppercased()) == ["Alt Klasör/belge.txt"])
         // Türkçe bir Mac'te Spotlight "I"yı "ı" katlar; I/ı/İ/i farkı yine de gözetilmez.
         for text in ["isparta\(number)", "Isparta\(number)", "İSPARTA\(number)", "ısparta\(number)"] {
-            #expect(Spotlight.relativePaths(containing: text, in: root) == ["Alt Klasör/belge.txt"], "\(text)")
+            #expect(try await search(text) == ["Alt Klasör/belge.txt"], "\(text)")
         }
         #expect(Spotlight.relativePaths(containing: "\(word)yok", in: root).isEmpty)
         let paths = try await RuleScanner.scan(root, rules: RuleGroup(conditions: [RuleCondition(attribute: .content, op: .contains, value: word)])).paths

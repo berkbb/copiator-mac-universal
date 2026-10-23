@@ -229,6 +229,34 @@ struct SyncAndAIAppTests {
         #expect(!reopened.aiSuggestions)
     }
 
+    /// Eski yedek hatırlatması: erişilebilen hedefteki eski yedek için bildirim; aynı öğe için günde en çok bir kez, ertesi gün
+    /// yeniden; kapalıyken hiç. Hiçbir iş kendiliğinden başlamaz.
+    @Test func staleBackupsAreRemindedOncePerDay() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let settings = fixture.settings
+        settings.language = .tr
+        let now = Date()
+        var job = TransferJob(source: fixture.url("Kaynak"), destination: fixture.url("Hedef"), status: .finished)
+        job.history = [JobRun(startedAt: now.addingTimeInterval(-40 * 86_400 - 60), finishedAt: now.addingTimeInterval(-40 * 86_400),
+                              result: JobResult(kind: .succeeded))]
+        let id = job.id
+        try fixture.store.save([job])
+        let model = fixture.relaunch()
+        #expect(settings.backupReminderDays == 30)
+        model.remindStaleBackups(on: nil, now: now)
+        #expect(fixture.notifications.count == 1)
+        #expect(fixture.notifications.last?.0 == "Yedek eskidi" && fixture.notifications.last?.1 == "“Kaynak”: son başarılı yedek 40 gün önce alındı.")
+        model.remindStaleBackups(on: nil, now: now.addingTimeInterval(3_600))
+        #expect(fixture.notifications.count == 1)
+        model.remindStaleBackups(on: nil, now: now.addingTimeInterval(90_000))
+        #expect(fixture.notifications.count == 2)
+        settings.backupReminderDays = 0
+        model.remindStaleBackups(on: nil, now: now.addingTimeInterval(200_000))
+        #expect(fixture.notifications.count == 2 && model.job(id)?.status == .finished)
+        #expect(AppSettings(defaults: fixture.defaults, bundle: resourcesBundle).backupRemindedAt[id.uuidString] != nil)
+    }
+
     /// Yeni sayfalar ekran dışı çizilir: temizleme aracı, eşitleme rutini düzenleyicisi, yapay zekâ düğmeli yerleşim.
     @Test func newSheetsRender() async throws {
         let fixture = try Fixture()

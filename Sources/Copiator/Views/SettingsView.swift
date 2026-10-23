@@ -89,6 +89,18 @@ private struct GeneralSettingsView: View {
             Section {
                 Toggle(settings.t(.settingsNotify), isOn: $settings.notifyOnFinish)
                 VStack(alignment: .leading, spacing: 4) {
+                    Picker(settings.t(.settingsBackupReminder), selection: $settings.backupReminderDays) {
+                        ForEach(BackupFreshness.choices, id: \.self) { days in
+                            Text(days == 0 ? settings.t(.settingsBackupReminderOff) : settings.t(.settingsBackupReminderDays, days)).tag(days)
+                        }
+                    }
+                    .accessibilityIdentifier("copiator.settings.backupReminder")
+                    Text(settings.t(.settingsBackupReminderNote))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                VStack(alignment: .leading, spacing: 4) {
                     Toggle(settings.t(.settingsResumeInterrupted), isOn: $settings.resumeInterruptedAtLaunch)
                     Text(settings.t(.settingsResumeInterruptedNote))
                         .font(.footnote)

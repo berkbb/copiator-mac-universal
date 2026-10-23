@@ -52,6 +52,19 @@ Version 1.0 scope: local disk → local disk. Planned job kinds: other engines (
 - `Scripts/package.sh`: tests → `build_app.sh` (universal app + bundled rsync, ad-hoc signed) → `verify_bundle.sh` → `.dmg` → Ed25519 `.dmg.sig` (keychain item `com.babadogantech.copiator.update-signing`, public key `CopiatorUpdatePublicEDKey`) → `SHA256SUMS.txt`.
 - `Scripts/release.sh` tags `v<version>` and uploads with `gh release create`; no GitHub Actions.
 
+## App Icon
+
+- Decided with the user on 2026-10-23: the icon drawn by `Scripts/make_icon.swift` is the final app icon (no longer temporary).
+
+## Archive Health and Portability
+
+- Decided with the user on 2026-10-23 ("Hepsi. Bildirim iyi fikir"): an old backup reminder, snapshot restore, an archive integrity check, a duplicate finder and routine export/import. A backup status widget was deferred until Developer ID signing (roadmap 9f).
+- The reminder is a notification, not a schedule (time-based jobs stay rejected): it fires when a disk is connected and once at launch, only for jobs and routines that copy to that disk and have had no successful run for the chosen number of days (default 30), at most once a day per item. Jobs that start on their own when the disk is connected are left out.
+- Restore never writes into a snapshot and never deletes: it queues an ordinary copy job to the original place or another folder, so same-name files are asked about.
+- The integrity check distinguishes silent corruption (same size and date, different contents; reported until fixed) from legitimate changes (size or date changed; recorded). Its list is the only file Copiator writes at a destination by itself.
+- Duplicates inside snapshot folders are intentional (hard links or kept history) and are not reported; extras go only to the Trash.
+- Imported routines are always new routines; nothing is merged or replaced.
+
 ## Copy Routines
 
 - A routine is a named, reusable set of routes; each route is "files in this source folder that match these rules → this destination folder", keeping the folder structure. Several routes send different files to different places (decided with the user on 2026-10-22).

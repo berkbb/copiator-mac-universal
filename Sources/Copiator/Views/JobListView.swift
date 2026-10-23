@@ -30,6 +30,9 @@ struct SidebarView: View {
                             Button(settings.t(.routineRun), systemImage: "play.fill") { model.runRoutine(routine.id) }
                             Button(settings.t(.menuEditJob), systemImage: "pencil") { model.beginEditRoutine(routine.id) }
                             Button(settings.t(.menuDuplicateJob), systemImage: "plus.square.on.square") { model.beginDuplicateRoutine(routine.id) }
+                            Button(settings.t(.menuExportRoutine), systemImage: "square.and.arrow.up") {
+                                RoutineTransferPanels.chooseExport([routine.id], model: model, settings: settings)
+                            }
                             Divider()
                             Button(settings.t(.routineDelete), systemImage: "trash", role: .destructive) { model.requestDeleteRoutine(routine.id) }
                         }
@@ -138,6 +141,11 @@ struct JobListView: View {
         Button(settings.t(.menuShowSource), systemImage: "folder") { model.revealSource(job.id) }
         Button(settings.t(.menuShowDestination), systemImage: "externaldrive") { model.revealDestination(job.id) }
         Button(settings.t(.menuDestinationSummary), systemImage: "chart.bar.doc.horizontal") { model.showDestinationSummary(job.destination) }
+        if job.options.snapshots.enabled {
+            Button(settings.t(.menuSnapshots), systemImage: "clock.arrow.circlepath") { model.showSnapshots(job.id) }
+        }
+        Button(settings.t(.menuIntegrity), systemImage: "checkmark.shield") { model.showIntegrity(job.destination) }
+        Button(settings.t(.menuDuplicates), systemImage: "doc.on.doc") { model.showDuplicates(job.destination) }
         Button(settings.t(.menuCleanupArchived), systemImage: "trash.circle") {
             model.beginCleanup(source: RsyncEngine.isDirectory(job.source) ? job.source : job.source.deletingLastPathComponent(),
                                destination: job.destination)

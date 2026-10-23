@@ -68,6 +68,10 @@ struct ContentView: View {
         .sheet(item: $model.routinePicker) { RoutinePickerSheet(request: $0) }
         .sheet(item: $model.summaryRequest) { DestinationSummarySheet(request: $0) }
         .sheet(item: $model.cleanupRequest) { CleanupSheet(request: $0) }
+        .sheet(item: $model.snapshotBrowser) { SnapshotBrowserSheet(request: $0) }
+        .sheet(item: $model.integrityRequest) { IntegritySheet(request: $0) }
+        .sheet(item: $model.duplicatesRequest) { DuplicatesSheet(request: $0) }
+        .sheet(item: $model.routineImport) { RoutineImportSheet(request: $0) }
         .sheet(item: $model.verifyPresentation) { VerifyResultSheet(presentation: $0) }
         .confirmationDialog(
             settings.t(.verifyChooseTitle),

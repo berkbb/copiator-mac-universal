@@ -627,8 +627,12 @@ struct RoutineDetailView: View {
                         LabeledContent(settings.t(.placementTitle), value: placement)
                     }
                     if let destination = route.destination {
-                        Button(settings.t(.menuDestinationSummary), systemImage: "chart.bar.doc.horizontal") {
-                            model.showDestinationSummary(destination)
+                        HStack(spacing: 16) {
+                            Button(settings.t(.menuDestinationSummary), systemImage: "chart.bar.doc.horizontal") {
+                                model.showDestinationSummary(destination)
+                            }
+                            Button(settings.t(.menuIntegrity), systemImage: "checkmark.shield") { model.showIntegrity(destination) }
+                            Button(settings.t(.menuDuplicates), systemImage: "doc.on.doc") { model.showDuplicates(destination) }
                         }
                         .buttonStyle(.borderless)
                     }
@@ -647,5 +651,116 @@ struct RoutineDetailView: View {
             }
         }
         .listStyle(.inset)
+    }
+}
+
+// MARK: - Rutinleri dışa ve içe aktarma
+
+/// Dışa ve içe aktarma için kaydetme ve açma panelleri.
+enum RoutineTransferPanels {
+    static func chooseExport(_ ids: Set<Routine.ID>?, model: AppModel, settings: AppSettings) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.canCreateDirectories = true
+        let single = ids.flatMap { ids in ids.count == 1 ? model.routines.first { ids.contains($0.id) } : nil }
+        panel.nameFieldStringValue = single.map { $0.name + ".json" } ?? settings.t(.exportRoutinesName)
+        if panel.runModal() == .OK, let url = panel.url { model.exportRoutines(ids, to: url) }
+    }
+
+    static func chooseImport(model: AppModel, settings: AppSettings) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url { model.beginRoutineImport(from: url) }
+    }
+}
+
+/// İçe aktarma: dosyadaki rutinler seçilir; bu Mac'te bulunmayan klasörler yeniden eşlenir. "Disk takılınca başla" seçili
+/// rutinler, klasörleri bulunmasa da içe aktarılabilir (diski takılınca bulunurlar).
+struct RoutineImportSheet: View {
+    let request: RoutineImportRequest
+    @Environment(AppModel.self) private var model
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.dismiss) private var dismiss
+    @State private var routines: [Routine] = []
+    @State private var excluded: Set<Routine.ID> = []
+    @State private var failures: [Routine.ID: String] = [:]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.down").font(.largeTitle).foregroundStyle(.tint).accessibilityHidden(true)
+                Text(settings.t(.importTitle)).font(.headline)
+            }
+            Text(settings.t(.importNote))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            List {
+                ForEach(routines) { routine in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle(isOn: Binding(
+                            get: { !excluded.contains(routine.id) },
+                            set: { if $0 { excluded.remove(routine.id) } else { excluded.insert(routine.id) } }
+                        )) {
+                            HStack {
+                                Text(OpenSafety.visibleName(routine.name)).font(.body.weight(.semibold))
+                                Text(settings.t(.importRoutes, routine.routes.count)).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .toggleStyle(.checkbox)
+                        ForEach(RoutineTransfer.missingFolders(in: [routine])) { missing in
+                            HStack {
+                                Label(settings.t(missing.isSource ? .importSourceMissing : .importDestinationMissing,
+                                                 OpenSafety.visibleName(missing.url.path)), systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                                Button(settings.t(.buttonChoose)) { remap(missing) }
+                            }
+                            .padding(.leading, 20)
+                        }
+                    }
+                }
+            }
+            ForEach(routines.filter { failures[$0.id] != nil }) { routine in
+                Label(OpenSafety.visibleName(routine.name) + ": " + (failures[routine.id] ?? ""), systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+            }
+            HStack {
+                Spacer()
+                Button(settings.t(.buttonCancel)) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button(settings.t(.importButton)) { importChosen() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(chosen.isEmpty)
+                    .accessibilityIdentifier("copiator.import.confirm")
+            }
+        }
+        .padding(20)
+        .frame(width: 640, height: 520)
+        .onAppear { routines = request.routines }
+    }
+
+    private var chosen: [Routine] { routines.filter { !excluded.contains($0.id) } }
+
+    private func remap(_ missing: RoutineTransfer.Missing) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = !missing.isSource
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url { RoutineTransfer.remap(missing, to: url, in: &routines) }
+    }
+
+    private func importChosen() {
+        let imported = chosen
+        failures = model.importRoutines(imported)
+        // Kaydedilenler listeden çıkar; kaydedilemeyenler nedenleriyle kalır.
+        if failures.isEmpty { dismiss() } else { routines.removeAll { routine in imported.contains { $0.id == routine.id } && failures[routine.id] == nil } }
     }
 }

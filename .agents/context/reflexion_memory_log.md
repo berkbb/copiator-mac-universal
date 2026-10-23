@@ -193,3 +193,16 @@
 ## Episode 46: Apple Answered First and Pre-empted the Better Model
 - **Root Cause:** in Automatic mode Apple answers first; when it was confident (consensus and its own fit check passed) its wrong existing-folder picks for documents with no fitting folder (a lease or a diploma under payslips) were used and Ollama was never asked. Automatic scored 71/81 while Ollama alone scored 74.
 - **Guardrail:** Apple's existing-folder picks are cross-checked by the next ready model and its decision wins on disagreement (`automaticCrossChecksApplesFolderPicks`). Automatic then matched Ollama alone (73/81, run-to-run variance is about one question) with fewer wrong suggestions (7 instead of 10).
+
+## Episode 47: Skipping a Hidden File Skipped the Whole Folder
+- **Root Cause:** the integrity walk called `NSDirectoryEnumerator.skipDescendants()` for every skipped name, including `.DS_Store`. Called while the enumerator stands on a file, it skips the rest of the enclosing directory, so a folder listed after `.DS_Store` was never checked. `Suggestions.exampleFolders` had the same pattern for its depth limit.
+- **Guardrail:** call `skipDescendants()` only when the current item is a directory (checked with `lstat`); `archiveIntegrityFindsSilentCorruption` puts a `.DS_Store` before a subfolder and a mutation that drops the directory check fails it. Recorded in the code graph impact map.
+
+## Episode 48: A Safety Check That No Test Could Reach
+- **Root Cause:** mutation testing removed the re-hash before moving a duplicate to the Trash and the test still passed: the test changed the file's size after the scan, so the earlier size check already refused it and the content check was never exercised.
+- **Guardrail:** when guards are layered (size, then contents), each test case must get past the earlier guards and be caught only by the one under test; the duplicate test now changes the contents without changing the size. All 11 guards of the archive health features were checked by removing them.
+
+
+## Episode 49: Spotlight Answered One Spelling Before the Other
+- **Root Cause:** under the full suite's load (integrity hashing, live rsync runs) `SpotlightContentTests` found the new file for the lowercase word but not, a moment later, for the uppercase spelling: the index was still settling and only the first query waited for it. Alone the test passed three times in a row.
+- **Guardrail:** every query against an external, eventually consistent index waits for its own result (the test's `search` helper polls each spelling); only the expected-empty query is asked once.
