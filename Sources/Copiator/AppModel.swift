@@ -240,10 +240,22 @@ final class AppModel {
     var routineImport: RoutineImportRequest?
     /// Dosyayı Çöp Sepeti'ne taşır (testler kendi klasörlerini verir).
     @ObservationIgnored var trashItem: (URL) -> Bool = { SourceTrash.systemTrash($0) }
+    /// "Bitince hedef diski çıkar": hedefin çıkarılabilir birimi ve aynı diskteki birimler (testler sahte bir birim verir).
+    @ObservationIgnored var ejectTarget: (URL) -> (volume: URL, disks: [URL])? = { url in
+        DiskEject.volume(of: url).map { ($0, DiskEject.siblingVolumes(of: $0)) }
+    }
+    /// Diski çıkarır; bitince hata iletisiyle (başarıda nil) çağrılır (testler sahte bir çıkarma verir).
+    @ObservationIgnored var ejectVolume: (URL, @escaping @Sendable (String?) -> Void) -> Void = DiskEject.eject
+    /// Çıkarılmayı bekleyen diskler: birim yolu → isteyen iş ve aynı diskteki birimler.
+    @ObservationIgnored private var pendingEjects: [String: (job: TransferJob.ID, disks: [URL])] = [:]
     /// Süren bütünlük denetimleri ve son sonuçlar (hedef yolu → değer).
     var integrityRuns: [String: IntegrityProgress] = [:]
     var integrityResults: [String: IntegrityOutcome] = [:]
     @ObservationIgnored private var integrityFlags: [String: CancelFlag] = [:]
+    /// Süren onarımlar ve son onarım sonuçları (hedef yolu → değer).
+    var integrityRepairing: Set<String> = []
+    var integrityRepairResults: [String: ArchiveIntegrity.RepairReport] = [:]
+    @ObservationIgnored private var repairFlags: [String: CancelFlag] = [:]
 
     /// Kenar çubuğunun seçimi: süzgeç ya da rutin.
     var sidebarSelection: SidebarItem {
@@ -309,8 +321,8 @@ final class AppModel {
     /// İş sürerken güç durumunun yeniden denetlenme aralığı.
     @ObservationIgnored var powerCheckInterval: Duration = .seconds(60)
     @ObservationIgnored private var powerMonitor: Task<Void, Never>?
-    /// İş bitince gösterilen bildirim; testler ve paket dışı çalıştırma için değiştirilebilir.
-    @ObservationIgnored var notifier: (_ title: String, _ body: String) -> Void = AppModel.postUserNotification
+    /// İş bitince gösterilen bildirim (isteğe bağlı bir düğmeyle); testler ve paket dışı çalıştırma için değiştirilebilir.
+    @ObservationIgnored var notifier: (_ title: String, _ body: String, _ action: NoticeAction?) -> Void = AppModel.postUserNotification
     /// Motorlar (iş türü → motor); testler sahte bir motor verebilir.
     @ObservationIgnored var engineProvider: (JobKind) -> any TransferEngine = TransferEngines.engine(for:)
     /// Öneriler için cihaz üstü dil modeli (testler sahte bir model verir).
@@ -339,7 +351,7 @@ final class AppModel {
         guard !due.isEmpty else { return }
         for item in due { reminded[item.id.uuidString] = now }
         settings.backupRemindedAt = reminded
-        notifier(t(.notifyStaleTitle), staleBody(due))
+        notifier(t(.notifyStaleTitle), staleBody(due), .backUpNow(due.map(\.id)))
     }
 
     private func staleBody(_ items: [BackupFreshness.Stale]) -> String {
@@ -938,11 +950,12 @@ final class AppModel {
     /// sonuç saklanır ve "iş bitince bildirim" açıksa bildirilir. Hiçbir dosya değiştirilmez, yalnızca liste yazılır.
     func startIntegrityCheck(_ destination: URL) {
         let key = destination.path
-        guard integrityFlags[key] == nil else { return }
+        guard integrityFlags[key] == nil, repairFlags[key] == nil else { return }
         let flag = CancelFlag()
         integrityFlags[key] = flag
         integrityRuns[key] = IntegrityProgress()
         integrityResults[key] = nil
+        integrityRepairResults[key] = nil
         Task { [weak self] in
             let outcome: IntegrityOutcome?
             do {
@@ -967,19 +980,59 @@ final class AppModel {
         integrityFlags[destination.path]?.cancel()
     }
 
+    /// Son denetimin bozuk bulduğu dosyaları arka planda sağlam kopyalarından onarır (bkz. `ArchiveIntegrity.repair`);
+    /// bitince onarılan ve denetimden sonra değişen dosyalar denetim sonucundan çıkar. Denetim ya da onarım sürerken
+    /// başlamaz.
+    func repairCorrupted(_ destination: URL) {
+        let key = destination.path
+        guard integrityFlags[key] == nil, repairFlags[key] == nil, case .report(let report)? = integrityResults[key],
+              !report.corrupted.isEmpty else { return }
+        let flag = CancelFlag()
+        repairFlags[key] = flag
+        integrityRepairing.insert(key)
+        integrityRepairResults[key] = nil
+        let corrupted = report.corrupted
+        let sources = ArchiveIntegrity.repairSources(for: destination, jobs: jobs, routines: routines)
+        Task { [weak self] in
+            let result = try? await Task.detached(priority: .utility) {
+                try ArchiveIntegrity.repair(corrupted, in: destination, searching: sources, isCancelled: { flag.isCancelled })
+            }.value
+            self?.finishRepair(key, result: result)
+        }
+    }
+
+    func cancelRepair(_ destination: URL) {
+        repairFlags[destination.path]?.cancel()
+    }
+
+    private func finishRepair(_ key: String, result: ArchiveIntegrity.RepairReport?) {
+        repairFlags[key] = nil
+        integrityRepairing.remove(key)
+        ejectIdleDisks()
+        guard let result else { return }
+        integrityRepairResults[key] = result
+        if case .report(var report)? = integrityResults[key] {
+            report.corrupted.removeAll { result.repaired[$0] != nil || result.changed.contains($0) }
+            integrityResults[key] = .report(report)
+        }
+        showToast(t(.integrityRepaired, result.repaired.count), systemImage: "wrench.and.screwdriver")
+    }
+
     private func finishIntegrityCheck(_ key: String, outcome: IntegrityOutcome?) {
         integrityFlags[key] = nil
         integrityRuns[key] = nil
         integrityResults[key] = outcome
+        ejectIdleDisks()
         guard settings.notifyOnFinish, let outcome else { return }
         let name = OpenSafety.visibleName((key as NSString).lastPathComponent)
         switch outcome {
         case .report(let report) where report.hasProblems:
-            notifier(t(.notifyIntegrityTitle), t(.notifyIntegrityProblems, name, report.corrupted.count, report.missing.count, report.unreadable.count))
+            notifier(t(.notifyIntegrityTitle), t(.notifyIntegrityProblems, name, report.corrupted.count, report.missing.count, report.unreadable.count),
+                     .showIntegrity(key))
         case .report(let report):
-            notifier(t(.notifyIntegrityTitle), t(.notifyIntegrityIntact, name, report.intact + report.added + report.updated))
+            notifier(t(.notifyIntegrityTitle), t(.notifyIntegrityIntact, name, report.intact + report.added + report.updated), nil)
         case .failed(let message):
-            notifier(t(.notifyIntegrityTitle), t(.notifyIntegrityFailed, name, message))
+            notifier(t(.notifyIntegrityTitle), t(.notifyIntegrityFailed, name, message), .showIntegrity(key))
         }
     }
 
@@ -1346,6 +1399,7 @@ final class AppModel {
     /// biten iş de "disk bekliyor" olarak duraklatılır.
     func volumeDidUnmount(_ volume: URL, now: Date = Date()) {
         volumeWillUnmount(volume)
+        pendingEjects[volume.path] = nil
         var changed = false
         for job in jobs where job.status == .failed && job.uses(volume: volume) {
             guard let finished = job.finishedAt, now.timeIntervalSince(finished) < 30 else { continue }
@@ -1491,25 +1545,89 @@ final class AppModel {
         if result.kind == .awaitingDecision, conflictPrompt == nil, newJobRequest == nil, routineEditor == nil {
             conflictPrompt = ConflictPrompt(id: id)
         }
+        // "Bitince hedef diski çıkar": disk, onu kullanan başka iş ya da denetim kalmayınca çıkarılır.
+        if result.kind.isSuccess, let job = job(id), job.options.ejectWhenDone, let target = ejectTarget(job.destination) {
+            pendingEjects[target.volume.path] = (id, target.disks)
+        }
+        ejectIdleDisks()
         scheduleNext()
+    }
+
+    /// Çıkarılmayı bekleyen disklerden artık kullanılmayanları çıkarır (sırada bekleyen, çalışan ya da karar bekleyen iş
+    /// ya da süren bir denetim veya onarım diski tutar).
+    private func ejectIdleDisks() {
+        let checking = Array(integrityFlags.keys) + Array(repairFlags.keys)
+        for (path, pending) in pendingEjects where !DiskEject.isBusy(pending.disks, jobs: jobs, checking: checking) {
+            pendingEjects[path] = nil
+            let volume = URL(fileURLWithPath: path, isDirectory: true)
+            // Bağlama noktasının Finder'daki adı (diskin adı).
+            let name = FileManager.default.displayName(atPath: path)
+            ejectVolume(volume) { [weak self] error in
+                Task { @MainActor in self?.didEject(name, job: pending.job, error: error) }
+            }
+        }
+    }
+
+    private func didEject(_ name: String, job id: TransferJob.ID, error: String?) {
+        let visible = OpenSafety.visibleName(name)
+        if let error {
+            update(id) { $0.appendLog(JobLogEntry(level: .warning, key: .logEjectFailed, arguments: [visible, error])) }
+            if settings.notifyOnFinish { notifier(t(.notifyEjectFailedTitle), t(.logEjectFailed, visible, error), nil) }
+        } else {
+            update(id) { $0.appendLog(JobLogEntry(level: .info, key: .logEjected, arguments: [visible])) }
+            showToast(t(.notifyEjectedBody, visible), systemImage: "eject")
+            if settings.notifyOnFinish { notifier(t(.notifyEjectedTitle), t(.notifyEjectedBody, visible), nil) }
+        }
+        save()
+    }
+
+    // MARK: - Bildirim düğmeleri
+
+    /// Bildirimdeki düğmeye ya da bildirimin kendisine (`button` false) tıklandı. Bildirimin kendisi yalnızca gösterir;
+    /// kimlikler ve yollar var olan öğelerle doğrulanır.
+    func handleNotice(_ action: NoticeAction, button: Bool) {
+        switch action {
+        case .backUpNow(let ids):
+            if button { backUpNow(ids) } else { presentMainWindow() }
+        case .showIntegrity(let path):
+            let destination = URL(fileURLWithPath: path, isDirectory: true)
+            presentMainWindow()
+            guard integrityResults[path] != nil || ArchiveIntegrity.manifest(in: destination) != nil else { return }
+            integrityRequest = IntegrityRequest(destination: destination)
+        case .decide(let id):
+            presentMainWindow()
+            guard let job = job(id), job.isAwaitingDecision else { return }
+            conflictPrompt = ConflictPrompt(id: id)
+        }
+    }
+
+    /// Eski yedekleri şimdi yedekler: işler yeniden sıraya girer (karar bekleyen iş için karar sayfası açılır), rutinler
+    /// çalıştırılır. Var olmayan kimlikler atlanır.
+    func backUpNow(_ ids: [UUID]) {
+        let jobIDs = ids.filter { job($0) != nil }
+        resume(Set(jobIDs))
+        var queued = jobIDs.count
+        for id in ids where routine(id) != nil && runRoutine(id) == nil { queued += 1 }
+        showToast(t(.toastBackUpNowQueued, queued), systemImage: "arrow.clockwise")
     }
 
     private func notify(_ job: TransferJob) {
         guard settings.notifyOnFinish, let result = job.result, result.kind != .cancelled else { return }
         let name = job.source.lastPathComponent
         if result.kind == .stoppedAtLimit {
-            notifier(t(.notifyStoppedTitle), t(.notifyStoppedBody, name))
+            notifier(t(.notifyStoppedTitle), t(.notifyStoppedBody, name), nil)
         } else if result.kind == .awaitingDecision {
-            notifier(t(.notifyDecisionTitle), t(result.detail == JobResult.placementsDetail ? .notifyPlacementBody : .notifyDecisionBody, name, result.noteCount))
+            notifier(t(.notifyDecisionTitle), t(result.detail == JobResult.placementsDetail ? .notifyPlacementBody : .notifyDecisionBody, name, result.noteCount),
+                     .decide(job.id))
         } else if result.kind.isSuccess {
-            notifier(t(.notifyFinishedTitle), t(.notifyFinishedBody, name))
+            notifier(t(.notifyFinishedTitle), t(.notifyFinishedBody, name), nil)
         } else {
-            notifier(t(.notifyFailedTitle), t(.notifyFailedBody, name, settings.result(result)))
+            notifier(t(.notifyFailedTitle), t(.notifyFailedBody, name, settings.result(result)), nil)
         }
     }
 
     /// macOS bildirimi; yalnızca gerçek uygulama paketinde (testlerde Bundle.main bir xctest paketidir).
-    nonisolated static func postUserNotification(title: String, body: String) {
+    nonisolated static func postUserNotification(title: String, body: String, action: NoticeAction?) {
         guard Bundle.main.bundleIdentifier == AppInfo.bundleIdentifier else { return }
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
@@ -1517,6 +1635,10 @@ final class AppModel {
             let content = UNMutableNotificationContent()
             content.title = title
             content.body = body
+            if let action {
+                content.categoryIdentifier = action.category
+                content.userInfo = action.userInfo
+            }
             center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
     }

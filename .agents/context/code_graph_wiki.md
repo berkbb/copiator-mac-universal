@@ -47,6 +47,8 @@
 | `BackupFreshness.swift` | `BackupFreshness` (`Stale`, `choices`, `lastSuccess`, `stale`) | Jobs and routines without a recent successful run, for the old backup reminder |
 | `SnapshotRestore.swift` | `SnapshotRestore` (`Snapshot`, `Item`, `Version`, `snapshots`, `contentRoot`, `items`, `versions`, `originalFolder`, `restoreJob`) | Snapshot browsing, file versions deduplicated by inode, restore as an ordinary copy job |
 | `ArchiveIntegrity.swift` | `ArchiveIntegrity` (`manifestName`, `Entry`, `Manifest`, `Report`, `manifest`, `check`, `regularFiles`, `hash`) | Hidden integrity list at the destination, silent-corruption detection, SHA-256 hashing |
+| `IntegrityRepair.swift` | `ArchiveIntegrity.RepairReport`, `repair`, `repairSources`, `isInside`, `candidateFiles`, `write`, `realPath`, `modifiedTime` | Repair of damaged files in place from copies with the recorded digest |
+| `DiskEject.swift` | `DiskEject` (`volume`, `isEjectable`, `siblingVolumes`, `isBusy`, `eject`) | Eject the destination disk when done: ejectable volume, same-disk volumes, busy check, unmount and eject |
 | `DuplicateFinder.swift` | `DuplicateFinder` (`Group`, `groups`, `trashExtras`, `isSnapshotFolder`) | Identical files at the destination, re-verified move of extras to the Trash |
 | `RoutineTransfer.swift` | `RoutineTransfer` (`format`, `version`, `maxSize`, `Failure`, `Missing`, `export`, `read`, `missingFolders`, `remap`) | Routine export/import file, new identities, numbered names, missing-folder remapping |
 | `Routines.swift` | `Routine` (`jobOptions(for:)`, `problems`), `RoutineRoute`, `RoutineStore`, `RuleSelection` | Routine model, persistence, `--files-from` list preparation |
@@ -58,11 +60,12 @@
 | File | Primary Symbols |
 | :--- | :--- |
 | `CopiatorApp.swift` | `CopiatorApp`, `AppDelegate`, `AppCommands` |
-| `AppModel.swift` | `AppModel`, `EngineStatus`, `UpdateState`, `AppUpdateState`, `OperationState`, `JobFilter`, `NewJobRequest`, `VerifyPresentation`, `AppLinks`, `AppInfo`, `WindowID`, `SnapshotBrowserRequest`, `IntegrityRequest`, `IntegrityProgress`, `IntegrityOutcome`, `CancelFlag`, `DuplicatesRequest`, `RoutineImportRequest` |
+| `AppModel.swift` | `AppModel`, `EngineStatus`, `UpdateState`, `AppUpdateState`, `OperationState`, `JobFilter`, `NewJobRequest`, `VerifyPresentation`, `AppLinks`, `AppInfo`, `WindowID`, `SnapshotBrowserRequest`, `IntegrityRequest`, `IntegrityProgress`, `IntegrityOutcome`, `CancelFlag`, `DuplicatesRequest`, `RoutineImportRequest`, `handleNotice`, `backUpNow`, `repairCorrupted`, `ejectIdleDisks` |
 | `AppSettings.swift` | `AppSettings`, `AppAppearance`, `KeyboardShortcutData`, `ShortcutAction` |
 | `FinderServices.swift` | `FinderServices.backUp` |
 | `Intents.swift` | `IntentTarget`, `JobEntity`, `JobEntityQuery`, `RunJobIntent`, `PauseAllJobsIntent`, `ResumeAllJobsIntent`, `CopiatorShortcuts`, `AppModel.runFromShortcut` |
 | `StatusItems.swift` | `MenuBarContent`, `MenuBarLabel`, `DockProgress`, `VolumeWatcher` |
+| `Notices.swift` | `NoticeAction` (`category`, `userInfo`, `init?(category:userInfo:)`, `categories`), `NoticeHandler` | Notification buttons and the notification center delegate |
 | `Views/ConflictViews.swift` | `ConflictSheet`, `ConflictPolicyPicker` |
 | `Views/PlacementDecisionViews.swift` | `PlacementDecisionView` (shown inside `ConflictSheet` when `pendingPlacements` is set) |
 | `Views/PlacementViews.swift` | `PlacementEditor`, `AITemplateSuggestionRow`, `AppSettings.describe(_ placement:)` |
@@ -89,5 +92,7 @@
 | New decision type that pauses a job | `TransferEvent` case, `TransferJob` field + coding key, `isAwaitingDecision`, `JobQueue.apply`/`finish`, `AppModel.resume`/`notify`, a view inside `ConflictSheet`, switches in `SyncEngine` and `AppModel.apply(_:to:)` |
 | New job status | `JobStatus` (+ `isActive`), `JobStatus.titleKey`, progress bar and badge switches in `JobListView`, `JobFilter` |
 | New file Copiator writes at a destination | Exclude it in `RsyncCommand.exclusions` (as `/.copiator-integrity.json` is) so `--delete` keeps it and verification does not report it, skip it in `ArchiveIntegrity.skippedNames` and `DuplicateFinder`, update `RsyncCommandTests.systemExcludes` and `AdvancedOptionsTests` |
+| New notification button | `NoticeAction` case + category + `userInfo` round trip, `NoticeAction.categories`, `AppModel.handleNotice` (validate the item), LKey in three tables, `NoticeAndEjectAppTests` |
+| New thing that keeps a disk in use | `DiskEject.isBusy` (jobs or `checking` paths) and a call to `AppModel.ejectIdleDisks` when it ends |
 | New routine field | `Routine` coding keys + tolerant decoding, `RoutineTransfer.read` (reset or keep on import), `RoutineTransferTests` round trip |
 | Directory walk with `FileManager.enumerator` | Call `skipDescendants()` only for directories: on a file it skips the rest of the enclosing folder |

@@ -78,7 +78,7 @@ struct CountField: View {
     }
 }
 
-/// Disk takılınca başlatma ve kopyalama sonrası doğrulama (Yeni İş sayfası).
+/// Disk takılınca başlatma, bitince diski çıkarma ve kopyalama sonrası doğrulama (Yeni İş sayfası ve rutin düzenleyici).
 struct AutomationSection: View {
     @Binding var options: CopyOptions
     @Environment(AppSettings.self) private var settings
@@ -89,6 +89,14 @@ struct AutomationSection: View {
                 Toggle(settings.t(.optionRunWhenConnected), isOn: $options.runWhenConnected)
                     .accessibilityIdentifier("copiator.newjob.runWhenConnected")
                 Text(settings.t(.optionRunWhenConnectedNote))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle(settings.t(.optionEjectWhenDone), isOn: $options.ejectWhenDone)
+                    .accessibilityIdentifier("copiator.newjob.ejectWhenDone")
+                Text(settings.t(.optionEjectWhenDoneNote))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

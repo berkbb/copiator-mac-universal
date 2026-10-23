@@ -10,6 +10,7 @@ struct IntegritySheet: View {
     @Environment(AppSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
     @State private var manifest: ArchiveIntegrity.Manifest?
+    @State private var confirmingRepair = false
 
     /// Listede gösterilen en çok dosya (her türden).
     static let maxListed = 100
@@ -72,6 +73,12 @@ struct IntegritySheet: View {
         .frame(width: 620, height: 560)
         .onAppear { manifest = ArchiveIntegrity.manifest(in: request.destination) }
         .onChange(of: model.integrityResults[key]) { manifest = ArchiveIntegrity.manifest(in: request.destination) }
+        .confirmationDialog(settings.t(.integrityRepairConfirmTitle), isPresented: $confirmingRepair) {
+            Button(settings.t(.integrityRepairButton)) { model.repairCorrupted(request.destination) }
+            Button(settings.t(.buttonCancel), role: .cancel) {}
+        } message: {
+            Text(settings.t(.integrityRepairConfirmMessage))
+        }
     }
 
     @ViewBuilder
@@ -89,8 +96,27 @@ struct IntegritySheet: View {
                 if !report.hasProblems {
                     Label(settings.t(.integrityNoProblems), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                 }
+                if model.integrityRepairing.contains(key) {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text(settings.t(.integrityRepairing)).font(.callout)
+                        Spacer()
+                        Button(settings.t(.integrityCancel)) { model.cancelRepair(request.destination) }
+                    }
+                } else if !report.corrupted.isEmpty {
+                    Button(settings.t(.integrityRepair), systemImage: "wrench.and.screwdriver") { confirmingRepair = true }
+                        .accessibilityIdentifier("copiator.integrity.repair")
+                }
+                if let repair = model.integrityRepairResults[key] {
+                    Label(settings.t(.integrityRepaired, repair.repaired.count), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
+                        if let repair = model.integrityRepairResults[key] {
+                            files(repair.noCopy, title: settings.t(.integrityRepairNoCopy, repair.noCopy.count), color: .red)
+                            files(repair.failed, title: settings.t(.integrityRepairFailed, repair.failed.count), color: .red)
+                            files(repair.changed, title: settings.t(.integrityRepairChanged, repair.changed.count), color: .secondary)
+                        }
                         files(report.corrupted, title: settings.t(.integrityCorrupted, report.corrupted.count), color: .red)
                         files(report.missing, title: settings.t(.integrityMissing, report.missing.count), color: .orange)
                         files(report.unreadable, title: settings.t(.integrityUnreadable, report.unreadable.count), color: .orange)

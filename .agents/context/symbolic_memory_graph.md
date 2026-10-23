@@ -28,6 +28,8 @@
 | `N_FRESHNESS` | `BackupFreshness` | `Sources/CopiatorCore/BackupFreshness.swift` | Stale jobs and routines; reminded from `N_VOLUMES` mounts and at launch |
 | `N_INTEGRITY` | `ArchiveIntegrity` | `Sources/CopiatorCore/ArchiveIntegrity.swift` | Integrity list and check; started by the user or from `N_VOLUMES` mounts |
 | `N_RESTORE` | `SnapshotRestore` | `Sources/CopiatorCore/SnapshotRestore.swift` | Reads `N_SNAPSHOTS` folders, builds an ordinary copy job for `N_QUEUE` |
+| `N_EJECT` | `DiskEject` | `Sources/CopiatorCore/DiskEject.swift` | Ejects a destination disk after `N_QUEUE` runs end, once nothing uses it |
+| `N_NOTICES` | `NoticeAction`, `NoticeHandler` | `Sources/Copiator/Notices.swift` | Notification buttons → `N_APP_MODEL.handleNotice` |
 
 ## 2. Job State Machine
 

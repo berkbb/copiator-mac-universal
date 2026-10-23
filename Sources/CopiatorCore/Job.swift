@@ -49,6 +49,8 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     public var verifyAfterCopy: VerifyAfterCopy
     /// Hedef disk takılınca iş kendiliğinden başlar; disk takılı değilken bekler (hata vermez).
     public var runWhenConnected: Bool
+    /// Başarılı bir çalıştırmadan sonra hedef disk, onu kullanan başka iş ya da denetim kalmayınca çıkarılır (bkz. `DiskEject`).
+    public var ejectWhenDone: Bool
     /// Hedefte aynı adlı dosya varken ne yapılacağı (varsayılan: sor).
     public var conflictPolicy: ConflictPolicy
     /// Bu ayar gelmeden önce kurulmuş iş ya da rutin: ilk karar sayfasında "hatırla" önceden işaretli gelir; böylece eski
@@ -71,7 +73,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions(),
         snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false,
         rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask, suggestsRememberingConflictChoice: Bool = false,
-        placement: RoutePlacement? = nil, selectedItems: [String]? = nil, trashSourceAfterCopy: Bool = false
+        placement: RoutePlacement? = nil, selectedItems: [String]? = nil, trashSourceAfterCopy: Bool = false, ejectWhenDone: Bool = false
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -88,12 +90,13 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.placement = placement
         self.selectedItems = selectedItems
         self.trashSourceAfterCopy = trashSourceAfterCopy
+        self.ejectWhenDone = ejectWhenDone
     }
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
         case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy, suggestsRememberingConflictChoice, placement
-        case selectedItems, trashSourceAfterCopy
+        case selectedItems, trashSourceAfterCopy, ejectWhenDone
     }
 
     public init(from decoder: Decoder) throws {
@@ -113,6 +116,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         placement = (try? container.decodeIfPresent(RoutePlacement.self, forKey: .placement)) ?? nil
         selectedItems = (try? container.decodeIfPresent([String].self, forKey: .selectedItems)) ?? nil
         trashSourceAfterCopy = (try? container.decodeIfPresent(Bool.self, forKey: .trashSourceAfterCopy)) ?? false
+        ejectWhenDone = (try? container.decodeIfPresent(Bool.self, forKey: .ejectWhenDone)) ?? false
         conflictPolicy = (try? container.decodeIfPresent(ConflictPolicy.self, forKey: .conflictPolicy)) ?? defaults.conflictPolicy
         // Ayarı hiç olmayan (bu sürümden önce kaydedilmiş) seçenekler eski kabul edilir.
         suggestsRememberingConflictChoice = (try? container.decodeIfPresent(Bool.self, forKey: .suggestsRememberingConflictChoice))

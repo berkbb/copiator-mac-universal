@@ -417,6 +417,7 @@ struct JobDetailView: View {
         if options.trashSourceAfterCopy { parts.append(settings.t(.optionTrashSource)) }
         if options.snapshots.enabled { parts.append(settings.t(.optionSnapshots)) }
         if options.runWhenConnected { parts.append(settings.t(.optionRunWhenConnected)) }
+        if options.ejectWhenDone { parts.append(settings.t(.optionEjectWhenDone)) }
         parts.append(settings.t(.optionConflictPolicy) + ": " + settings.title(options.conflictPolicy, kind: kind))
         switch options.verifyAfterCopy {
         case .off: break

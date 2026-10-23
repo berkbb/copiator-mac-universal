@@ -53,6 +53,8 @@ final class Fixture {
     let store: JobStore
     private(set) var model: AppModel
     var notifications: [(String, String)] = []
+    /// Bildirimlerin düğmeleri (bildirimlerle aynı sırada).
+    var noticeActions: [NoticeAction?] = []
 
     init() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(suiteName, isDirectory: true)
@@ -73,7 +75,10 @@ final class Fixture {
     }
 
     private func attach(_ model: AppModel) {
-        model.notifier = { [weak self] title, body in self?.notifications.append((title, body)) }
+        model.notifier = { [weak self] title, body, action in
+            self?.notifications.append((title, body))
+            self?.noticeActions.append(action)
+        }
     }
 
     /// Aynı kayıt dosyası ve ayarlarla yeni bir model (uygulamanın yeniden açılması).

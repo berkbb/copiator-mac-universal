@@ -260,6 +260,10 @@ public enum LKey: String, CaseIterable, Sendable {
     case menuIntegrity, integrityTitle, integrityNote, integrityNever, integrityLast, integrityCheck, integrityChecking, integrityCancel
     case integrityFirst, integritySummary, integrityNoProblems, integrityCorrupted, integrityMissing, integrityUnreadable, integrityMore
     case integrityOnConnect, integrityFailed, notifyIntegrityTitle, notifyIntegrityProblems, notifyIntegrityIntact, notifyIntegrityFailed
+    case integrityRepair, integrityRepairConfirmTitle, integrityRepairConfirmMessage, integrityRepairButton, integrityRepairing
+    case integrityRepaired, integrityRepairNoCopy, integrityRepairFailed, integrityRepairChanged
+    case optionEjectWhenDone, optionEjectWhenDoneNote, logEjected, logEjectFailed, notifyEjectedTitle, notifyEjectedBody, notifyEjectFailedTitle
+    case notifyActionBackUpNow, notifyActionShow, notifyActionDecide, toastBackUpNowQueued
     // Yinelenen dosyalar
     case menuDuplicates, duplicatesTitle, duplicatesNote, duplicatesScanning, duplicatesNone, duplicatesSummary, duplicatesKeep
     case duplicatesGroup, duplicatesTrash, duplicatesTrashConfirm, duplicatesConfirmTitle, duplicatesConfirmMessage, duplicatesDone

@@ -64,6 +64,10 @@ Version 1.0 scope: local disk → local disk. Planned job kinds: other engines (
 - The integrity check distinguishes silent corruption (same size and date, different contents; reported until fixed) from legitimate changes (size or date changed; recorded). Its list is the only file Copiator writes at a destination by itself.
 - Duplicates inside snapshot folders are intentional (hard links or kept history) and are not reported; extras go only to the Trash.
 - Imported routines are always new routines; nothing is merged or replaced.
+- Decided with the user on 2026-10-23 ("ilk üç yap diğerlerini roadmap a yaz"): repair damaged files from intact copies, eject the destination disk when done and buttons in notifications were built; snapshot search and compare, a fill forecast, low-priority I/O, moving jobs and settings, a diagnostic bundle and sleeping after the queue went to the roadmap (9g–9k, 7).
+- Repair rewrites a damaged file only with a copy whose SHA-256 equals the digest recorded in the integrity list; any such copy is acceptable whatever its name, because the list, not the name, defines the correct contents.
+- Eject is per job and routine and waits for everything that uses the disk (waiting, running or decision-waiting jobs, checks and repairs). A disk the user paused a job on can still be ejected.
+- Clicking a notification only shows Copiator; work starts only from an explicit button ("Back Up Now").
 
 ## Copy Routines
 

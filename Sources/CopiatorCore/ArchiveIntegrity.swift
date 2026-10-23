@@ -71,7 +71,7 @@ public enum ArchiveIntegrity {
         for (relative, url, info) in regularFiles(in: root) {
             if isCancelled() || Task.isCancelled { throw CancellationError() }
             let size = Int64(info.st_size)
-            let modified = TimeInterval(info.st_mtimespec.tv_sec) + TimeInterval(info.st_mtimespec.tv_nsec) / 1e9
+            let modified = modifiedTime(info)
             let inode = "\(info.st_dev):\(info.st_ino)"
             let digest: String
             if let cached = byInode[inode] {

@@ -2,6 +2,7 @@
 import AppKit
 import CopiatorCore
 import SwiftUI
+import UserNotifications
 
 @main
 struct CopiatorApp: App {
@@ -53,6 +54,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let services = FinderServices()
     private let volumes = VolumeWatcher()
     private let dock = DockProgress()
+    private let notices = NoticeHandler()
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Bildirim düğmeleri (Şimdi Yedekle, Göster, Karar Ver); uygulama bir düğmeyle açılsa da tıklama kaybolmasın diye
+        // açılış bitmeden kurulur. Yalnızca gerçek uygulama paketinde (testlerde bildirim merkezi yoktur).
+        guard Bundle.main.bundleIdentifier == AppInfo.bundleIdentifier else { return }
+        let center = UNUserNotificationCenter.current()
+        center.delegate = notices
+        center.setNotificationCategories(NoticeAction.categories { AppSettings.shared.t($0) })
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Uygulama çökerse ya da sonlandırılırsa rsync yetim kalmasın (bkz. ChildProcessGuard).

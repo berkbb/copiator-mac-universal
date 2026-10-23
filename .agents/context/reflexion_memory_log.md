@@ -206,3 +206,12 @@
 ## Episode 49: Spotlight Answered One Spelling Before the Other
 - **Root Cause:** under the full suite's load (integrity hashing, live rsync runs) `SpotlightContentTests` found the new file for the lowercase word but not, a moment later, for the uppercase spelling: the index was still settling and only the first query waited for it. Alone the test passed three times in a row.
 - **Guardrail:** every query against an external, eventually consistent index waits for its own result (the test's `search` helper polls each spelling); only the expected-empty query is asked once.
+
+## Episode 50: A Folder's Volume Name Is Not the Disk's Name
+- **Root Cause:** the eject log and notification first took the disk name from `volumeLocalizedName` of the volume URL. In the app test the fake disk is a folder on the internal disk, so the name came back as the internal disk's name; on a real mount point both agree, which hid the dependency.
+- **Guardrail:** names shown for a disk come from `FileManager.displayName(atPath:)` of the mount point; `LiveDiskEjectTests` checks on a real APFS disk image mounted at a custom folder that the shown name is the volume name, not the folder's.
+
+
+## Episode 51: A Build Error Counted as a Surviving Mutant
+- **Root Cause:** the mutation harness classified a run as a build error only when the output contained ": error:", but the Swift driver printed "error: <path>:<line> …" for a test that used the keyword `internal` as a variable name. Three mutants were reported as missed although no test had run.
+- **Guardrail:** a mutation run counts as caught only with a failed test (✘) and as missed only when "Test run with" appears; anything else is a build error that must be fixed first. Always run the edited test once before mutating.
