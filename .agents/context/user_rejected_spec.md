@@ -24,3 +24,4 @@
 |---|---------|-------------|-------|
 | R1 | **Scheduled jobs** (launchd agent or in-app timer: hourly/daily/weekly runs, missed-run handling) | 2026-10-21 | Jobs start manually, from the Finder service, from Shortcuts, or when the destination disk is connected. Do not add a time-based scheduler. |
 | R2 | **Remote rsync over SSH** (a remote `JobKind`, `-e ssh`, host keys, network access for the engine) | 2026-10-21 | Copiator stays a local copy and sync app; the engine sandbox keeps `(deny network*)`. |
+| R3 | **aria2 (or any download engine) as a Copiator `JobKind`** | 2026-10-24 | Downloads are handled by the sibling app Descarcator (aria2, Transmission, rclone); Copiator does not need aria2. |

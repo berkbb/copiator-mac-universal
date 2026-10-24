@@ -9,10 +9,6 @@
 
 ## Open
 
-### Engine & Job Kinds
-
-3. ⬜ **[Medium] Additional engine** (e.g. aria2 for downloads) as another `JobKind`.
-
 ### Features
 
 6. ⬜ **[Medium] Multiple sources per job** (model already keeps sources as a single URL; needs a schema version bump with migration).

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import Foundation
 
-/// İşi yürüten motorun türü. Yalnızca yerel rsync vardır; başka bir motor (ör. aria2) yeni bir tür olarak eklenir ve
+/// İşi yürüten motorun türü. Yalnızca yerel rsync vardır; başka bir yerel motor yeni bir tür olarak eklenir ve
 /// `TransferEngine` protokolünü uygular. Kayıtlı işler türlerini taşır.
 public enum JobKind: String, Codable, CaseIterable, Sendable {
     case rsync

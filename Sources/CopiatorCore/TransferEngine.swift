@@ -61,7 +61,7 @@ public struct VerifyReport: Sendable, Equatable {
     public var isIdentical: Bool { !entries.contains { $0.kind != .attributes } }
 }
 
-/// Bir iş türünü (`JobKind`) yürüten motor. İkinci bir motor (uzak rsync, aria2) bu protokolü uygulayıp
+/// Bir iş türünü (`JobKind`) yürüten motor. İkinci bir yerel motor bu protokolü uygulayıp
 /// `TransferEngines.engine(for:)` kaydına eklenir; kuyruk, kayıt ve arayüz değişmez.
 public protocol TransferEngine: Sendable {
     var kind: JobKind { get }
