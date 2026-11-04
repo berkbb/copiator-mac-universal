@@ -95,6 +95,11 @@ struct JobListView: View {
         }
         .safeAreaInset(edge: .top) {
             VStack(spacing: 0) {
+                if let seconds = model.sleepCountdown {
+                    sleepBar(settings.t(.sleepCountdownNotice, seconds), showsSleepNow: true)
+                } else if model.sleepWhenQueueFinishes {
+                    sleepBar(settings.t(.sleepArmedNotice), showsSleepNow: false)
+                }
                 if model.batteryHold {
                     // Tek satır: bkz. aşağıdaki kuyruk bandı.
                     Label(settings.t(.batteryHoldNotice), systemImage: "battery.0percent")
@@ -124,6 +129,30 @@ struct JobListView: View {
                 }
             }
         }
+    }
+
+    /// Uyutma seçimi ya da geri sayımı: tek satır (liste üstündeki bantların yüksekliği genişliğe bağlı olmamalı).
+    private func sleepBar(_ text: String, showsSleepNow: Bool) -> some View {
+        HStack(spacing: 8) {
+            Label(text, systemImage: "moon.zzz.fill")
+                .lineLimit(1)
+                .help(text)
+            Spacer(minLength: 8)
+            if showsSleepNow {
+                Button(settings.t(.sleepNowButton)) { model.sleepNow() }
+                    .accessibilityIdentifier("copiator.sleep.now")
+            }
+            Button(settings.t(.buttonCancel)) { model.sleepWhenQueueFinishes = false }
+                .accessibilityIdentifier("copiator.sleep.cancel")
+        }
+        .font(.callout)
+        .controlSize(.small)
+        .foregroundStyle(.indigo)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background(.indigo.opacity(0.08))
+        .accessibilityIdentifier("copiator.sleep.bar")
     }
 
     @ViewBuilder

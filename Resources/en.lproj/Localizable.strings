@@ -1068,3 +1068,9 @@
 "logUndoneSnapshot" = "Last run undone: the snapshot “%@” was moved to the Trash.";
 "logUndoneCreated" = "Last run undone: %1$ld items were moved to the Trash, %2$ld were left in place.";
 "toastUndone" = "Last run undone";
+"menuSleepWhenDone" = "Sleep the Mac When the Queue Finishes";
+"sleepArmedNotice" = "The Mac sleeps when the queue finishes.";
+"sleepCountdownNotice" = "Queue finished: the Mac sleeps in %ld s.";
+"sleepNowButton" = "Sleep Now";
+"notifySleepTitle" = "The Mac is about to sleep";
+"notifySleepBody" = "The queue finished; the Mac sleeps in %ld seconds. Open Copiator to cancel.";

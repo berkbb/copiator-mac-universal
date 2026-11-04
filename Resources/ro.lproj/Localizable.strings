@@ -1068,3 +1068,9 @@
 "logUndoneSnapshot" = "Ultima rulare a fost anulată: instantaneul „%@” a fost mutat în Coș.";
 "logUndoneCreated" = "Ultima rulare a fost anulată: %1$ld elemente au fost mutate în Coș, %2$ld au rămas pe loc.";
 "toastUndone" = "Ultima rulare a fost anulată";
+"menuSleepWhenDone" = "Pune Mac-ul în repaus când coada se termină";
+"sleepArmedNotice" = "Mac-ul intră în repaus când coada se termină.";
+"sleepCountdownNotice" = "Coada s-a terminat: Mac-ul intră în repaus în %ld s.";
+"sleepNowButton" = "Repaus acum";
+"notifySleepTitle" = "Mac-ul este pe cale să intre în repaus";
+"notifySleepBody" = "Coada s-a terminat; Mac-ul intră în repaus în %ld secunde. Deschideți Copiator pentru a anula.";

@@ -174,6 +174,8 @@ struct AppCommands: Commands {
                 .keyboardShortcut(pauseAll.keyEquivalent, modifiers: pauseAll.eventModifiers)
                 .disabled(!model.jobs.contains(where: JobQueue.canPause))
             Button(settings.t(settings.queueHeld ? .toolbarReleaseQueue : .toolbarHoldQueue)) { model.toggleQueueHold() }
+            Toggle(settings.t(.menuSleepWhenDone), isOn: Binding(get: { model.sleepWhenQueueFinishes },
+                                                                set: { model.sleepWhenQueueFinishes = $0 }))
             Divider()
             let verify = settings.shortcut(for: .verify)
             Button(settings.t(.menuVerify)) { if let id = selected.first?.id { model.verify(id, checksum: false) } }

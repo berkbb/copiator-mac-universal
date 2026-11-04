@@ -1068,3 +1068,9 @@
 "logUndoneSnapshot" = "Son çalıştırma geri alındı: “%@” anlık görüntüsü Çöp Sepeti'ne taşındı.";
 "logUndoneCreated" = "Son çalıştırma geri alındı: %1$ld öğe Çöp Sepeti'ne taşındı, %2$ld öğeye dokunulmadı.";
 "toastUndone" = "Son çalıştırma geri alındı";
+"menuSleepWhenDone" = "Kuyruk Bitince Mac'i Uyut";
+"sleepArmedNotice" = "Kuyruk bitince Mac uyuyacak.";
+"sleepCountdownNotice" = "Kuyruk bitti: Mac %ld sn sonra uyuyacak.";
+"sleepNowButton" = "Şimdi Uyut";
+"notifySleepTitle" = "Mac uyumak üzere";
+"notifySleepBody" = "Kuyruk bitti; Mac %ld saniye sonra uyuyacak. Vazgeçmek için Copiator'ı açın.";

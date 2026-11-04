@@ -510,6 +510,15 @@ final class AppModel {
     @ObservationIgnored private(set) var pausedForBattery: Set<TransferJob.ID> = []
     @ObservationIgnored private var isSuspendingRunningJobForBattery = false
     @ObservationIgnored private var batteryWatch: Task<Void, Never>?
+    /// "Kuyruk bitince Mac'i uyut" (tek seferlik; uyutunca ya da vazgeçilince kapanır, kaydedilmez).
+    var sleepWhenQueueFinishes = false { didSet { if !sleepWhenQueueFinishes { cancelSleepCountdown() } } }
+    /// Uyutmaya kalan saniye (kuyruk bitince başlayan geri sayım sürerken).
+    private(set) var sleepCountdown: Int?
+    @ObservationIgnored var sleepCountdownSeconds = 60
+    @ObservationIgnored var sleepTick: Duration = .seconds(1)
+    /// Mac'i uyutur (testler sahte bir işlev verir: bu Mac uyutulmaz).
+    @ObservationIgnored var sleeper: () -> Bool = AppModel.putMacToSleep
+    @ObservationIgnored private var sleepTask: Task<Void, Never>?
     /// Kaynak ve hedefin erişilebilirliği ("disk takılınca başla" işleri için); testler sahte bir denetim verebilir.
     @ObservationIgnored var pathsAvailable: (TransferJob) -> Bool = { $0.pathsAvailable }
     /// Alt süreç kayıt dosyası (yalnızca uygulamada; testlerde nil).
@@ -1060,6 +1069,7 @@ final class AppModel {
         repairFlags[key] = nil
         integrityRepairing.remove(key)
         ejectIdleDisks()
+        considerSleepAfterQueue()
         guard let result else { return }
         integrityRepairResults[key] = result
         if case .report(var report)? = integrityResults[key] {
@@ -1074,6 +1084,7 @@ final class AppModel {
         integrityRuns[key] = nil
         integrityResults[key] = outcome
         ejectIdleDisks()
+        considerSleepAfterQueue()
         guard settings.notifyOnFinish, let outcome else { return }
         let name = OpenSafety.visibleName((key as NSString).lastPathComponent)
         switch outcome {
@@ -1701,6 +1712,67 @@ final class AppModel {
         startDueIntegrityChecks()
         ejectIdleDisks()
         scheduleNext()
+        considerSleepAfterQueue()
+    }
+
+    // MARK: - Kuyruk bitince Mac'i uyut
+
+    /// Kuyrukta yapılacak iş kalmadı: çalışan, bekleyen, karar ya da disk bekleyen iş, süren bir işlem, bütünlük
+    /// denetimi ya da onarım ve pil beklemesi yok.
+    var queueIsFinished: Bool {
+        runningJobID == nil && operation == nil && integrityFlags.isEmpty && repairFlags.isEmpty && !batteryHold
+            && !jobs.contains { $0.status == .waiting || $0.status.isActive || $0.isAwaitingDecision || $0.suspendedForDisk }
+    }
+
+    /// Seçim açıksa ve kuyruk bittiyse iptal edilebilir geri sayım başlar; pencere görünmüyorsa bildirilir. Sayım her
+    /// adımda kuyruğa bakar: yeni bir iş başladıysa durur, seçim kalır ve kuyruk yeniden bitince baştan başlar.
+    func considerSleepAfterQueue() {
+        guard sleepWhenQueueFinishes, sleepCountdown == nil, queueIsFinished else { return }
+        sleepCountdown = sleepCountdownSeconds
+        if !isMainWindowVisible() { notifier(t(.notifySleepTitle), t(.notifySleepBody, sleepCountdownSeconds), nil) }
+        let tick = sleepTick
+        sleepTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: tick)
+                guard !Task.isCancelled, let self, let left = self.sleepCountdown else { return }
+                guard self.queueIsFinished else {
+                    self.cancelSleepCountdown()
+                    return
+                }
+                if left <= 1 {
+                    self.sleepNow()
+                    return
+                }
+                self.sleepCountdown = left - 1
+            }
+        }
+    }
+
+    private func cancelSleepCountdown() {
+        sleepTask?.cancel()
+        sleepTask = nil
+        if sleepCountdown != nil { sleepCountdown = nil }
+    }
+
+    /// Geri sayımı beklemeden uyutur; seçim kapanır (bir sonraki kuyruk için yeniden seçilir).
+    func sleepNow() {
+        cancelSleepCountdown()
+        sleepWhenQueueFinishes = false
+        _ = sleeper()
+    }
+
+    /// `pmset sleepnow`: yönetici izni gerektirmez; uyku engeli iş bitince bırakılmıştır.
+    nonisolated static func putMacToSleep() -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+        process.arguments = ["sleepnow"]
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
+        }
     }
 
     /// Hedefteki kopyaları Time Machine dışında tutar. İşaret her başarılı çalıştırmadan sonra yeniden yazılır: rsync

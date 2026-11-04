@@ -283,6 +283,8 @@ public enum LKey: String, CaseIterable, Sendable {
     case fillForecastNote, fillForecastRetention, notifyFillTitle, notifyFillBody
     // Tanılama raporu
     case menuDiagnostics, diagnosticsTitle, diagnosticsNote, diagnosticsSave, diagnosticsFileName
+    // Kuyruk bitince Mac'i uyut
+    case menuSleepWhenDone, sleepArmedNotice, sleepCountdownNotice, sleepNowButton, notifySleepTitle, notifySleepBody
     // Son çalıştırmayı geri alma
     case menuUndoLastRun, undoConfirmTitle, undoSnapshotMessage, undoCreatedMessage, undoButton, undoFailed, logUndoneSnapshot
     case logUndoneCreated, toastUndone
