@@ -5,10 +5,6 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
-### Fixed
-
-- **Dropping files on a sidebar routine reports the result:** the drop handler now returns whether the routine started, so macOS shows a refused drop instead of always treating it as accepted. The handler had silently fallen to the newer SwiftUI overload that returns nothing (a compiler warning in the 1.1.0 build).
-
 ## [1.1.0] — 2026-11-04
 
 ### Added
@@ -76,6 +72,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ### Fixed
 
+- **Dropping files on a sidebar routine reports the result:** the drop handler now returns whether the routine started, so macOS shows a refused drop instead of always treating it as accepted. The handler had silently fallen to the newer SwiftUI overload that returns nothing (a compiler warning).
 - **Notifications without a Developer ID:** Copiator now asks for notification permission at launch instead of when the first notification is due. The missing permission prompt was caused by where the app was opened from, not by its ad-hoc signature: macOS refused the request ("Notifications are not allowed for this application") for the same build opened from a temporary or build folder and showed the prompt when it was opened from `/Applications`. When notifications are off, or macOS will not offer them, an orange banner at the top of the window says why and opens System Settings › Notifications, or shows Copiator in Finder so it can be moved to Applications; "Later" hides it until the next launch. It appears only while finished-job notifications, the old backup reminder or the integrity check on connect are turned on.
 - **Full Disk Access when a job needs it:** a second banner asks for Full Disk Access, and opens System Settings › Privacy & Security › Full Disk Access, while Copiator does not have it and a job or routine reads or writes a folder macOS protects (Mail, Messages, Safari, Photos, the Trash, Spotlight data and similar, checked on this Mac) or covers one (the whole home folder, its Library or Pictures folder, the startup disk), or a job could not read a source because macOS refused ("Operation not permitted"). Folders the sandbox already leaves out of a larger source do not count. Access is checked by trying to open places only that permission opens, at launch and whenever Copiator comes to the front; the banner explains that after an update the switch may need to be turned off and on again. When the need arises while the window is closed (for example a job started by connecting a disk), a notification says so once per launch. The check and the banner are derived from Curatare (see THIRD_PARTY_NOTICES.md).
 - **Settings › General › Permissions:** shows whether notifications and Full Disk Access are on, each with a button that opens the right System Settings page (or shows Copiator in Finder when it must be moved to Applications), so a permission can be checked and given before any job needs it.
