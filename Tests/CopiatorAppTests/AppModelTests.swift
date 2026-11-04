@@ -79,6 +79,13 @@ final class Fixture {
             self?.notifications.append((title, body))
             self?.noticeActions.append(action)
         }
+        // Testler gerçek Çöp Sepeti'ne dokunmaz: taşınan öğeler çalışma klasöründeki "Cop" klasörüne gider.
+        let trash = workspace.appendingPathComponent("Cop", isDirectory: true)
+        model.trashItem = { url in
+            try? FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
+            let target = trash.appendingPathComponent(UUID().uuidString + "-" + url.lastPathComponent)
+            return (try? FileManager.default.moveItem(at: url, to: target)) != nil
+        }
     }
 
     /// Aynı kayıt dosyası ve ayarlarla yeni bir model (uygulamanın yeniden açılması).

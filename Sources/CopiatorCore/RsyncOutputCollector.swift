@@ -29,6 +29,9 @@ public final class RsyncOutputCollector: @unchecked Sendable {
     private var pendingChanges: [String] = []
     private var lastChangeFlush = Date.distantPast
     private var stats: [String] = []
+    private var created: [String] = []
+    private var createdTruncated = false
+    private var otherChanges = 0
 
     /// Değişiklik satırları en çok bu aralıkla toplu bildirilir; tamponda en çok `maxBufferedChanges` satır tutulur
     /// (iş günlüğü zaten son `TransferJob.maxLogEntries` satırı saklar).
@@ -79,6 +82,15 @@ public final class RsyncOutputCollector: @unchecked Sendable {
                 return
             }
             if let change = ItemizeParser.parseLine(line, format: itemizeFormat) ?? (line.hasPrefix("*") ? DiffEntry(kind: .extra, path: line, isDirectory: false, code: "") : nil) {
+                // Geri alma kaydı: eklenen öğeler (en çok `RunUndo.maxRecordedItems`), üzerine yazılan ya da silinenlerin sayısı.
+                switch change.kind {
+                case .missing:
+                    if created.count < RunUndo.maxRecordedItems { created.append(change.path) } else { createdTruncated = true }
+                case .changed, .extra:
+                    otherChanges += 1
+                case .attributes:
+                    break
+                }
                 if logChanges {
                     pendingChanges.append(OpenSafety.visibleName(line))
                     if pendingChanges.count > Self.maxBufferedChanges { pendingChanges.removeFirst(pendingChanges.count - Self.maxBufferedChanges) }
@@ -112,6 +124,11 @@ public final class RsyncOutputCollector: @unchecked Sendable {
             return pendingChanges
         }
         if !changes.isEmpty { onChanges(changes) }
+    }
+
+    /// Çalıştırmanın geri alma kaydı (değişiklik satırlarından).
+    public var undoRecord: RunUndo.Record {
+        lock.withLock { RunUndo.Record(created: created, truncated: createdTruncated, otherChanges: otherChanges) }
     }
 
     /// İş sonu istatistikleri (`--info=stats2`), rsync'in yazdığı sırayla.

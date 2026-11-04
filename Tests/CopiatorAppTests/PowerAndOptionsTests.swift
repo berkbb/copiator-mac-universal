@@ -129,7 +129,7 @@ struct PowerAndOptionsTests {
         options.advanced.bandwidthLimitKiB = 2048
         let job = TransferJob(source: fixture.url("Kaynak"), destination: fixture.url("Hedef"), options: options)
         let command = fixture.model.commandPreview(for: job)
-        #expect(command.hasPrefix("rsync -rltDhX --info=progress2 --partial"))
+        #expect(command.hasPrefix("rsync -rltDhX --info=progress2 -i --partial"))
         #expect(command.contains(" -H "))
         #expect(command.contains("--bwlimit=2048"))
         // Yol, /private önekini atan standart biçimde gösterilir (aynı klasör).

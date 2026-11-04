@@ -1059,3 +1059,12 @@
 "optionExcludeFromTimeMachineNote" = "După fiecare rulare reușită, dosarul copiat (la instantanee, dosarul instantaneelor) este marcat astfel încât Time Machine să nu îl salveze a doua oară. Contează doar când destinația este pe un disc salvat de Time Machine, de exemplu discul acestui Mac; celelalte fișiere din destinație nu sunt afectate.";
 "logTimeMachineExcluded" = "Copiile sunt acum ținute în afara Time Machine.";
 "logTimeMachineExcludeFailed" = "Copiile nu au putut fi ținute în afara Time Machine.";
+"menuUndoLastRun" = "Anulează ultima rulare…";
+"undoConfirmTitle" = "Anulați ultima rulare?";
+"undoSnapshotMessage" = "Instantaneul „%@” se mută în Coș, iar Latest indică instantaneul dinainte. Sursa nu se schimbă.";
+"undoCreatedMessage" = "Cele %1$ld elemente adăugate de această rulare se mută în Coș; elementele modificate ulterior sau care conțin alte fișiere rămân. Cele %2$ld fișiere pe care le-a înlocuit sau șters nu revin. Sursa nu se schimbă.";
+"undoButton" = "Anulează";
+"undoFailed" = "Ultima rulare nu a putut fi anulată.";
+"logUndoneSnapshot" = "Ultima rulare a fost anulată: instantaneul „%@” a fost mutat în Coș.";
+"logUndoneCreated" = "Ultima rulare a fost anulată: %1$ld elemente au fost mutate în Coș, %2$ld au rămas pe loc.";
+"toastUndone" = "Ultima rulare a fost anulată";

@@ -265,6 +265,8 @@ public struct RsyncEngine: TransferEngine {
         }
 
         if let preparation { finishSnapshot(preparation, root: snapshotRoot, options: job.options, result: &result, onEvent: onEvent) }
+        // Son çalıştırmayı geri almak için eklenen öğeler (anlık görüntüde gerekmez: anlık görüntünün kendisi geri alınır).
+        if !original.options.snapshots.enabled, result.kind.isSuccess, advanced.batchMode != .onlyWrite { result.undo = collector.undoRecord }
         return result
     }
 

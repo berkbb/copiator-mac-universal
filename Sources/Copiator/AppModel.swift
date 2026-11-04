@@ -55,6 +55,14 @@ struct Toast: Identifiable, Equatable {
     let revealURL: URL?
 }
 
+/// Son çalıştırmanın nasıl geri alınacağı.
+enum UndoPlan: Equatable {
+    /// Anlık görüntülü iş: bu anlık görüntü Çöp Sepeti'ne taşınır.
+    case snapshot(String)
+    /// Anlık görüntüsüz iş: eklenen `count` öğe Çöp Sepeti'ne taşınır; üzerine yazılan ya da silinen `otherChanges` öğe geri gelmez.
+    case created(count: Int, otherChanges: Int)
+}
+
 struct AlertItem: Identifiable {
     let id = UUID()
     let title: String
@@ -1402,6 +1410,61 @@ final class AppModel {
 
     func removeAll() {
         remove(Set(removableJobs.map(\.id)))
+    }
+
+    // MARK: - Son çalıştırmayı geri alma (güvenli kısım; bkz. RunUndo)
+
+    /// Geri alınabilecek son çalıştırma: iş çalışmıyor ya da beklemiyor, son çalıştırma başarılı ve geri alınmamış.
+    /// Anlık görüntülü işte son anlık görüntü hâlâ en yeniyse; ötekilerde eklenen öğelerin tam listesi varsa.
+    func undoPlan(for job: TransferJob) -> UndoPlan? {
+        guard job.id != runningJobID, !job.status.isActive, job.status != .waiting, let run = job.history.last,
+              run.undoneAt == nil, run.result.kind.isSuccess else { return nil }
+        if job.options.snapshots.enabled {
+            guard let name = run.result.snapshot, SnapshotStore.completeSnapshots(in: job.destination).last == name else { return nil }
+            return .snapshot(name)
+        }
+        guard let record = run.result.undo, !record.truncated, !record.created.isEmpty else { return nil }
+        return .created(count: record.created.count, otherChanges: record.otherChanges)
+    }
+
+    /// Ne olacağını söyleyen bir onaydan sonra son çalıştırmayı geri alır.
+    func requestUndoLastRun(_ id: TransferJob.ID) {
+        guard let job = job(id), let plan = undoPlan(for: job) else { return }
+        let message: String
+        switch plan {
+        case .snapshot(let name): message = t(.undoSnapshotMessage, name)
+        case .created(let count, let otherChanges): message = t(.undoCreatedMessage, count, otherChanges)
+        }
+        alert = AlertItem(title: t(.undoConfirmTitle), message: message, actionTitle: t(.undoButton),
+                          action: { [weak self] in self?.undoLastRun(id) }, isDestructive: true)
+    }
+
+    /// Son çalıştırmayı geri alır: anlık görüntüyü ya da eklenen öğeleri Çöp Sepeti'ne taşır, günlüğe yazar ve
+    /// çalıştırmayı geri alındı olarak işaretler (bir daha geri alınamaz). Hiçbir şey kalıcı olarak silinmez.
+    func undoLastRun(_ id: TransferJob.ID) {
+        guard let job = job(id), let plan = undoPlan(for: job), let run = job.history.last else { return }
+        let entry: JobLogEntry
+        switch plan {
+        case .snapshot(let name):
+            guard RunUndo.undoSnapshot(name, root: job.destination, trash: trashItem) else {
+                alert = AlertItem(title: t(.errorTitle), message: t(.undoFailed))
+                return
+            }
+            entry = JobLogEntry(level: .info, key: .logUndoneSnapshot, arguments: [name])
+        case .created:
+            guard let record = run.result.undo else { return }
+            let outcome = RunUndo.undoCreated(record, destination: job.destination, startedAt: run.startedAt,
+                                              finishedAt: run.finishedAt, trash: trashItem)
+            entry = JobLogEntry(level: outcome.failed.isEmpty ? .info : .warning, key: .logUndoneCreated,
+                                arguments: [String(outcome.trashed), String(outcome.kept.count + outcome.failed.count)])
+        }
+        let now = clock()
+        update(id) { job in
+            job.history[job.history.count - 1].undoneAt = now
+            job.appendLog(entry)
+        }
+        save()
+        showToast(t(.toastUndone), systemImage: "arrow.uturn.backward")
     }
 
     func move(from source: IndexSet, to destination: Int) {

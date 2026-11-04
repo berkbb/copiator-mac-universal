@@ -14,11 +14,22 @@ private func env(_ fs: FileSystemKind = .apfs, engine: EngineInfo = fullEngine, 
 /// Sistem klasörleri ve hedefin kökündeki arşiv bütünlüğü listesi (silinmesin diye her zaman dışlanır).
 private let systemExcludes = (RsyncCommand.systemExclusions + ["/" + ArchiveIntegrity.manifestName]).map { "--exclude=\($0)" }
 
-/// Varsayılan yerel kopya: -rltDhX --info=progress2 --partial, sistem klasörleri dışarıda, "--"dan sonra yollar.
+/// Varsayılan yerel kopya: -rltDhX --info=progress2 -i --partial, sistem klasörleri dışarıda, "--"dan sonra yollar.
+/// `-i` geri alma kaydı içindir; anlık görüntülü işte, değişiklik günlüğü açıkken (zaten var) ve yalnızca toplu iş dosyası
+/// yazılırken (hedef değişmez) eklenmez.
 @Test func defaultTransferArguments() {
     let arguments = RsyncCommand.transfer(job(), environment: env())
-    #expect(arguments == ["-rltDhX", "--info=progress2", "--partial"] + systemExcludes
+    #expect(arguments == ["-rltDhX", "--info=progress2", "-i", "--partial"] + systemExcludes
         + ["--", "/Users/x/Fotoğraflar", "/Volumes/Yedek/"])
+    let snapshot = RsyncCommand.transfer(job(options: CopyOptions(snapshots: SnapshotOptions(enabled: true))), environment: env())
+    #expect(!snapshot.contains("-i"))
+    var logged = CopyOptions()
+    logged.advanced.logChanges = true
+    #expect(RsyncCommand.transfer(job(options: logged), environment: env()).filter { $0 == "-i" }.count == 1)
+    var batch = CopyOptions()
+    batch.advanced.batchMode = .onlyWrite
+    batch.advanced.batchFile = "/Users/x/toplu"
+    #expect(!RsyncCommand.transfer(job(options: batch), environment: env()).contains("-i"))
 }
 
 /// "İçeriğini kopyala" kaynağın sonuna "/" ekler; "klasörün kendisi" eklemez.
@@ -111,7 +122,7 @@ func fatLikeDestinationsDropPermissionFlags(fs: FileSystemKind) {
 /// macOS'un openrsync'i: --info=progress2, öznitelikler ve ACL yok; öznitelik seçeneği "düşürülen" olarak bildirilir.
 @Test func openrsyncRestrictedMode() {
     let arguments = RsyncCommand.transfer(job(options: CopyOptions(preservePermissions: true)), environment: env(engine: openrsyncEngine))
-    #expect(arguments.prefix(3) == ["-rltDh", "--partial", "-pog"])
+    #expect(arguments.prefix(4) == ["-rltDh", "-i", "--partial", "-pog"])
     #expect(!arguments.contains("--info=progress2"))
     #expect(!arguments.contains { $0 == "--extended-attributes" || $0.hasPrefix("-") && !$0.hasPrefix("--") && $0.contains("X") })
     #expect(RsyncCommand.droppedOptions(job(), environment: env(engine: openrsyncEngine)).first == "-X")

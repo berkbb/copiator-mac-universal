@@ -43,11 +43,14 @@ public enum RsyncCommand {
         }
     }
 
-    /// Kopyalama. Varsayılan: `-rltDhX --info=progress2 --partial`.
+    /// Kopyalama. Varsayılan: `-rltDhX --info=progress2 -i --partial` (`-i` anlık görüntüsüz işte geri alma kaydı için).
     public static func transfer(_ job: TransferJob, environment: Environment) -> [String] {
         let advanced = job.options.advanced
         var arguments = baseFlags(job.options, environment)
         arguments += infoFlags(advanced, environment)
+        // Anlık görüntüsüz işte değişiklik satırları her zaman istenir: son çalıştırmanın eklediği öğeler geri alınabilsin
+        // diye kaydedilir (bkz. `RunUndo`); günlüğe yalnızca "değişiklikleri günlüğe yaz" açıkken yazılır.
+        if !job.options.snapshots.enabled, !advanced.logChanges, advanced.batchMode != .onlyWrite { arguments.append("-i") }
         arguments.append("--partial")
         arguments += rsyncPathFlags(environment)
         arguments += metadataFlags(job.options, environment)

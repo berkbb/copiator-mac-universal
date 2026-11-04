@@ -14,12 +14,13 @@ private func env(_ fs: FileSystemKind = .apfs, engine: EngineInfo = fullEngine, 
 
 // MARK: - Varsayılanlar ve kodlama
 
-/// Varsayılan gelişmiş seçenekler hiçbir ek argüman üretmez: komut eskisiyle birebir aynı kalır.
+/// Varsayılan gelişmiş seçenekler hiçbir ek argüman üretmez. `-i` her anlık görüntüsüz kopyada vardır: eklenen öğeler
+/// geri alınabilsin diye kaydedilir (bkz. `RunUndo`).
 @Test func defaultAdvancedOptionsChangeNothing() {
     #expect(AdvancedOptions().isDefault)
     let arguments = RsyncCommand.transfer(job(AdvancedOptions()), environment: env())
-    #expect(arguments == ["-rltDhX", "--info=progress2", "--partial", "--exclude=/" + ArchiveIntegrity.manifestName, "--", "/Users/x/Proje",
-                          "/Volumes/Yedek/"])
+    #expect(arguments == ["-rltDhX", "--info=progress2", "-i", "--partial", "--exclude=/" + ArchiveIntegrity.manifestName, "--",
+                          "/Users/x/Proje", "/Volumes/Yedek/"])
 }
 
 @Test func advancedOptionsRoundTripAndDecodeTolerantly() throws {

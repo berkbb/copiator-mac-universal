@@ -128,6 +128,8 @@ public enum JobQueue {
             startedAt: job.startedAt ?? date, finishedAt: date, result: result,
             bytesTransferred: job.progress?.bytesTransferred, filesTransferred: job.progress?.filesTransferred
         ))
+        // Geri alma kaydı yalnızca son çalıştırmada kalır (eklenen öğelerin listesi kaydı büyütmesin).
+        for index in job.history.indices.dropLast() where job.history[index].result.undo != nil { job.history[index].result.undo = nil }
         job.result = result
         job.wasInterrupted = false
         switch result.kind {

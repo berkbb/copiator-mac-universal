@@ -145,6 +145,9 @@ struct JobListView: View {
         Button(settings.t(.menuEditJob), systemImage: "pencil") { model.beginEdit(job.id) }
             .disabled(!JobQueue.canEdit(job))
         Button(settings.t(.menuDuplicateJob), systemImage: "plus.square.on.square") { model.beginDuplicate(job.id) }
+        if model.undoPlan(for: job) != nil {
+            Button(settings.t(.menuUndoLastRun), systemImage: "arrow.uturn.backward") { model.requestUndoLastRun(job.id) }
+        }
         Divider()
         Button(settings.t(.menuVerify), systemImage: "checkmark.shield") { model.requestVerify(job.id) }
             .disabled(!JobQueue.canVerify(job) || model.operation != nil)

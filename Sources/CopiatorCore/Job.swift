@@ -206,6 +206,8 @@ public struct JobResult: Codable, Equatable, Sendable {
     public var snapshot: String?
     /// Kopyalama sonrası doğrulamanın bulduğu fark sayısı (doğrulama yapılmadıysa nil).
     public var differenceCount: Int?
+    /// Anlık görüntüsüz başarılı çalıştırmanın geri alma kaydı (yalnızca son çalıştırmada tutulur; bkz. `RunUndo`).
+    public var undo: RunUndo.Record?
 
     public init(
         kind: JobResultKind, exitCode: Int32? = nil, noteCount: Int = 0, detail: String = "",
@@ -222,7 +224,7 @@ public struct JobResult: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case kind, exitCode, noteCount, detail, requiredBytes, availableBytes, snapshot, differenceCount
+        case kind, exitCode, noteCount, detail, requiredBytes, availableBytes, snapshot, differenceCount, undo
     }
 
     public init(from decoder: Decoder) throws {
@@ -234,6 +236,7 @@ public struct JobResult: Codable, Equatable, Sendable {
         requiredBytes = try? container.decodeIfPresent(Int64.self, forKey: .requiredBytes)
         availableBytes = try? container.decodeIfPresent(Int64.self, forKey: .availableBytes)
         snapshot = (try? container.decodeIfPresent(String.self, forKey: .snapshot)) ?? nil
+        undo = (try? container.decodeIfPresent(RunUndo.Record.self, forKey: .undo)) ?? nil
         differenceCount = (try? container.decodeIfPresent(Int.self, forKey: .differenceCount)) ?? nil
     }
 }
@@ -248,6 +251,8 @@ public struct JobRun: Codable, Equatable, Identifiable, Sendable {
     public var filesTransferred: Int?
     /// Çalıştırma bittiğinde hedef diskteki boş alan (dolma tahmini için; eski kayıtlarda yok).
     public var destinationFreeBytes: Int64?
+    /// Bu çalıştırma geri alındı (bkz. `RunUndo`); geri alınan çalıştırma bir daha geri alınamaz.
+    public var undoneAt: Date?
 
     public init(
         id: UUID = UUID(), startedAt: Date, finishedAt: Date, result: JobResult, bytesTransferred: Int64? = nil,
@@ -264,7 +269,7 @@ public struct JobRun: Codable, Equatable, Identifiable, Sendable {
 
     public var duration: TimeInterval { max(0, finishedAt.timeIntervalSince(startedAt)) }
 
-    private enum CodingKeys: String, CodingKey { case id, startedAt, finishedAt, result, bytesTransferred, filesTransferred, destinationFreeBytes }
+    private enum CodingKeys: String, CodingKey { case id, startedAt, finishedAt, result, bytesTransferred, filesTransferred, destinationFreeBytes, undoneAt }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -275,6 +280,7 @@ public struct JobRun: Codable, Equatable, Identifiable, Sendable {
         bytesTransferred = (try? container.decodeIfPresent(Int64.self, forKey: .bytesTransferred)) ?? nil
         filesTransferred = (try? container.decodeIfPresent(Int.self, forKey: .filesTransferred)) ?? nil
         destinationFreeBytes = (try? container.decodeIfPresent(Int64.self, forKey: .destinationFreeBytes)) ?? nil
+        undoneAt = (try? container.decodeIfPresent(Date.self, forKey: .undoneAt)) ?? nil
     }
 }
 
