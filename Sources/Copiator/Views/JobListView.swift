@@ -23,8 +23,9 @@ struct SidebarView: View {
                         .lineLimit(1)
                         .tag(SidebarItem.routine(routine.id))
                         // Finder'dan bırakılan öğeler bu rutinle kopyalanır.
+                        // Açık `return`: değer döndürmeyen yeni sürüm değil, bırakmanın başarısını bildiren sürüm seçilir.
                         .dropDestination(for: URL.self) { urls, _ in
-                            model.runRoutine(routine.id, on: urls.filter(\.isFileURL)) == nil
+                            return model.runRoutine(routine.id, on: urls.filter(\.isFileURL)) == nil
                         }
                         .contextMenu {
                             Button(settings.t(.routineRun), systemImage: "play.fill") { model.runRoutine(routine.id) }

@@ -5,6 +5,10 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+### Fixed
+
+- **Dropping files on a sidebar routine reports the result:** the drop handler now returns whether the routine started, so macOS shows a refused drop instead of always treating it as accepted. The handler had silently fallen to the newer SwiftUI overload that returns nothing (a compiler warning in the 1.1.0 build).
+
 ## [1.1.0] — 2026-11-04
 
 ### Added
