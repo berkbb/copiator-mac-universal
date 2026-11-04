@@ -3,6 +3,7 @@ import AppKit
 import CopiatorCore
 import Foundation
 import Observation
+import ServiceManagement
 @preconcurrency import UserNotifications
 
 enum EngineStatus: Equatable {
@@ -354,6 +355,9 @@ final class AppModel {
     }
     /// Tam Disk Erişimi gerektiği bu oturumda bildirildi mi (bildirim en çok bir kez gönderilir).
     @ObservationIgnored private var fullDiskAccessAnnounced = false
+    /// "Girişte aç" kaydı ve son okunan durumu (bkz. LoginItem.swift).
+    @ObservationIgnored var loginItem: any LoginItemService = SMAppService.mainApp
+    var loginItemState: LoginItemState = .off
 
     /// Yapay zekâ önerileri sunulur mu (ayar açık ve bu Mac'te cihaz üstü model var).
     var canSuggestWithAI: Bool { settings.aiSuggestions && suggestionModel.isAvailable }
@@ -1690,6 +1694,7 @@ final class AppModel {
     func refreshPermissions(ask: Bool) async {
         guard Bundle.main.bundleIdentifier == AppInfo.bundleIdentifier else { return }
         fullDiskAccessGranted = FullDiskAccess.isGranted(home: homeDirectory)
+        refreshLoginItem()
         let center = UNUserNotificationCenter.current()
         var current = await center.notificationSettings()
         // nil: bu çağrıda sorulmadı; önceki sorunun sonucu korunur (açılıştaki soru ile öne gelme yoklaması yarışabilir).

@@ -271,6 +271,8 @@ public enum LKey: String, CaseIterable, Sendable {
     case permissionFullDiskNotice, settingsPermissionsSection, settingsPermissionsNote, settingsPermissionNotifications
     case settingsPermissionFullDisk, permissionStatusOn, permissionStatusOff, permissionStatusNotAsked, permissionStatusUnavailable
     case permissionStatusUnknown
+    // Girişte aç
+    case settingsOpenAtLogin, settingsOpenAtLoginNote, loginItemNeedsApproval, loginItemUnavailable, loginItemFailed
     // Yinelenen dosyalar
     case menuDuplicates, duplicatesTitle, duplicatesNote, duplicatesScanning, duplicatesNone, duplicatesSummary, duplicatesKeep
     case duplicatesGroup, duplicatesTrash, duplicatesTrashConfirm, duplicatesConfirmTitle, duplicatesConfirmMessage, duplicatesDone

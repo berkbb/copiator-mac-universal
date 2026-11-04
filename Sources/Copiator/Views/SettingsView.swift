@@ -107,6 +107,7 @@ private struct GeneralSettingsView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                OpenAtLoginRow()
             }
 
             PermissionStatusSection()

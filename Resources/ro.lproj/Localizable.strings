@@ -993,3 +993,8 @@
 "permissionStatusNotAsked" = "Încă nu s-a cerut";
 "permissionStatusUnavailable" = "macOS nu o oferă";
 "permissionStatusUnknown" = "Necunoscut";
+"settingsOpenAtLogin" = "Deschide la autentificare";
+"settingsOpenAtLoginNote" = "Copiator se deschide singur când vă autentificați pe Mac. Lucrările care pornesc la conectarea unui disc, mementoul pentru copiile de rezervă vechi și verificarea integrității la conectare funcționează doar cât timp aplicația rulează. Nimic nu este programat.";
+"loginItemNeedsApproval" = "macOS așteaptă aprobarea dvs.: activați Copiator în Configurări sistem › General › Elemente de autentificare și extensii.";
+"loginItemUnavailable" = "macOS nu găsește această copie ca element de autentificare; deschideți Copiator din dosarul Aplicații.";
+"loginItemFailed" = "Deschiderea la autentificare nu a putut fi modificată: %@";

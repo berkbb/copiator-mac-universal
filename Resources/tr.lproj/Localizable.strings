@@ -993,3 +993,8 @@
 "permissionStatusNotAsked" = "Henüz sorulmadı";
 "permissionStatusUnavailable" = "macOS izin sormuyor";
 "permissionStatusUnknown" = "Bilinmiyor";
+"settingsOpenAtLogin" = "Girişte aç";
+"settingsOpenAtLoginNote" = "Copiator, Mac'e giriş yaptığınızda kendiliğinden açılır. Disk takılınca başlayan işler, eski yedek hatırlatması ve takılınca bütünlük denetimi yalnızca uygulama çalışırken işler. Hiçbir şey zamanlanmaz.";
+"loginItemNeedsApproval" = "macOS onayınızı bekliyor: Sistem Ayarları › Genel › Giriş Öğeleri ve Uzantılar'da Copiator'ı açın.";
+"loginItemUnavailable" = "macOS bu kopyayı giriş öğesi olarak bulamıyor; Copiator'ı Uygulamalar klasöründen açın.";
+"loginItemFailed" = "Girişte açma değiştirilemedi: %@";
