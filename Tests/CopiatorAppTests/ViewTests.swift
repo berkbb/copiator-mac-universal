@@ -314,3 +314,21 @@ struct InspectorTests {
         #expect(model.showInspector)
     }
 }
+
+/// Anlık görüntü arama sonucunun ekran okuyucu adı yolu ve kaç anlık görüntüde olduğunu söyler.
+@Suite(.serialized)
+@MainActor
+struct SnapshotSearchAccessibilityTests {
+    @Test func resultLabelNamesThePathAndSnapshots() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let settings = fixture.settings
+        settings.language = .tr
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        let snapshot = SnapshotRestore.Snapshot(name: "2026-11-02-100000", date: date, url: fixture.url("Yedek/2026-11-02-100000"))
+        let hit = SnapshotSearch.Hit(relativePath: "Tatil/foto.jpg", isDirectory: false, snapshots: [snapshot, snapshot])
+        #expect(SnapshotSearchResultsView.label(hit, settings: settings) == "Tatil/foto.jpg, " + settings.t(.snapshotsSearchHit, 2, settings.date(date)))
+        let bare = SnapshotSearch.Hit(relativePath: "Tatil", isDirectory: true, snapshots: [])
+        #expect(SnapshotSearchResultsView.label(bare, settings: settings) == "Tatil")
+    }
+}

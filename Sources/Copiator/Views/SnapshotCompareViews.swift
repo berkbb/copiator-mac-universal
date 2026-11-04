@@ -26,6 +26,13 @@ struct SnapshotSearchResultsView: View {
     let open: (SnapshotSearch.Hit) -> Void
     @Environment(AppSettings.self) private var settings
 
+    /// Sonucun ekran okuyucu adı: yol ve kaç anlık görüntüde olduğu.
+    static func label(_ hit: SnapshotSearch.Hit, settings: AppSettings) -> String {
+        let path = OpenSafety.visibleName(hit.relativePath)
+        guard let newest = hit.snapshots.first else { return path }
+        return path + ", " + settings.t(.snapshotsSearchHit, hit.snapshots.count, settings.date(newest.date))
+    }
+
     var body: some View {
         if results.hits.isEmpty {
             ContentUnavailableView(settings.t(.snapshotsSearchNone), systemImage: "magnifyingglass")
@@ -48,6 +55,8 @@ struct SnapshotSearchResultsView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    // Düz biçimli düğmenin içindeki metinler ekran okuyucuya ad olarak ulaşmıyor (2026-11-04 canlı denemesi).
+                    .accessibilityLabel(Self.label(hit, settings: settings))
                 }
                 .accessibilityIdentifier("copiator.snapshots.searchResults")
                 if results.isTruncated {
