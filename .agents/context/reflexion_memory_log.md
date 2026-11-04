@@ -236,3 +236,7 @@
 - **Root Cause:** notifications never appeared and `requestAuthorization` failed with UNErrorDomain 1, so the report pointed at the ad-hoc signature and parked the problem behind Developer ID (roadmap 11). The comparison mixed two variables: the copy that got the prompt was both differently signed and opened from `/Applications`. An ad-hoc probe copied to `/Applications` got the prompt too; the same probe in `/tmp` or `build/` did not.
 - **Guardrail:** change one variable at a time before blaming signing or system policy; for privacy features test the installed app in `/Applications`. Copiator now asks at launch and explains a blocked permission in a banner (`PermissionTests`), and hands-on rounds run from `/Applications`.
 
+## Episode 57: Deleting the Backup in the Same Command as the Check
+- **Root Cause:** after a hands-on round the settings were restored with `defaults import` and compared with the backup, but the same shell command also deleted the backup, so when the comparison reported a difference (most likely AppKit's own window and open-panel state) there was nothing left to compare or restore from. The job list matched; the user settings visibly did too.
+- **Guardrail:** delete backups only in a separate step after the comparison passed; when a restore check fails, keep the backup and report the exact difference. During UI rounds, check that the app is frontmost before every keystroke, prefer accessibility actions over keys, and keep the display awake with a time-limited `caffeinate -d` that is stopped afterwards.
+
