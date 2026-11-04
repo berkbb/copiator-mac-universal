@@ -52,7 +52,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 - **Agent standards brought up to date (developer tooling, not part of the app):** the `.agents/` rule files follow the current 42 Core Standards and their current names (nine files renamed, an invented standard removed), each with its upstream source, version and review date and with requirements written for Copiator; [`.agents/AGENTS.md`](.agents/AGENTS.md) gains a graph-first workflow step and a repository map, and the documents link to each other.
 
-- **License: GPL-3.0-only.** Copiator's own code is now licensed under the GNU General Public License, version 3 only (was "version 3 or later"); the `LICENSE` text is unchanged. Source headers, the About window, the license viewer, the bundle's copyright line, the README and the third-party notices say so. The bundled rsync keeps its own GPL-3.0-or-later license. The notice for the derived components now states the source project's actual license, GPL-3.0 with the same copyright holder, instead of MIT.
+- **License: GPL-3.0-only.** Copiator's own code is now licensed under the GNU General Public License, version 3 only (was "version 3 or later"); the `LICENSE` text is unchanged. Source headers, the About window, the license viewer, the bundle's copyright line, the README and the third-party notices say so. The bundled rsync keeps its own GPL-3.0-or-later license. The notice for the derived components now states the source project's actual license, GPL-3.0-only with the same copyright holder, instead of MIT.
 
 ### Fixed
 

@@ -56,7 +56,7 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 
 - Decided with the user on 2026-11-04: Copiator's own code is GPL-3.0-only (previously GPL-3.0-or-later). Every Swift source starts with `// SPDX-License-Identifier: GPL-3.0-only`; About, license viewer, `NSHumanReadableCopyright`, README and `THIRD_PARTY_NOTICES.md` say GPL-3.0-only. The `LICENSE` file is the unchanged GPLv3 text.
 - The bundled rsync keeps its own GPL-3.0-or-later license (with its linking exception); lines that describe rsync (`Scripts/build-rsync.sh`, `Vendor/rsync/SOURCE.txt`, the engine entry of the license viewer) are not changed.
-- The project the derived components come from is GPL-3.0 with the same copyright holder (Babadogan Tech and Edu); the earlier MIT notice was outdated and was replaced. That project is named only in `THIRD_PARTY_NOTICES.md`.
+- The project the derived components come from is GPL-3.0-only with the same copyright holder (Babadogan Tech and Edu); the earlier MIT notice was outdated and was replaced. That project is named only in `THIRD_PARTY_NOTICES.md`.
 
 ## Agent Tooling
 
