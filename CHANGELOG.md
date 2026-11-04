@@ -5,6 +5,10 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+### Added
+
+- **Log window** (Window › Show Log, ⌥⌘L), like the sister apps' Console-style log: the app, the rsync engine, jobs (start and end with result, exit code and duration), disks (mount, unmount, eject), integrity checks, update checks, permissions at launch, the battery hold, sleeping when the queue finishes and undo write here. Each entry also goes to macOS's unified log (subsystem `com.babadogantech.copiator`, followed live in the Console app: the summary is public, the detail private) and to `~/Library/Logs/Copiator/Copiator.log` (only readable by you, kept once as `Copiator.1.log` when it passes 1 MB), so the previous session's entries are there after a relaunch. Summaries never contain paths or file names; jobs are named by the first eight characters of their identity, and rsync's messages stay in the private detail. The window filters to errors and problems, searches, copies, clears, shows the file in Finder and opens it in Console. Tests keep the log in memory and never write to your log file or the unified log.
+
 ## [1.1.0] — 2026-11-04
 
 ### Added

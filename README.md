@@ -26,6 +26,7 @@ Copiator copies from a local disk to a local disk (internal, external, USB or ne
 - **Destination overview and folder suggestions:** see how full a destination is and what takes the space, and let the routine editor suggest the best existing folder for a file name.
 - **Backup reminder:** when a disk is connected, Copiator tells you which jobs and routines that copy to it have not run successfully for a while (30 days by default; off, 7–90 days in Settings).
 - **Restore from snapshots:** browse a job's snapshots, see a file's versions over time, preview files with Quick Look and restore a file, a folder or everything to where it was or to another folder, as an ordinary copy job that asks before replacing anything.
+- **Log window:** Window › Show Log (⌥⌘L) lists what the app, the engine, jobs and disks did, also after a relaunch, and can open the log in the Console app; summaries never contain your paths.
 - **Sleep when done:** the Job menu can put the Mac to sleep once the queue finishes, after a 60-second countdown you can cancel.
 - **Undo the last run:** move the newest snapshot, or the files the last run added, to the Trash after a confirmation; replaced files are never touched and nothing is deleted permanently.
 - **Battery-safe:** on a critically low battery the running job pauses and no new job starts; plugging in the adapter resumes it.

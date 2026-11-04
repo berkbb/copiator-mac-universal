@@ -77,6 +77,10 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 - Ad-hoc signing ties TCC grants to the code hash, so Full Disk Access may stop working after an update while the switch still looks on; the banner and the README tell the user to toggle it. An Apple Development certificate would keep grants across builds but embeds the developer's e-mail in public binaries, so releases stay ad-hoc unless the user decides otherwise.
 - `Info.plist` explains the on-demand prompts (Desktop, Documents, Downloads, removable and network volumes, file providers) in every language (`InfoPlist.strings`); `permissionPromptsAreExplainedInEveryLanguage` guards the key set.
 
+## Log Window (Console)
+
+- Added with the user on 2026-11-04 ("arhivar curatare gibi konsol"): the same three-way log as the sister archiver app (memory, private file under `~/Library/Logs/Copiator`, unified log with a public summary and private detail). Summaries never carry paths or file names; jobs appear as the first eight characters of their id. Tests keep the log in memory only.
+
 ## Undo Last Run
 
 - Decided with the user on 2026-11-04 (roadmap 9d, "safe part"): snapshot jobs undo by moving the newest snapshot to the Trash; other jobs only move the items the last run created. Replaced or deleted files are never restored (no hidden backup folder), nothing is deleted permanently, and items that existed before the run or changed after it are never touched.
