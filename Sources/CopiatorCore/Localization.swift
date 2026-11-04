@@ -278,6 +278,8 @@ public enum LKey: String, CaseIterable, Sendable {
     // İşleri ve ayarları başka bir Mac'e taşıma
     case menuExportSetup, menuImportSetup, exportSetupName, exportSetupFailed, toastSetupExported, setupImportTitle, setupImportNote
     case setupImportSettings, setupImportDone, setupImportFailedTitle, setupImportInvalid, setupImportNewer, setupImportTooLarge
+    // Düşük öncelikli disk G/Ç
+    case settingsLowPriorityIO, settingsLowPriorityIONote, logLowPriority
     // Girişte aç
     case settingsOpenAtLogin, settingsOpenAtLoginNote, loginItemNeedsApproval, loginItemUnavailable, loginItemFailed
     // Yinelenen dosyalar

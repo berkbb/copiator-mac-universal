@@ -325,6 +325,10 @@ private struct CopyingSettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+            Section {
+                note(.settingsLowPriorityIO, .settingsLowPriorityIONote, $settings.lowPriorityIO)
+                    .accessibilityIdentifier("copiator.settings.lowPriorityIO")
+            }
         }
         .formStyle(.grouped)
     }

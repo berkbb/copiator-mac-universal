@@ -1029,3 +1029,6 @@
 "setupImportInvalid" = "Bu dosya bir Copiator kurulum dosyası değil ya da bozuk.";
 "setupImportNewer" = "Bu dosya Copiator'ın daha yeni bir sürümüyle oluşturulmuş; önce Copiator'ı güncelleyin.";
 "setupImportTooLarge" = "Dosya bir kurulum dosyası için çok büyük.";
+"settingsLowPriorityIO" = "rsync'i düşük disk önceliğiyle çalıştır";
+"settingsLowPriorityIONote" = "rsync, macOS'un arka plan sınıfında çalışır: disk ve işlemci kullanımı öteki uygulamalardan sonra gelir, büyük bir yedek sürerken Mac akıcı kalır. Kopyalama, özellikle Mac'i kullanırken daha uzun sürebilir. Bir sonraki işten başlayarak geçerlidir.";
+"logLowPriority" = "rsync düşük disk önceliğiyle çalışıyor";

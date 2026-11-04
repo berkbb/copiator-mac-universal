@@ -84,3 +84,69 @@ private let shell = CommandRunner(executableURL: URL(fileURLWithPath: "/bin/sh")
     #expect(diagnostic.contains("Permission denied"))
     #expect(!diagnostic.contains("incremental"))
 }
+
+/// Düşük öncelik: süreç arka plan hizmet sınıfıyla başlar (macOS zamanlama önceliğini 4'e indirir, disk G/Ç'sini
+/// kısar); normal süreç böyle başlamaz.
+@Test func lowPriorityRunsTheProcessInTheBackgroundClass() async throws {
+    func priority(_ runner: CommandRunner) async throws -> Int? {
+        Int(try await runner.run(["-c", "/bin/ps -o pri= -p $$"]).stdout.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    let low = try #require(try await priority(CommandRunner(executableURL: shell.executableURL, lowPriority: true)))
+    let normal = try #require(try await priority(shell))
+    #expect(low == 4)
+    #expect(normal > low)
+}
+
+/// Kum havuzundaki program da düşük öncelikte çalışır: sandbox-exec'in başlattığı program sınıfı korur ve kurallar
+/// düşük öncelikli kopyada da geçerlidir.
+@Test(.enabled(if: SandboxProfile.isAvailable)) func lowPriorityReachesTheSandboxedProgram() async throws {
+    let w = try Workspace("CopiatorLowPriority")
+    let folder = try w.mkdir("Klasor")
+    let marker = "31.\(Int.random(in: 1000...9999))"
+    let profile = SandboxProfile.forTransfer(sources: [folder], destination: folder)
+    let runner = CommandRunner(executableURL: URL(fileURLWithPath: "/bin/sleep"), lowPriority: true).sandboxed(profile)
+    #expect(runner.lowPriority && runner.sandbox != nil)
+    let task = Task { try await runner.run([marker]) }
+    defer { task.cancel() }
+    var found: Int?
+    for _ in 0..<50 where found == nil {
+        try await Task.sleep(for: .milliseconds(100))
+        let pids = try await CommandRunner(executableURL: URL(fileURLWithPath: "/usr/bin/pgrep")).run(["-f", "sleep \(marker)"]).stdout
+        if let pid = pids.split(separator: "\n").first {
+            let pri = try await shell.run(["-c", "/bin/ps -o pri= -p \(pid)"]).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            found = Int(pri)
+        }
+    }
+    #expect(found == 4)
+}
+
+/// Motor bağlamındaki düşük öncelik gerçek rsync'e ulaşır: yavaşlatılmış bir kopya sürerken rsync süreçleri arka plan
+/// sınıfındadır; bayrak kapalıyken değildir.
+@Test(.enabled(if: vendoredRsync != nil && SandboxProfile.isAvailable)) func lowPriorityReachesTheRsyncOfAJob() async throws {
+    for low in [true, false] {
+        let w = try Workspace("CopiatorLowPriorityJob")
+        try Data(count: 4 << 20).write(to: w.mkdir("Kaynak").appendingPathComponent("buyuk.bin"))
+        let destination = try w.mkdir("Hedef-\(UUID().uuidString)")
+        var options = CopyOptions()
+        options.advanced.bandwidthLimitKiB = 256
+        let job = TransferJob(source: w.url("Kaynak"), destination: destination, options: options)
+        var context = try await engineContext()
+        context.scratchDirectory = try w.mkdir("Gecici")
+        context.lowPriority = low
+        let run = Task { await RsyncEngine().run(job, context: context) { _ in } }
+        defer { run.cancel() }
+        var priorities: [Int] = []
+        for _ in 0..<60 where priorities.isEmpty {
+            try await Task.sleep(for: .milliseconds(100))
+            let pids = try await CommandRunner(executableURL: URL(fileURLWithPath: "/usr/bin/pgrep")).run(["-f", destination.lastPathComponent]).stdout
+            for pid in pids.split(separator: "\n") {
+                let pri = try await shell.run(["-c", "/bin/ps -o pri= -p \(pid)"]).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let value = Int(pri) { priorities.append(value) }
+            }
+        }
+        #expect(!priorities.isEmpty, "rsync bulunamadı")
+        #expect(priorities.allSatisfy { low ? $0 == 4 : $0 > 4 }, "\(low) \(priorities)")
+        run.cancel()
+        _ = await run.value
+    }
+}

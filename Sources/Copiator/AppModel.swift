@@ -1307,7 +1307,7 @@ final class AppModel {
         guard let engineURL, let engineInfo else {
             return VerifyReport(entries: [], result: JobResult(kind: .engineMissing), checksum: false)
         }
-        let context = EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine)
+        let context = EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine, lowPriority: settings.lowPriorityIO)
         let job = TransferJob(kind: kind, source: source, destination: destination, options: options)
         return await engineProvider(job.kind).verify(job, context: context, checksum: false)
     }
@@ -1407,7 +1407,7 @@ final class AppModel {
         defer { onActivityChange?() }
         guard !isTerminating, runningJobID == nil, operation == nil, !settings.queueHeld, engineChecked,
               let engineURL, let engineInfo, let next = JobQueue.next(in: jobs, pathsAvailable: pathsAvailable) else { return }
-        start(next, context: EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine))
+        start(next, context: EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine, lowPriority: settings.lowPriorityIO))
     }
 
     /// "Disk takılınca başla" seçili iş, diski takılı olmadığı için bekliyor.
@@ -1509,6 +1509,7 @@ final class AppModel {
             $0.finishedAt = nil
             $0.wasInterrupted = false
             $0.appendLog(JobLogEntry(level: .info, key: resuming ? .logResumed : .logStarted, arguments: resuming ? [] : [context.info.version]))
+            if context.lowPriority { $0.appendLog(JobLogEntry(level: .info, key: .logLowPriority)) }
         }
         beginSleepGuard(for: id)
         save()
@@ -1910,7 +1911,7 @@ final class AppModel {
         guard let job = job(id), JobQueue.canVerify(job) else { return }
         perform(.progressVerifying) { [weak self] in
             guard let self, let engineURL, let engineInfo else { throw EngineError.engineNotFound }
-            let context = EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine)
+            let context = EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine, lowPriority: settings.lowPriorityIO)
             let report = await engineProvider(job.kind).verify(job, context: context, checksum: checksum)
             if report.result.kind == .cancelled { throw EngineError.cancelled }
             let differences = report.entries.filter { $0.kind != .attributes }.count

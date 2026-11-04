@@ -17,6 +17,7 @@ struct PortableSettings: Codable, Equatable {
     var defaultPreserveXattrs: Bool?
     var defaultExcludeSystemFolders: Bool?
     var keepDisplayAwake: Bool?
+    var lowPriorityIO: Bool?
     var defaultAdvanced: AdvancedOptions?
     var defaultVerifyAfterCopy: VerifyAfterCopy?
     var defaultConflictPolicy: ConflictPolicy?
@@ -35,6 +36,7 @@ struct PortableSettings: Codable, Equatable {
         defaultPreserveXattrs = settings.defaultPreserveXattrs
         defaultExcludeSystemFolders = settings.defaultExcludeSystemFolders
         keepDisplayAwake = settings.keepDisplayAwake
+        lowPriorityIO = settings.lowPriorityIO
         defaultAdvanced = Self.withoutPaths(settings.defaultAdvanced)
         defaultVerifyAfterCopy = settings.defaultVerifyAfterCopy
         defaultConflictPolicy = settings.defaultConflictPolicy
@@ -70,6 +72,7 @@ struct PortableSettings: Codable, Equatable {
         if let defaultPreserveXattrs { settings.defaultPreserveXattrs = defaultPreserveXattrs }
         if let defaultExcludeSystemFolders { settings.defaultExcludeSystemFolders = defaultExcludeSystemFolders }
         if let keepDisplayAwake { settings.keepDisplayAwake = keepDisplayAwake }
+        if let lowPriorityIO { settings.lowPriorityIO = lowPriorityIO }
         if let defaultAdvanced { settings.defaultAdvanced = Self.withoutPaths(defaultAdvanced) }
         if let defaultVerifyAfterCopy { settings.defaultVerifyAfterCopy = defaultVerifyAfterCopy }
         if let defaultConflictPolicy { settings.defaultConflictPolicy = defaultConflictPolicy }

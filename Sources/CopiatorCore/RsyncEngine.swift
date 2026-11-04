@@ -132,7 +132,7 @@ public struct RsyncEngine: TransferEngine {
             engine: context.info, destinationFileSystem: fileSystem, sourceIsDirectory: sourceIsDirectory,
             protectedPaths: protectedPaths, enginePath: SandboxProfile.resolved(context.executable).path
         )
-        let runner = CommandRunner(executableURL: context.executable).sandboxed(profile)
+        let runner = CommandRunner(executableURL: context.executable, lowPriority: context.lowPriority).sandboxed(profile)
 
         // Hedefte aynı adlı dosyalar: kararlar uygulanır ya da iş karar için duraklar.
         let conflicts: ConflictPlan
@@ -563,7 +563,7 @@ public struct RsyncEngine: TransferEngine {
             protectedPaths: protectedPaths, enginePath: SandboxProfile.resolved(context.executable).path
         )
         let arguments = RsyncCommand.verify(job, environment: environment, checksum: checksum)
-        let runner = CommandRunner(executableURL: context.executable).sandboxed(profile)
+        let runner = CommandRunner(executableURL: context.executable, lowPriority: context.lowPriority).sandboxed(profile)
         do {
             let processResult = try await runner.run(arguments)
             if Task.isCancelled { return report(.cancelled) }

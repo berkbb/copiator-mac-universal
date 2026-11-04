@@ -190,6 +190,7 @@ final class AppSettings {
         static let queueHeld = "queueHeld"
         static let customShortcuts = "customShortcuts"
         static let keepDisplayAwake = "keepDisplayAwake"
+        static let lowPriorityIO = "lowPriorityIO"
         static let defaultAdvanced = "defaultAdvancedOptions"
         static let defaultVerifyAfterCopy = "defaultVerifyAfterCopy"
         static let defaultConflictPolicy = "defaultConflictPolicy"
@@ -207,7 +208,7 @@ final class AppSettings {
         static let all = [
             language, appearance, notifyOnFinish, resumeInterruptedAtLaunch, defaultCopyMode, defaultPreservePermissions,
             defaultPreserveXattrs, defaultExcludeSystemFolders, customEnginePath, checkUpdatesAtLaunch, updateConsentAsked,
-            sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, defaultAdvanced, defaultVerifyAfterCopy,
+            sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, lowPriorityIO, defaultAdvanced, defaultVerifyAfterCopy,
             showMenuBarIcon, showDockProgress, defaultConflictPolicy, aiSuggestions, aiProvider, aiOllamaModel, aiLMStudioModel,
             aiAutomaticOrder, aiAutomaticOff, backupReminderDays, backupRemindedAt, integrityOnConnect,
         ]
@@ -247,6 +248,8 @@ final class AppSettings {
     var queueHeld: Bool { didSet { defaults.set(queueHeld, forKey: Key.queueHeld) } }
     /// İş sürerken ekranı da açık tut (`caffeinate -d` karşılığı); varsayılan kapalı, yalnızca sistem uykusu engellenir.
     var keepDisplayAwake: Bool { didSet { defaults.set(keepDisplayAwake, forKey: Key.keepDisplayAwake) } }
+    /// rsync düşük öncelikli disk G/Ç ile çalışsın (macOS arka plan sınıfı); varsayılan kapalı.
+    var lowPriorityIO: Bool { didSet { defaults.set(lowPriorityIO, forKey: Key.lowPriorityIO) } }
     /// Yeni işlerin gelişmiş rsync seçenekleri (Ayarlar › rsync); her iş Yeni İş sayfasında değiştirebilir.
     var defaultAdvanced: AdvancedOptions {
         didSet {
@@ -326,6 +329,7 @@ final class AppSettings {
         sandboxEngine = defaults.object(forKey: Key.sandboxEngine) as? Bool ?? true
         queueHeld = defaults.object(forKey: Key.queueHeld) as? Bool ?? false
         keepDisplayAwake = defaults.object(forKey: Key.keepDisplayAwake) as? Bool ?? false
+        lowPriorityIO = defaults.object(forKey: Key.lowPriorityIO) as? Bool ?? false
         defaultAdvanced = defaults.data(forKey: Key.defaultAdvanced)
             .flatMap { try? JSONDecoder().decode(AdvancedOptions.self, from: $0) } ?? AdvancedOptions()
         defaultVerifyAfterCopy = VerifyAfterCopy(rawValue: defaults.string(forKey: Key.defaultVerifyAfterCopy) ?? "") ?? .off
@@ -375,6 +379,7 @@ final class AppSettings {
         sandboxEngine = true
         queueHeld = false
         keepDisplayAwake = false
+        lowPriorityIO = false
         defaultAdvanced = AdvancedOptions()
         defaultVerifyAfterCopy = .off
         defaultConflictPolicy = .ask

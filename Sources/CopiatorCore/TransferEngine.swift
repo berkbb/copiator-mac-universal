@@ -30,16 +30,19 @@ public struct EngineContext: Sendable {
     public var scratchDirectory: URL
     /// "Taşı" adımında öğeyi Çöp Sepeti'ne taşır (testler kendi klasörlerini verir).
     public var trashItem: @Sendable (URL) -> Bool = { SourceTrash.systemTrash($0) }
+    /// Motor düşük öncelikli disk G/Ç ile çalışsın mı (Ayarlar › Kopyalama; bkz. `CommandRunner.lowPriority`).
+    public var lowPriority: Bool
 
     public init(
         executable: URL, info: EngineInfo, sandboxed: Bool = true, home: URL = FileManager.default.homeDirectoryForCurrentUser,
-        scratchDirectory: URL = FileManager.default.temporaryDirectory
+        scratchDirectory: URL = FileManager.default.temporaryDirectory, lowPriority: Bool = false
     ) {
         self.executable = executable
         self.info = info
         self.sandboxed = sandboxed
         self.home = home
         self.scratchDirectory = scratchDirectory
+        self.lowPriority = lowPriority
     }
 }
 

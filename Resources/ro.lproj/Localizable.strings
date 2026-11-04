@@ -1029,3 +1029,6 @@
 "setupImportInvalid" = "Acest fișier nu este un fișier de configurare Copiator sau este deteriorat.";
 "setupImportNewer" = "Acest fișier a fost creat de o versiune mai nouă a Copiator; actualizați mai întâi Copiator.";
 "setupImportTooLarge" = "Fișierul este prea mare pentru un fișier de configurare.";
+"settingsLowPriorityIO" = "Rulează rsync cu prioritate redusă pe disc";
+"settingsLowPriorityIONote" = "rsync rulează în clasa de fundal a macOS: folosirea discului și a procesorului vine după celelalte aplicații, astfel încât Mac-ul rămâne fluid în timpul unei copii mari. Copierea poate dura mai mult, mai ales cât timp folosiți Mac-ul. Se aplică de la următoarea lucrare.";
+"logLowPriority" = "rsync rulează cu prioritate redusă pe disc";

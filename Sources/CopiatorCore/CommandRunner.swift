@@ -42,10 +42,14 @@ public struct CommandRunner: Sendable {
     public let executableURL: URL
     /// Doluysa program sandbox-exec altında bu kurallarla çalıştırılır.
     public let sandbox: SandboxProfile?
+    /// Program arka plan hizmet sınıfıyla (`.background`) başlatılır: macOS disk G/Ç'sini ve işlemci önceliğini düşürür,
+    /// öteki uygulamalar önce gelir. sandbox-exec'ten rsync'e ve rsync'in alt süreçlerine geçer.
+    public let lowPriority: Bool
 
-    public init(executableURL: URL, sandbox: SandboxProfile? = nil) {
+    public init(executableURL: URL, sandbox: SandboxProfile? = nil, lowPriority: Bool = false) {
         self.executableURL = executableURL
         self.sandbox = sandbox
+        self.lowPriority = lowPriority
     }
 
     /// Bir alt sürecin stdout ve stderr'de biriktirilebilecek en çok baytı. Kuru çalıştırmada (`-n -i`) milyonlarca
@@ -86,6 +90,7 @@ public struct CommandRunner: Sendable {
         }
         let box = try ProcessBox(executableURL: launch.0, arguments: launch.1, input: input)
         if let workingDirectory { box.process.currentDirectoryURL = workingDirectory }
+        if lowPriority { box.process.qualityOfService = .background }
         let state = RunState(onRecord: onRecord, maxOutputBytes: maxOutputBytes, retainStdout: retainStdout)
         // Çıktı sınırı aşılırsa süreci durdur; drain EOF alır, bekleyen devam hata ile döner.
         state.onLimitExceeded = { box.terminate() }

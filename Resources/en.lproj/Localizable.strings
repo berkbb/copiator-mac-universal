@@ -1029,3 +1029,6 @@
 "setupImportInvalid" = "This file is not a Copiator setup file, or it is damaged.";
 "setupImportNewer" = "This file was made by a newer version of Copiator; update Copiator first.";
 "setupImportTooLarge" = "The file is too large for a setup file.";
+"settingsLowPriorityIO" = "Run rsync with low disk priority";
+"settingsLowPriorityIONote" = "rsync runs in macOS’s background class: its disk and processor use come after other apps, so the Mac stays responsive while a large backup runs. Copying may take longer, especially while you use the Mac. Applies from the next job.";
+"logLowPriority" = "rsync runs with low disk priority";

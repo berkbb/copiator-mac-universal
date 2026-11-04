@@ -121,3 +121,33 @@ struct MoveToMacTests {
         #expect(model.alert?.message == fixture.settings.t(.setupImportInvalid))
     }
 }
+
+/// Düşük disk önceliği ayarı işin motor bağlamına geçer ve günlüğe yazılır; kapalıyken yazılmaz.
+@Suite(.enabled(if: rsyncURL != nil, "Vendor/rsync/rsync yok"), .serialized)
+@MainActor
+struct LowPriorityAppTests {
+    @Test func settingReachesTheJobAndItsLog() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        #expect(!fixture.settings.lowPriorityIO, "varsayılan kapalı")
+        await model.refreshEngine()
+        let normal = try #require(fixture.addJob())
+        await model.waitUntilIdle()
+        #expect(model.job(normal)?.log.contains(where: { $0.key == LKey.logLowPriority.rawValue }) == false)
+        fixture.settings.lowPriorityIO = true
+        #expect(AppSettings(defaults: fixture.defaults, bundle: resourcesBundle).lowPriorityIO, "kalıcı")
+        _ = fixture.relaunch()
+        await fixture.model.refreshEngine()
+        // Ayrı hedef: ilk işin dosyaları aynı adlı dosya sorusu doğurmasın.
+        try FileManager.default.createDirectory(at: fixture.url("Hedef2"), withIntermediateDirectories: true)
+        #expect(fixture.model.addJob(source: fixture.url("Kaynak"), destination: fixture.url("Hedef2"), options: CopyOptions()) == nil)
+        let low = try #require(fixture.model.jobs.last?.id)
+        await fixture.model.waitUntilIdle()
+        let job = try #require(fixture.model.job(low))
+        #expect(job.status == .finished)
+        #expect(job.log.contains { $0.key == LKey.logLowPriority.rawValue })
+        fixture.settings.resetAll()
+        #expect(!fixture.settings.lowPriorityIO)
+    }
+}

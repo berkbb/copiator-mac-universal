@@ -187,6 +187,6 @@ extension CommandRunner {
     /// `EngineError.sandboxUnavailable` ile reddedilir, program korumasız başlatılmaz.
     public func sandboxed(_ profile: SandboxProfile?) -> CommandRunner {
         guard let profile else { return self }
-        return CommandRunner(executableURL: executableURL, sandbox: profile)
+        return CommandRunner(executableURL: executableURL, sandbox: profile, lowPriority: lowPriority)
     }
 }
