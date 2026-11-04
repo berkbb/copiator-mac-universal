@@ -257,6 +257,10 @@ public enum LKey: String, CaseIterable, Sendable {
     case menuSnapshots, snapshotsTitle, snapshotsNone, snapshotsUp, snapshotsRoot, snapshotsEmptyFolder, snapshotsVersions
     case snapshotsRestoreVersion, snapshotsRestoreOriginal, snapshotsRestoreElsewhere, snapshotsRestoreNote, toastRestoreQueued
     case logRestoreFrom, snapshotsChooseFolder
+    case snapshotsModeBrowse, snapshotsModeCompare, snapshotsSearchPrompt, snapshotsSearching, snapshotsSearchNone, snapshotsSearchHit
+    case snapshotsSearchTruncated, snapshotsCompareOlder, snapshotsCompareNewer, snapshotsComparing, snapshotsCompareSame
+    case snapshotsCompareAdded, snapshotsCompareChanged, snapshotsCompareRemoved, snapshotsCompareMore, snapshotsCompareNote
+    case snapshotsCompareNeedsTwo, snapshotsQuickLook
     // Arşiv bütünlüğü
     case menuIntegrity, integrityTitle, integrityNote, integrityNever, integrityLast, integrityCheck, integrityChecking, integrityCancel
     case integrityFirst, integritySummary, integrityNoProblems, integrityCorrupted, integrityMissing, integrityUnreadable, integrityMore

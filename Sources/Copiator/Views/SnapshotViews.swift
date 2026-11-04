@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import AppKit
 import CopiatorCore
+import QuickLook
 import SwiftUI
 
 /// Bir işin anlık görüntülerine göz atma ve geri yükleme: solda anlık görüntüler (en yeni önce), sağda seçilen anlık
-/// görüntüde klasör klasör gezinme, seçilen dosyanın sürümleri ve geri yükleme. Geri yükleme kuyruğa sıradan bir
-/// kopyalama işi ekler; aynı adlı dosya sorulur, hiçbir şey silinmez.
+/// görüntüde klasör klasör gezinme, seçilen dosyanın sürümleri, Quick Look önizlemesi ve geri yükleme. Arama alanı bütün
+/// anlık görüntülerde ada göre arar; "Karşılaştır" iki anlık görüntü arasında eklenen, değişen ve silinen dosyaları
+/// gösterir. Geri yükleme kuyruğa sıradan bir kopyalama işi ekler; aynı adlı dosya sorulur, hiçbir şey silinmez.
 struct SnapshotBrowserSheet: View {
     let request: SnapshotBrowserRequest
     @Environment(AppModel.self) private var model
@@ -19,6 +21,12 @@ struct SnapshotBrowserSheet: View {
     @State private var selectedItem: SnapshotRestore.Item.ID?
     @State private var versions: [SnapshotRestore.Version] = []
     @State private var message: String?
+    @State private var mode = SnapshotBrowserMode.browse
+    @State private var query = ""
+    @State private var results: SnapshotSearch.Results?
+    /// Arama sonucundan açılan öğe: anlık görüntü değişince klasörüne gidilip seçilir.
+    @State private var pendingReveal: String?
+    @State private var previewURL: URL?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -27,7 +35,10 @@ struct SnapshotBrowserSheet: View {
                 if snapshots.isEmpty {
                     ContentUnavailableView(settings.t(.snapshotsNone), systemImage: "clock.arrow.circlepath")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if mode == .compare {
+                    SnapshotCompareView(job: job, snapshots: snapshots, previewURL: $previewURL)
                 } else {
+                    searchField
                     HStack(alignment: .top, spacing: 12) {
                         List(snapshots, selection: $selected) { snapshot in
                             VStack(alignment: .leading, spacing: 2) {
@@ -38,7 +49,15 @@ struct SnapshotBrowserSheet: View {
                         }
                         .frame(width: 220)
                         .accessibilityIdentifier("copiator.snapshots.list")
-                        browser(job)
+                        if isSearching {
+                            if let results {
+                                SnapshotSearchResultsView(results: results, open: reveal)
+                            } else {
+                                ProgressView(settings.t(.snapshotsSearching)).frame(maxWidth: .infinity, maxHeight: .infinity)
+                            }
+                        } else {
+                            browser(job)
+                        }
                     }
                 }
                 footer(job)
@@ -48,10 +67,25 @@ struct SnapshotBrowserSheet: View {
         .frame(width: 820, height: 560)
         .onAppear(perform: load)
         .onChange(of: selected) {
-            path = ""
+            path = pendingReveal.map { ($0 as NSString).deletingLastPathComponent } ?? ""
             refresh()
+            selectedItem = pendingReveal
+            pendingReveal = nil
         }
         .onChange(of: selectedItem) { loadVersions() }
+        .task(id: query) { await search() }
+        .quickLookPreview($previewURL)
+    }
+
+    private var isSearching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
+            TextField(settings.t(.snapshotsSearchPrompt), text: $query)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("copiator.snapshots.search")
+        }
     }
 
     private func header(_ job: TransferJob) -> some View {
@@ -65,6 +99,16 @@ struct SnapshotBrowserSheet: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
+            Spacer()
+            Picker(settings.t(.snapshotsModeBrowse), selection: $mode) {
+                Text(settings.t(.snapshotsModeBrowse)).tag(SnapshotBrowserMode.browse)
+                Text(settings.t(.snapshotsModeCompare)).tag(SnapshotBrowserMode.compare)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .disabled(snapshots.isEmpty)
+            .accessibilityIdentifier("copiator.snapshots.mode")
         }
     }
 
@@ -106,6 +150,11 @@ struct SnapshotBrowserSheet: View {
                 }
                 .accessibilityIdentifier("copiator.snapshots.items")
             }
+            if let url = selectedFileURL(job) {
+                Button(settings.t(.snapshotsQuickLook), systemImage: "eye") { previewURL = url }
+                    .keyboardShortcut(.space, modifiers: [])
+                    .accessibilityIdentifier("copiator.snapshots.quickLook")
+            }
             if versions.count > 0 {
                 Text(settings.t(.snapshotsVersions)).font(.headline)
                 ForEach(versions) { version in
@@ -136,13 +185,13 @@ struct SnapshotBrowserSheet: View {
                 Button(settings.t(.buttonClose)) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button(settings.t(.snapshotsRestoreElsewhere)) { chooseFolder() }
-                    .disabled(currentSnapshot == nil)
+                    .disabled(currentSnapshot == nil || mode == .compare)
                     .accessibilityIdentifier("copiator.snapshots.restoreElsewhere")
                 Button(settings.t(.snapshotsRestoreOriginal)) {
                     if let snapshot = currentSnapshot { restore(from: snapshot, to: nil) }
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(currentSnapshot == nil)
+                .disabled(currentSnapshot == nil || mode == .compare)
                 .accessibilityIdentifier("copiator.snapshots.restoreOriginal")
             }
         }
@@ -176,6 +225,40 @@ struct SnapshotBrowserSheet: View {
             return
         }
         versions = SnapshotRestore.versions(of: item.relativePath, job: job)
+    }
+
+    /// Seçili öğe bir dosyaysa anlık görüntüdeki yeri (Quick Look için).
+    private func selectedFileURL(_ job: TransferJob) -> URL? {
+        guard let snapshot = currentSnapshot, let id = selectedItem, let item = items.first(where: { $0.id == id }), !item.isDirectory else {
+            return nil
+        }
+        return SnapshotRestore.contentRoot(of: snapshot, job: job).appendingPathComponent(item.relativePath)
+    }
+
+    /// Sorgu değişince bütün anlık görüntülerde ada göre aranır (kısa bir bekleme sonra; önceki arama durur).
+    private func search() async {
+        results = nil
+        guard isSearching, let job = model.job(request.jobID) else { return }
+        try? await Task.sleep(for: .milliseconds(300))
+        guard !Task.isCancelled else { return }
+        let text = query
+        let list = snapshots
+        let found = await runCancellable { isCancelled in SnapshotSearch.search(text, in: list, job: job, isCancelled: isCancelled) }
+        if !Task.isCancelled { results = found }
+    }
+
+    /// Arama sonucunu, onu içeren en yeni anlık görüntüde açar: klasörüne gidilir ve öğe seçilir.
+    private func reveal(_ hit: SnapshotSearch.Hit) {
+        guard let snapshot = hit.snapshots.first else { return }
+        query = ""
+        if selected == snapshot.id {
+            path = (hit.relativePath as NSString).deletingLastPathComponent
+            refresh()
+            selectedItem = hit.relativePath
+        } else {
+            pendingReveal = hit.relativePath
+            selected = snapshot.id
+        }
     }
 
     private func restore(from snapshot: SnapshotRestore.Snapshot, to folder: URL?) {
