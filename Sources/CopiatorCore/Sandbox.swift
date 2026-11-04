@@ -19,7 +19,8 @@ public struct SandboxProfile: Sendable, Equatable {
     /// Yazılabilir tek dosyalar (iş başına seçilen günlük ve toplu iş dosyaları).
     public var writableFiles: [URL]
 
-    public static let launcher = URL(fileURLWithPath: "/usr/bin/sandbox-exec")
+    /// sandbox-exec'in yolu; testler var olmayan bir yol vererek başlatıcının bulunmadığı bir Mac'i taklit eder.
+    @TaskLocal public static var launcher = URL(fileURLWithPath: "/usr/bin/sandbox-exec")
 
     public static var isAvailable: Bool {
         FileManager.default.isExecutableFile(atPath: launcher.path)
@@ -182,9 +183,10 @@ public struct SandboxProfile: Sendable, Equatable {
 }
 
 extension CommandRunner {
-    /// Bu çalıştırıcının kum havuzunda çalışan kopyası (sandbox-exec yoksa olduğu gibi döner).
+    /// Bu çalıştırıcının kum havuzunda çalışan kopyası. sandbox-exec bulunmasa da kurallar kalır: o zaman çalıştırma
+    /// `EngineError.sandboxUnavailable` ile reddedilir, program korumasız başlatılmaz.
     public func sandboxed(_ profile: SandboxProfile?) -> CommandRunner {
-        guard let profile, SandboxProfile.isAvailable else { return self }
+        guard let profile else { return self }
         return CommandRunner(executableURL: executableURL, sandbox: profile)
     }
 }

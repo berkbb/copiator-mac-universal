@@ -22,6 +22,8 @@ public struct RsyncEngine: TransferEngine {
         let original = job
         let problems = job.options.problems(source: job.source)
         guard problems.isEmpty else { return JobResult(kind: .failed, detail: "\(problems)") }
+        // Kum havuzu açık ama sandbox-exec yok: hiçbir şey hazırlanmadan reddedilir (korumasız çalıştırılmaz).
+        if context.sandboxed, !SandboxProfile.isAvailable { return JobResult(kind: .sandboxUnavailable) }
 
         // Anlık görüntü: hedef kökte tarihli bir "….partial" klasörü (yarım kalan varsa o sürdürülür), önceki anlık
         // görüntü `--link-dest` olur. Klasör ancak başarıyla bitince tarihli adına taşınır.
@@ -521,6 +523,7 @@ public struct RsyncEngine: TransferEngine {
         if let problem = JobValidation.check(source: job.source, destination: job.destination, copyMode: job.options.copyMode) {
             return report(Self.resultKind(for: problem))
         }
+        if context.sandboxed, !SandboxProfile.isAvailable { return report(.sandboxUnavailable) }
         var job = job
         let selection: RuleSelection.Prepared?
         do {

@@ -43,6 +43,7 @@ Copiator copies from a local disk to a local disk (internal, external, USB or ne
   - the source is never modified (`--remove-source-files` is never used; the sandbox makes the source read-only even inside the destination);
   - deleting extra files at the destination (`--delete`) only when chosen per job and confirmed;
   - rsync runs in a `sandbox-exec` sandbox with networking off, writes only to the destination and cannot read personal folders (`~/.ssh`, Keychains, browser profiles…) unless you choose them as the source;
+  - if macOS's `sandbox-exec` is ever missing, jobs are refused instead of running rsync unprotected (unless you turn the sandbox off yourself in Settings › Advanced);
   - jobs whose source and destination overlap are refused;
   - free space is checked before copying and watched while copying.
 - **exFAT/FAT disks:** permissions, owners and ACLs are not sent to disks that cannot store them; harmless "failed to set times / permissions" warnings become one info line; FAT gets `--modify-window=1` so re-runs do not recopy everything.

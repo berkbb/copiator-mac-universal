@@ -23,7 +23,6 @@
 9i. ⬜ **[Medium] Move jobs and settings to another Mac — proposed on 2026-10-23, queued by the user.** Like routine export/import: a versioned file with jobs (without history and logs) and settings, new identities on import, remapping of missing folders, no secrets and no personal paths outside the jobs themselves.
 9j. ⬜ **[Low] Diagnostic bundle — proposed on 2026-10-23, queued by the user.** One file with the app and rsync versions, settings, job options and recent logs for bug reports; user names, home folder paths and file names masked, previewed before saving, never sent anywhere by the app.
 9k. ⬜ **[Low] Sleep the Mac when the queue finishes — offered on 2026-10-23 together with "eject the destination disk when done", not requested yet.** An opt-in queue-level action that puts the Mac to sleep after the last job (never while a job waits for a decision or a disk), announced with a short countdown that can be cancelled.
-9l. ⬜ **[Medium] Fail closed when `sandbox-exec` is missing — found on 2026-11-04 while rewriting the safety rules, decision pending.** `CommandRunner` runs rsync without `sandbox-exec` when `/usr/bin/sandbox-exec` is not executable (`SandboxProfile.isAvailable` is false); Settings disables the sandbox switch, but a job that asked for the sandbox still runs. Making it refuse the run (as a clear job error) needs the user's decision; recorded in `openai_agents_sdk_safety.md`.
 
 ### Verification & Distribution
 

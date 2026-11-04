@@ -21,6 +21,8 @@ public enum EngineError: Error, Equatable, Sendable {
     case timedOut
     case cancelled
     case failed(code: Int32, message: String)
+    /// Kum havuzu istendi ama sandbox-exec bu Mac'te yok: program korumasız başlatılmadı.
+    case sandboxUnavailable
 
     /// Çıktıdaki hata/uyarı satırlarını kısa bir özete indirger.
     public static func diagnostic(from output: String, limit: Int = 6) -> String {
@@ -75,7 +77,9 @@ public struct CommandRunner: Sendable {
         onRecord: (@Sendable (String) -> Void)? = nil
     ) async throws -> ProcessResult {
         let launch: (URL, [String])
-        if let sandbox, SandboxProfile.isAvailable {
+        if let sandbox {
+            // Kum havuzu istenip başlatıcı yoksa çalıştırma reddedilir (korumasız çalıştırmaya düşülmez).
+            guard SandboxProfile.isAvailable else { throw EngineError.sandboxUnavailable }
             launch = (SandboxProfile.launcher, sandbox.launchArguments(executable: executableURL, arguments: arguments))
         } else {
             launch = (executableURL, arguments)

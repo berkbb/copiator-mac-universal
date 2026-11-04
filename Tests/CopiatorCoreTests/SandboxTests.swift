@@ -132,3 +132,52 @@ struct LiveSandboxTests {
         #expect(plain.stderr.contains("Connection refused"), "\(plain.stderr)")
     }
 }
+
+/// sandbox-exec bulunmayan bir Mac (başlatıcı yolu var olmayan bir dosyaya çevrilir): kurallı çalıştırıcı programı
+/// korumasız başlatmaz, `sandboxUnavailable` hatası verir; kuralsız çalıştırıcı (kullanıcı kum havuzunu bilerek kapattı)
+/// eskisi gibi çalışır.
+@Test func runnerRefusesToStartWithoutSandboxExec() async throws {
+    let w = try Workspace()
+    let marker = w.url("calisti")
+    let profile = SandboxProfile(writableDirectories: [w.root], deniedReadDirectories: [])
+    let runner = CommandRunner(executableURL: URL(fileURLWithPath: "/usr/bin/touch")).sandboxed(profile)
+    #expect(runner.sandbox != nil)
+    try await SandboxProfile.$launcher.withValue(w.url("yok/sandbox-exec")) {
+        #expect(!SandboxProfile.isAvailable)
+        await #expect(throws: EngineError.sandboxUnavailable) { try await runner.run([marker.path]) }
+        // Başlatıcı yokken kurulan çalıştırıcı da kuralları korur (korumasız kopyaya dönmez).
+        let inner = CommandRunner(executableURL: URL(fileURLWithPath: "/usr/bin/touch")).sandboxed(profile)
+        #expect(inner.sandbox != nil)
+        await #expect(throws: EngineError.sandboxUnavailable) { try await inner.run([marker.path]) }
+        #expect(!w.exists("calisti"))
+        _ = try await CommandRunner(executableURL: URL(fileURLWithPath: "/usr/bin/touch")).sandboxed(nil).run([marker.path])
+    }
+    #expect(w.exists("calisti"))
+    #expect(SandboxProfile.isAvailable == FileManager.default.isExecutableFile(atPath: "/usr/bin/sandbox-exec"))
+}
+
+/// Gerçek rsync ile: sandbox-exec yokken kum havuzu açık bir iş ve doğrulaması hiçbir şey yazmadan
+/// `sandboxUnavailable` ile reddedilir ve kullanıcıya ne yapacağı söylenir; kum havuzu kapalıysa iş kopyalar.
+@Suite(.enabled(if: vendoredRsync != nil, "Vendor/rsync/rsync yok"))
+struct SandboxFailClosedTests {
+    @Test func jobsAreRefusedWithoutSandboxExec() async throws {
+        let w = try Workspace()
+        try w.write("Kaynak/a.txt", "a")
+        let destination = try w.mkdir("Hedef")
+        var context = try await engineContext(sandboxed: true)
+        context.scratchDirectory = try w.mkdir("Gecici")
+        let job = TransferJob(source: w.url("Kaynak"), destination: destination)
+        let missing = w.url("yok/sandbox-exec")
+        let refused = await SandboxProfile.$launcher.withValue(missing) { await RsyncEngine().run(job, context: context) { _ in } }
+        #expect(refused.kind == .sandboxUnavailable && !w.exists("Hedef/Kaynak"))
+        let report = await SandboxProfile.$launcher.withValue(missing) { await RsyncEngine().verify(job, context: context, checksum: false) }
+        #expect(report.result.kind == .sandboxUnavailable && report.entries.isEmpty)
+        let english = try #require(NSDictionary(contentsOf: packageRoot.appendingPathComponent("Resources/en.lproj/Localizable.strings"))
+            as? [String: String])
+        #expect(StringTable(tables: ["en": english]).resultMessage(refused, language: "en") { "\($0)" }.contains("Run rsync in a sandbox"))
+
+        context.sandboxed = false
+        let copied = await SandboxProfile.$launcher.withValue(missing) { await RsyncEngine().run(job, context: context) { _ in } }
+        #expect(copied.kind.isSuccess && w.read("Hedef/Kaynak/a.txt") == "a")
+    }
+}

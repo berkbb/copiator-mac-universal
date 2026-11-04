@@ -90,6 +90,7 @@
 "resultDestinationMissing" = "The destination folder could not be found. Is the disk connected?";
 "resultOverlapping" = "The source and destination overlap: the copy would land inside the source, or the source inside the copy.";
 "resultEngineMissing" = "rsync could not be found.";
+"resultSandboxUnavailable" = "rsync was not started because sandbox-exec is missing on this Mac. Turn off “Run rsync in a sandbox” in Settings › Advanced only if you accept running it unprotected.";
 "resultUnsupported" = "rsync does not support this operation. Choose another rsync in Settings › Advanced.";
 "resultIOError" = "A read or write error occurred.";
 "resultFailed" = "rsync stopped with an error (code %ld).";
@@ -201,6 +202,7 @@
 "settingsEngineLimitedNote" = "macOS's own rsync (openrsync) does not support detailed progress or ACLs; it is used only when no other rsync is found.";
 "settingsSandbox" = "Run rsync in a sandbox";
 "settingsSandboxNote" = "rsync cannot reach the network, can write only to the destination and to the log, batch, old versions and (for --link-dest) previous backup paths you choose in a job, cannot modify the source and cannot read personal folders you did not choose (~/.ssh, Keychain, browser profiles).";
+"settingsSandboxUnavailable" = "sandbox-exec was not found on this Mac. While this setting is on, jobs are refused instead of running rsync unprotected.";
 "settingsReset" = "Reset All Settings";
 "settingsResetConfirm" = "Reset all settings to their defaults? The job queue is not deleted.";
 "updateSection" = "rsync updates";

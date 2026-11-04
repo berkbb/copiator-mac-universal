@@ -90,6 +90,7 @@
 "resultDestinationMissing" = "Hedef klasör bulunamadı. Disk takılı mı?";
 "resultOverlapping" = "Kaynak ve hedef iç içe: kopya kaynağın içine ya da kaynak kopyanın içine düşer.";
 "resultEngineMissing" = "rsync bulunamadı.";
+"resultSandboxUnavailable" = "sandbox-exec bu Mac'te bulunmadığı için rsync başlatılmadı. Ayarlar › Gelişmiş'teki “rsync'i kum havuzunda çalıştır” seçeneğini yalnızca rsync'in korumasız çalışmasını kabul ediyorsanız kapatın.";
 "resultUnsupported" = "rsync bu işlemi desteklemiyor. Ayarlar › Gelişmiş'ten başka bir rsync seçin.";
 "resultIOError" = "Okuma ya da yazma hatası.";
 "resultFailed" = "rsync bir hatayla durdu (kod %ld).";
@@ -201,6 +202,7 @@
 "settingsEngineLimitedNote" = "macOS'un kendi rsync'i (openrsync) ayrıntılı ilerleme ve ACL desteklemez; yalnızca başka bir rsync bulunamazsa kullanılır.";
 "settingsSandbox" = "rsync'i kum havuzunda çalıştır";
 "settingsSandboxNote" = "rsync ağa çıkamaz, yalnızca hedefe ve işte seçtiğiniz günlük, toplu iş, eski sürüm ve (--link-dest için) önceki yedek yollarına yazabilir, kaynağı değiştiremez ve seçmediğiniz kişisel klasörleri (~/.ssh, Anahtar Zinciri, tarayıcı profilleri) okuyamaz.";
+"settingsSandboxUnavailable" = "sandbox-exec bu Mac'te bulunamadı. Bu seçenek açıkken işler, rsync korumasız çalıştırılmak yerine reddedilir.";
 "settingsReset" = "Tüm Ayarları Sıfırla";
 "settingsResetConfirm" = "Tüm ayarlar varsayılana dönsün mü? İş kuyruğu silinmez.";
 "updateSection" = "rsync güncellemeleri";

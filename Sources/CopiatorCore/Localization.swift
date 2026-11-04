@@ -98,6 +98,7 @@ public enum LKey: String, CaseIterable, Sendable {
     case resultSucceeded, resultSucceededWithNotes, resultSourceFilesVanished, resultPartial, resultCancelled
     case resultDestinationFull, resultDestinationFullDetail, resultDestinationFilling, resultDestinationReadOnly
     case resultPermissionDenied, resultSourceMissing, resultDestinationMissing, resultOverlapping, resultEngineMissing
+    case resultSandboxUnavailable, settingsSandboxUnavailable
     case resultUnsupported, resultIOError, resultFailed
     // Yeni iş
     case newJobTitle, newJobSource, newJobDestination, newJobDropSource, newJobMode, newJobOptions, newJobAdd
@@ -344,6 +345,7 @@ extension StringTable {
         case .destinationMissing: return string(.resultDestinationMissing, language: code)
         case .overlapping: return string(.resultOverlapping, language: code)
         case .engineMissing: return string(.resultEngineMissing, language: code)
+        case .sandboxUnavailable: return string(.resultSandboxUnavailable, language: code)
         case .unsupported: return string(.resultUnsupported, language: code)
         case .ioError: return string(.resultIOError, language: code)
         case .verificationFailed:

@@ -1804,6 +1804,7 @@ final class AppModel {
         case .engineNotFound: return t(.errorEngineNotFound)
         case .timedOut: return t(.errorEngineTimeout)
         case .cancelled: return t(.errorCancelled)
+        case .sandboxUnavailable: return t(.resultSandboxUnavailable)
         case .failed(let code, let detail):
             // update-rsync.sh derleyici yoksa bunu ayrı bir kodla bildirir.
             if detail.contains("command-line-tools-missing") { return t(.errorEngineBuildTools) }

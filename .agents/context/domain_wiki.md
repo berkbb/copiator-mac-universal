@@ -38,6 +38,8 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 
 ## 3. Security & Isolation Architecture
 
+- Decided with the user on 2026-11-04 (roadmap 9l): the sandbox fails closed. When `/usr/bin/sandbox-exec` is missing, sandboxed jobs, previews and verifications are refused with a clear message; rsync runs without the sandbox only when the user turns the setting off.
+
 1. **Kernel sandbox (`SandboxProfile.forTransfer`):** `(allow default)`, deny network, deny all writes, allow writes to `/dev` and the destination, then deny writes to the sources, deny reads of personal-data folders, then allow reads of explicitly chosen sources inside them, deny `mach-lookup`, deny `process-exec` except rsync's real path. Parameters are passed with `-D` (no quoting issues).
 2. **Personal folders inside a source** (e.g. backing up `~`) are excluded with anchored patterns (`/Name/.ssh` in folder mode, `/.ssh` in contents mode) and logged (`logProtectedSkipped`).
 3. **Overlap refusal (`JobValidation`):** the source's target (`destination/Name` or `destination`) must neither be inside the source nor contain it.

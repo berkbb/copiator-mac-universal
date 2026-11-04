@@ -73,6 +73,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ### Security
 
+- **The rsync sandbox fails closed:** when `/usr/bin/sandbox-exec` is missing, a job, preview or verification that uses the sandbox is refused with a clear message ("rsync was not started because sandbox-exec is missing…") instead of running rsync unprotected, in Turkish, English and Romanian. Settings › Advanced shows a warning in that case and keeps the sandbox switch usable, so running without the sandbox is only ever the user's own choice. Previously rsync silently ran without the sandbox.
 - Extra sandbox permissions are granted per job only for paths you choose: list files (read), log and batch files (write that file), an outside old-versions folder and the `--link-dest` previous backup (write). Paths inside the source are refused. List files in protected folders are read by the app and passed to rsync as a private temporary copy, so the protected folder stays closed.
 
 ## [1.0.0] — 2026-10-21

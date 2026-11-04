@@ -90,6 +90,7 @@
 "resultDestinationMissing" = "Dosarul de destinație nu a fost găsit. Este discul conectat?";
 "resultOverlapping" = "Sursa și destinația se suprapun: copia ar ajunge în sursă sau sursa în copie.";
 "resultEngineMissing" = "rsync nu a fost găsit.";
+"resultSandboxUnavailable" = "rsync nu a fost pornit deoarece sandbox-exec lipsește pe acest Mac. Dezactivați „Rulează rsync într-un sandbox” din Configurări › Avansat doar dacă acceptați ca rsync să ruleze neprotejat.";
 "resultUnsupported" = "rsync nu acceptă această operație. Alegeți alt rsync din Configurări › Avansat.";
 "resultIOError" = "A apărut o eroare de citire sau scriere.";
 "resultFailed" = "rsync s-a oprit cu o eroare (cod %ld).";
@@ -201,6 +202,7 @@
 "settingsEngineLimitedNote" = "rsync-ul propriu al macOS (openrsync) nu acceptă progres detaliat sau ACL-uri; este folosit doar dacă nu se găsește alt rsync.";
 "settingsSandbox" = "Rulează rsync într-un sandbox";
 "settingsSandboxNote" = "rsync nu poate accesa rețeaua, poate scrie doar în destinație și în căile de jurnal, lot, versiuni vechi și (pentru --link-dest) copia anterioară alese în lucrare, nu poate modifica sursa și nu poate citi dosarele personale pe care nu le-ați ales (~/.ssh, Portchei, profiluri de browser).";
+"settingsSandboxUnavailable" = "sandbox-exec nu a fost găsit pe acest Mac. Cât timp această opțiune este activă, lucrările sunt refuzate în loc ca rsync să ruleze neprotejat.";
 "settingsReset" = "Resetează toate configurările";
 "settingsResetConfirm" = "Resetați toate configurările la valorile implicite? Coada de lucrări nu este ștearsă.";
 "updateSection" = "Actualizări rsync";

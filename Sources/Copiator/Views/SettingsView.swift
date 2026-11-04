@@ -371,11 +371,17 @@ private struct AdvancedSettingsView: View {
                 .disabled(model.runningJobID != nil)
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(settings.t(.settingsSandbox), isOn: $settings.sandboxEngine)
-                        .disabled(!SandboxProfile.isAvailable)
                     Text(settings.t(.settingsSandboxNote))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                    // sandbox-exec yoksa anahtar açık kalabilir (işler reddedilir); kapatmak kullanıcının bilinçli seçimidir.
+                    if !SandboxProfile.isAvailable {
+                        Label(settings.t(.settingsSandboxUnavailable), systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             } header: {
                 Text(settings.t(.settingsEngine))

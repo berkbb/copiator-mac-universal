@@ -171,6 +171,8 @@ public enum JobResultKind: String, Codable, Sendable, CaseIterable {
     case overlapping
     /// Kullanılabilir bir rsync bulunamadı.
     case engineMissing
+    /// Kum havuzu açık ama sandbox-exec bu Mac'te yok: rsync korumasız başlatılmadı.
+    case sandboxUnavailable
     /// rsync bu seçeneği ya da işlemi desteklemiyor (rsync 1, 4): motor uyumsuz.
     case unsupported
     /// Dosya G/Ç ya da veri akışı hatası (rsync 11, 12, 30…).
