@@ -248,6 +248,9 @@ final class AppModel {
     @ObservationIgnored var ejectVolume: (URL, @escaping @Sendable (String?) -> Void) -> Void = DiskEject.eject
     /// Çıkarılmayı bekleyen diskler: birim yolu → isteyen iş ve aynı diskteki birimler.
     @ObservationIgnored private var pendingEjects: [String: (job: TransferJob.ID, disks: [URL])] = [:]
+    /// Disk takılınca denetlenecek hedefler: o diske giden işler bitene kadar bekler, böylece denetim yarım ya da geçici
+    /// dosyaları değil, yeni kopyaları görür.
+    @ObservationIgnored private var pendingIntegrityChecks: [(path: String, volume: URL)] = []
     /// Süren bütünlük denetimleri ve son sonuçlar (hedef yolu → değer).
     var integrityRuns: [String: IntegrityProgress] = [:]
     var integrityResults: [String: IntegrityOutcome] = [:]
@@ -1400,6 +1403,7 @@ final class AppModel {
     func volumeDidUnmount(_ volume: URL, now: Date = Date()) {
         volumeWillUnmount(volume)
         pendingEjects[volume.path] = nil
+        pendingIntegrityChecks.removeAll { $0.volume.path == volume.path }
         var changed = false
         for job in jobs where job.status == .failed && job.uses(volume: volume) {
             guard let finished = job.finishedAt, now.timeIntervalSince(finished) < 30 else { continue }
@@ -1436,11 +1440,6 @@ final class AppModel {
         if changed { save() }
         // Bu diske eski yedeği olan işler ve rutinler hatırlatılır (kendiliğinden başlayanlar hariç).
         remindStaleBackups(on: volume)
-        // "Disk takılınca denetle" seçili hedeflerin bütünlüğü denetlenir.
-        for path in settings.integrityOnConnect where FileManager.default.fileExists(atPath: path) {
-            let destination = URL(fileURLWithPath: path, isDirectory: true)
-            if TransferJob(source: destination, destination: destination).usesAsDestination(volume: volume) { startIntegrityCheck(destination) }
-        }
         // "Disk takılınca başla" seçili rutinler: hiç çalıştırılmamış olsalar da her rotası kuyruğa girer (bekleyen ya da
         // çalışan rota işi olduğu gibi kalır).
         for routine in routines where routine.options.runWhenConnected {
@@ -1449,7 +1448,15 @@ final class AppModel {
             }
             if onVolume { runRoutine(routine.id) }
         }
+        // "Disk takılınca denetle" seçili hedefler, bu diske giden işler (az önce sıraya girenler dahil) bitince denetlenir.
+        for path in settings.integrityOnConnect where FileManager.default.fileExists(atPath: path) {
+            let destination = URL(fileURLWithPath: path, isDirectory: true)
+            if TransferJob(source: destination, destination: destination).usesAsDestination(volume: volume) {
+                pendingIntegrityChecks.append((path, volume))
+            }
+        }
         scheduleNext()
+        startDueIntegrityChecks()
     }
 
     private func start(_ id: TransferJob.ID, context: EngineContext) {
@@ -1549,6 +1556,8 @@ final class AppModel {
         if result.kind.isSuccess, let job = job(id), job.options.ejectWhenDone, let target = ejectTarget(job.destination) {
             pendingEjects[target.volume.path] = (id, target.disks)
         }
+        // Diskin işleri bittiyse bekleyen bütünlük denetimi şimdi başlar; disk de ondan sonra çıkarılır.
+        startDueIntegrityChecks()
         ejectIdleDisks()
         scheduleNext()
     }
@@ -1566,6 +1575,20 @@ final class AppModel {
                 Task { @MainActor in self?.didEject(name, job: pending.job, error: error) }
             }
         }
+    }
+
+    /// Bekleyen "takılınca denetle" denetimlerinden, diskinde sırada bekleyen, çalışan ya da karar bekleyen iş kalmayanları
+    /// başlatır (hedef artık yoksa denetim düşer).
+    private func startDueIntegrityChecks() {
+        var waiting: [(path: String, volume: URL)] = []
+        for pending in pendingIntegrityChecks {
+            if DiskEject.isBusy([pending.volume], jobs: jobs) {
+                waiting.append(pending)
+            } else if FileManager.default.fileExists(atPath: pending.path) {
+                startIntegrityCheck(URL(fileURLWithPath: pending.path, isDirectory: true))
+            }
+        }
+        pendingIntegrityChecks = waiting
     }
 
     private func didEject(_ name: String, job id: TransferJob.ID, error: String?) {

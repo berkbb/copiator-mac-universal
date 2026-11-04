@@ -223,3 +223,8 @@
 ## Episode 53: Notifications Passed Every Test and Never Appeared
 - **Root Cause:** every notification test injects `notifier`, so the suites proved what the app asks for, not what macOS shows. In the installed ad-hoc signed app, `requestAuthorization` fails with "Notifications are not allowed for this application", and the Dock does not show Copiator's badge, although `DockProgress.update` runs with the right values.
 - **Guardrail:** features that go through the operating system (notifications, Dock tile, App Intents) are checked in the real, signed bundle before a release, with a bare probe app to separate system policy from app code; a release does not claim them until that check passes.
+
+## Episode 54: The Check on Connect Raced the Backup on Connect
+- **Root Cause:** `volumeDidMount` started the integrity check at once, in parallel with the job that also starts on that disk, so the first check recorded an empty folder and could have recorded rsync's temporary files as later "missing" ones.
+- **Guardrail:** checks on connect wait in `pendingIntegrityChecks` until `DiskEject.isBusy` is false for the volume, and `integrityOnConnectWaitsForTheDisksJobs` (with two guards checked by mutation) keeps the order: jobs, then the check, then the eject.
+

@@ -183,4 +183,40 @@ struct NoticeAndEjectAppTests {
         window.close()
         #expect(try ArchiveIntegrity.check(destination).corrupted.isEmpty)
     }
+
+    /// Gerçek uygulamada görülen durum: "takılınca denetle" diskin takıldığı anda, aynı anda başlayan yedekle birlikte
+    /// çalışıp boş bir klasör görüyordu. Artık o diske giden işler bitene kadar bekler, sonra yeni kopyaları denetler.
+    @Test func integrityOnConnectWaitsForTheDisksJobs() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        let settings = fixture.settings
+        await model.refreshEngine()
+        model.ejectTarget = { _ in nil }
+        let disk = fixture.url("Disk")
+        let backup = disk.appendingPathComponent("Backup", isDirectory: true)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: true)
+        let id = try #require(model.addJob(source: fixture.url("Kaynak"), destination: backup,
+                                           options: CopyOptions(runWhenConnected: true)) == nil ? model.jobs.last?.id : nil)
+        await model.waitUntilIdle()
+        try FileManager.default.removeItem(at: backup.appendingPathComponent("Kaynak"))
+        settings.integrityOnConnect = [backup.path]
+
+        // Disk takılır: iş yeniden sıraya girer (kuyruk bekletiliyor), denetim işi bekler.
+        model.toggleQueueHold()
+        model.volumeDidMount(disk)
+        #expect(model.job(id)?.status == .waiting)
+        #expect(model.integrityRuns[backup.path] == nil && model.integrityResults[backup.path] == nil)
+
+        // İş biter, denetim ancak o zaman başlar ve kopyalanan dosyaları görür.
+        model.toggleQueueHold()
+        await model.waitUntilIdle()
+        try await waitFor { model.integrityResults[backup.path] != nil && model.integrityRuns[backup.path] == nil }
+        guard case .report(let report)? = model.integrityResults[backup.path] else {
+            Issue.record("bütünlük sonucu yok")
+            return
+        }
+        #expect(report.isFirstCheck && report.added == 2 && !report.hasProblems)
+        #expect(ArchiveIntegrity.manifest(in: backup)?.files.keys.sorted() == ["Kaynak/alt/b.txt", "Kaynak/not.txt"])
+    }
 }
