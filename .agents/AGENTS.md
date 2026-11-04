@@ -49,6 +49,9 @@
 29. **Imported Jobs Never Start by Themselves:** `SetupTransfer.read` and `AppModel.importSetup` create jobs as `.paused` with new identities and no history; the setup file never carries or applies the sandbox switch, the update consent, AI opt-in or machine-specific paths.
 30. **Diagnostics Stay Local and Masked:** the diagnostic report is built only on request, previewed in full, written only where the user saves it and never sent anywhere; every path, user name, disk, folder and file name goes through `DiagnosticMasker` (salted per report), and rsync filter patterns are hidden.
 31. **Forecasts Are Ranges:** `FillForecast` returns a range of days (or "at least"), never a single date; warnings are throttled to once a week per disk.
+33. **Undo Only Moves What a Run Made, to the Trash:** `RunUndo` never deletes permanently, never restores or touches replaced files, rejects record paths with empty, "." or ".." components or that resolve outside the destination, keeps items born before the run or modified after it and folders holding other files, and only undoes the newest snapshot; a run is undone at most once.
+34. **Battery Hold Only Pauses:** on a critically low battery the running job is cancelled like a user pause (rsync keeps partial files) and the queue holds; only jobs paused for the battery resume on AC power.
+35. **Destination Marks Are Local and Reversible:** the Time Machine exclusion is the sticky per-item mark on the job's own copy (never the whole destination folder of a non-snapshot job, never system settings); the encryption check only reads the volume.
 32. **Open at Login Is Not Scheduling:** the login item only opens the app; its state is read from macOS (`SMAppService`) and never stored; scheduled jobs stay rejected (R1).
 
 ---
