@@ -4,6 +4,10 @@ A native backup and sync app for macOS 26+, built with SwiftUI and Liquid Glass 
 
 Copiator copies from a local disk to a local disk (internal, external, USB or network-mounted volumes). The job model and the engine layer are engine-independent, so other engines can be added as new job kinds.
 
+<p align="center">
+  <img src="docs/screenshots/welcome-dark.png" width="800" alt="Copiator welcome screen in English and dark mode, with New Job and New Routine buttons, a drop zone and the rsync 3.5.1 engine status">
+</p>
+
 ## Features
 
 - **Job queue** (like Transmission): every job has a source, a destination, options, a status (waiting, waiting for disk, scanning, copying, verifying, paused, finished, failed), progress, speed, time left and a log. Jobs run one at a time in list order; drag to reorder.
@@ -58,7 +62,14 @@ Copiator copies from a local disk to a local disk (internal, external, USB or ne
    shasum -a 256 -c SHA256SUMS.txt --ignore-missing
    ```
 3. Open the `.dmg` and drag **Copiator** into the **Applications** folder.
-4. **First launch:** Copiator is ad-hoc signed rather than signed with an Apple Developer ID, so macOS shows a warning the first time. Go to **System Settings › Privacy & Security**, click **Open Anyway** next to "Copiator was blocked", and confirm.
+4. **First launch:** Copiator is ad-hoc signed rather than signed with an Apple Developer ID, so macOS shows a "Copiator can't be opened" warning the first time.
+   - Close the warning with **Done**.
+   - Go to **System Settings › Privacy & Security**, click **Open Anyway** next to "Copiator was blocked", and confirm with your password.
+   - Or, instead of the two steps above, remove the quarantine flag in Terminal. Only do this for a copy you downloaded from the Releases page above:
+     ```bash
+     xattr -dr com.apple.quarantine /Applications/Copiator.app
+     ```
+   - You only need to do this once, although macOS may ask again after an update.
 5. On first launch, Copiator asks for permission to check GitHub for updates. You can change this later in **Settings › Advanced**.
 
 **Finder context menu:** "Back Up with Copiator" appears under right-click › **Quick Actions** or **Services**. If it is missing, enable it in System Settings › Keyboard › Keyboard Shortcuts › Services › Files and Folders.
