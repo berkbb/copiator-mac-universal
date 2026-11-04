@@ -25,9 +25,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>CopiatorRepository</key>
 	<string>berkbb/copiator-mac-universal</string>
 	<key>CopiatorUpdatePublicEDKey</key>
@@ -36,10 +36,27 @@
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Copiator needs access to copy the Desktop folders and files you add to a job.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Copiator needs access to copy the Documents folders and files you add to a job.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Copiator needs access to copy the Downloads folders and files you add to a job.</string>
+	<key>NSFileProviderDomainUsageDescription</key>
+	<string>Copiator needs access to copy the cloud storage folders (iCloud Drive, Dropbox…) you add to a job.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Babadogan Tech and Edu. GPL-3.0-only. rsync © Andrew Tridgell, Wayne Davison and others.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Copiator needs access to back up to and copy from the network volumes you choose.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Copiator needs access to back up to and copy from the external disks you choose.</string>
 	<key>NSServices</key>
 	<array>
 		<dict>
@@ -79,22 +96,5 @@
 			</array>
 		</dict>
 	</array>
-	<key>NSDesktopFolderUsageDescription</key>
-	<string>Copiator needs access to copy the Desktop folders and files you add to a job.</string>
-	<key>NSDocumentsFolderUsageDescription</key>
-	<string>Copiator needs access to copy the Documents folders and files you add to a job.</string>
-	<key>NSDownloadsFolderUsageDescription</key>
-	<string>Copiator needs access to copy the Downloads folders and files you add to a job.</string>
-	<key>NSRemovableVolumesUsageDescription</key>
-	<string>Copiator needs access to back up to and copy from the external disks you choose.</string>
-	<key>NSNetworkVolumesUsageDescription</key>
-	<string>Copiator needs access to back up to and copy from the network volumes you choose.</string>
-	<key>NSFileProviderDomainUsageDescription</key>
-	<string>Copiator needs access to copy the cloud storage folders (iCloud Drive, Dropbox…) you add to a job.</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
 </dict>
 </plist>

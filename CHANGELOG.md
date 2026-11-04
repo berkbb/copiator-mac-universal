@@ -5,6 +5,8 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-11-04
+
 ### Added
 
 - The README shows the welcome screen in English and dark mode (`docs/screenshots/welcome-dark.png`), and the installation steps explain the first-launch warning and how to remove the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Copiator.app` for a copy downloaded from the Releases page.
