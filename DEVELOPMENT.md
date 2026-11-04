@@ -216,6 +216,6 @@ The output goes to the git-ignored `graphify-out/`. The Claude Code skill and it
 ## Known limitations and unverified points
 
 - The x86_64 slices (app and rsync) build and link correctly, but could not be run on this Mac (macOS 27 without Rosetta). They should be tried on an Intel Mac.
-- The real-app stress round and screenshots need Accessibility and Screen Recording permissions that the development session did not have; the UI was verified through off-screen rendering tests and snapshots instead. The Finder service, notifications and drag and drop should be tried by hand.
+- The real-app stress round passed on 2026-11-04 (core round and app round with Accessibility). The Finder service and drag and drop are still to be tried by hand.
 - The app is ad-hoc signed and not notarized. Releases are distributed through GitHub Releases.
 - Shortcuts and Siri, the menu bar window, the Dock tile and real disk mount/eject events were tested through the model and off-screen rendering; they should be tried by hand in the installed app (Shortcuts indexes the app's actions after it is launched from `/Applications`).

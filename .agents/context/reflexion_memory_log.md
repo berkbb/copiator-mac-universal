@@ -215,3 +215,7 @@
 ## Episode 51: A Build Error Counted as a Surviving Mutant
 - **Root Cause:** the mutation harness classified a run as a build error only when the output contained ": error:", but the Swift driver printed "error: <path>:<line> …" for a test that used the keyword `internal` as a variable name. Three mutants were reported as missed although no test had run.
 - **Guardrail:** a mutation run counts as caught only with a failed test (✘) and as missed only when "Test run with" appears; anything else is a build error that must be fixed first. Always run the edited test once before mutating.
+
+## Episode 52: The Stress Probe Never Looked Inside the Job List
+- **Root Cause:** `Scripts/StressProbe.swift` came from a project whose outlines hold tens of thousands of archive entries, so it skipped every `AXOutline`, `AXTable` and `AXRow`. Copiator's job list is an outline (`copiator.joblist`), so `copiator.job.toggle` was never found, pause and resume failed, and the copy checks that followed reported an unfinished copy.
+- **Guardrail:** the probe searches the job list's rows and still skips other long lists; when a probe reports "element not found", measure the real accessibility path (the button sat at depth 12) before suspecting the app.

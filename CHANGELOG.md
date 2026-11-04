@@ -57,6 +57,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ### Fixed
 
+- Developer tooling: the stress round's accessibility probe skipped every outline, including Copiator's job list, so it could not find the pause/resume button; it now searches the job list and the full round passes (20,000 files and a 2 GB file, pause and resume, quarantine kept, worst UI response 64 ms, VoiceOver labels).
 - **A placement template could leave the destination:** a value such as ". .." became ".." after its leading dot was trimmed once. Names are now trimmed until they stop changing, and a staged path with "." or ".." is never created (found by the new placement fuzz test).
 - **A folder arriving where a file with the same name exists** at the destination made rsync delete that file without asking (likewise an incoming file over an empty folder or a link). These now count as same-name items and are asked about; Keep Both renames the existing item with a number ("belgeler 2") so the folder keeps its place in the structure.
 - **Skipped files whose name contains a backslash** but no `*`, `?` or `[` were replaced anyway: rsync compares such patterns literally, so the escaped backslash never matched. Patterns are now escaped as a whole, and only when they contain wildcards.

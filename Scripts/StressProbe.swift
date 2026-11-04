@@ -49,14 +49,23 @@ func windows(_ root: AXUIElement) -> [AXUIElement] {
     return listed.isEmpty ? kids(root).filter { str(attr($0, kAXRoleAttribute)) == "AXWindow" } : listed
 }
 
-/// Dosya listesi (on binlerce satır) taranmaz.
+/// Uzun listeler (anlık görüntü ve karar sayfalarındaki on binlerce satır) taranmaz; iş listesi kısadır ve düğmeleri
+/// (ör. `copiator.job.toggle`) onun satırlarındadır, o yüzden taranır.
 let skipped: Set<String> = ["AXOutline", "AXTable", "AXRow", "AXMenuBar"]
+let scannedLists: Set<String> = ["copiator.joblist"]
 
 func find(_ identifier: String, in root: AXUIElement) -> AXUIElement? {
+    var insideJobList = false
     func walk(_ e: AXUIElement, _ depth: Int) -> AXUIElement? {
         guard depth < 20 else { return nil }
         if str(attr(e, kAXIdentifierAttribute)) == identifier { return e }
-        if skipped.contains(str(attr(e, kAXRoleAttribute))) { return nil }
+        if skipped.contains(str(attr(e, kAXRoleAttribute))), !scannedLists.contains(str(attr(e, kAXIdentifierAttribute))) {
+            // İş listesinin satırları ve hücreleri de taranır.
+            if !(str(attr(e, kAXRoleAttribute)) == "AXRow" && insideJobList) { return nil }
+        }
+        let entering = scannedLists.contains(str(attr(e, kAXIdentifierAttribute)))
+        if entering { insideJobList = true }
+        defer { if entering { insideJobList = false } }
         for c in kids(e) { if let found = walk(c, depth + 1) { return found } }
         return nil
     }

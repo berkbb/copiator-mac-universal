@@ -26,7 +26,6 @@
 
 ### Verification & Distribution
 
-9. 🟡 **[High] Real-app stress round:** `Scripts/stress-test.sh` is written; its accessibility-driven app round has not run yet because the development session lacked the Accessibility permission. Run it from Terminal before 1.0 is published.
 10. ⬜ **[High] Intel verification:** run the universal app and bundled rsync on an Intel Mac (the x86_64 slices are built and linked but untested).
 11. ⬜ **[Medium] Developer ID signing and notarization** (`SIGN_IDENTITY` is supported by `build_app.sh`). Distribution channel decided on 2026-10-21: **GitHub Releases** (`Scripts/release.sh` with `gh release create`); signing is still recommended so Gatekeeper does not block downloads.
 13. ⬜ **[Medium] Hands-on check of the new automation in the installed app:** Shortcuts/Siri actions (after launching from `/Applications`), the menu bar window, the Dock progress and a real external disk mount/eject cycle, including the old backup reminder and the integrity check on connect (both covered only by tests and off-screen rendering so far).
