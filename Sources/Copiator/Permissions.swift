@@ -89,11 +89,76 @@ struct PermissionBanners: View {
         switch banner {
         case .fullDiskAccess:
             return ("lock.shield", .permissionFullDiskTitle, .permissionFullDisk, .permissionOpenSettings)
-        case .notifications where model.notificationPermission == .unavailable && !model.isInApplicationsFolder:
+        case .notifications where model.permissionButtonKey(.notifications) == .buttonShowInFinder:
             return ("bell.slash", .permissionNotificationsTitle, .permissionNotificationsMoveApp, .buttonShowInFinder)
         case .notifications:
             let detail: LKey = model.notificationPermission == .unavailable ? .permissionNotificationsUnavailable : .permissionNotificationsDenied
             return ("bell.slash", .permissionNotificationsTitle, detail, .permissionOpenSettings)
+        }
+    }
+}
+
+extension NotificationPermission {
+    /// Ayarlar'daki durum metni.
+    var statusKey: LKey {
+        switch self {
+        case .allowed: .permissionStatusOn
+        case .denied: .permissionStatusOff
+        case .notDetermined: .permissionStatusNotAsked
+        case .unavailable: .permissionStatusUnavailable
+        case .unknown: .permissionStatusUnknown
+        }
+    }
+}
+
+extension AppModel {
+    /// Ayarlar'daki Tam Disk Erişimi durum metni.
+    var fullDiskAccessStatusKey: LKey {
+        switch fullDiskAccessGranted {
+        case true?: .permissionStatusOn
+        case false?: .permissionStatusOff
+        case nil: .permissionStatusUnknown
+        }
+    }
+
+    /// İzin düğmesinin adı: bildirimler Uygulamalar klasörü dışından açıldığı için sunulmuyorsa "Finder'da Göster".
+    func permissionButtonKey(_ banner: PermissionBanner) -> LKey {
+        banner == .notifications && notificationPermission == .unavailable && !isInApplicationsFolder
+            ? .buttonShowInFinder : .permissionOpenSettings
+    }
+}
+
+/// Ayarlar › Genel › İzinler: bildirim ve Tam Disk Erişimi durumu, her biri için Sistem Ayarları düğmesi. Bir iş
+/// gerektirmeden de izin görülüp verilebilir; açılınca durum yeniden okunur.
+struct PermissionStatusSection: View {
+    @Environment(AppModel.self) private var model
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        Section {
+            row(.settingsPermissionNotifications, status: model.notificationPermission.statusKey,
+                isOn: model.notificationPermission == .allowed, banner: .notifications)
+            row(.settingsPermissionFullDisk, status: model.fullDiskAccessStatusKey,
+                isOn: model.fullDiskAccessGranted == true, banner: .fullDiskAccess)
+        } header: {
+            Text(settings.t(.settingsPermissionsSection))
+        } footer: {
+            Text(settings.t(.settingsPermissionsNote))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .task { await model.refreshPermissions(ask: false) }
+    }
+
+    private func row(_ title: LKey, status: LKey, isOn: Bool, banner: PermissionBanner) -> some View {
+        LabeledContent(settings.t(title)) {
+            HStack(spacing: 8) {
+                Label(settings.t(status), systemImage: isOn ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(isOn ? .green : .orange)
+                Button(settings.t(model.permissionButtonKey(banner))) { model.openPermissionSettings(banner) }
+                    .accessibilityIdentifier("copiator.settings.permission.\(banner)")
+            }
         }
     }
 }

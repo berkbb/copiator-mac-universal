@@ -80,6 +80,64 @@ struct PermissionTests {
         #expect(model.permissionBanners == [.fullDiskAccess])
     }
 
+    /// Pencere kapalıyken (iş arka planda eklendi) izin gerektiği bir kez bildirilir; pencere açıkken bant yeter.
+    @Test func fullDiskNeedIsAnnouncedOnceWhenTheWindowIsHidden() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        let title = fixture.settings.t(.permissionFullDiskTitle)
+        func announcements() -> Int { fixture.notifications.filter { $0.0 == title }.count }
+        model.homeDirectory = fixture.url("Kaynak")
+        var visible = true
+        model.isMainWindowVisible = { visible }
+        model.fullDiskAccessGranted = false
+        await model.refreshEngine()
+        fixture.addJob()
+        await model.waitUntilIdle()
+        #expect(model.permissionBanners == [.fullDiskAccess])
+        #expect(announcements() == 0, "pencere açık: bant görünüyor")
+
+        // Gereklilik kalkıp yeniden doğunca, pencere kapalıysa bir kez bildirilir.
+        model.remove(Set(model.jobs.map(\.id)))
+        #expect(model.permissionBanners.isEmpty)
+        visible = false
+        fixture.addJob()
+        await model.waitUntilIdle()
+        #expect(announcements() == 1)
+        #expect(fixture.notifications.first { $0.0 == title }?.1 == fixture.settings.t(.permissionFullDiskNotice))
+        model.remove(Set(model.jobs.map(\.id)))
+        fixture.addJob()
+        await model.waitUntilIdle()
+        #expect(announcements() == 1, "oturumda bir kez")
+    }
+
+    @Test func settingsShowEachPermissionsStatusAndButton() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        #expect(NotificationPermission.allowed.statusKey == .permissionStatusOn)
+        #expect(NotificationPermission.denied.statusKey == .permissionStatusOff)
+        #expect(NotificationPermission.notDetermined.statusKey == .permissionStatusNotAsked)
+        #expect(NotificationPermission.unavailable.statusKey == .permissionStatusUnavailable)
+        #expect(NotificationPermission.unknown.statusKey == .permissionStatusUnknown)
+        for (granted, key) in [(true, LKey.permissionStatusOn), (false, .permissionStatusOff)] {
+            model.fullDiskAccessGranted = granted
+            #expect(model.fullDiskAccessStatusKey == key)
+        }
+        model.fullDiskAccessGranted = nil
+        #expect(model.fullDiskAccessStatusKey == .permissionStatusUnknown)
+        // Bildirimler Uygulamalar dışından açıldığı için sunulmuyorsa düğme uygulamayı Finder'da gösterir.
+        model.notificationPermission = .unavailable
+        model.isInApplicationsFolder = false
+        #expect(model.permissionButtonKey(.notifications) == .buttonShowInFinder)
+        #expect(model.permissionButtonKey(.fullDiskAccess) == .permissionOpenSettings)
+        model.isInApplicationsFolder = true
+        #expect(model.permissionButtonKey(.notifications) == .permissionOpenSettings)
+        model.isInApplicationsFolder = false
+        model.notificationPermission = .denied
+        #expect(model.permissionButtonKey(.notifications) == .permissionOpenSettings)
+    }
+
     @Test func permissionFollowsTheSystemStatusAndTheFailedRequest() {
         #expect(NotificationPermission(status: .authorized, requestFailed: false) == .allowed)
         #expect(NotificationPermission(status: .provisional, requestFailed: true) == .allowed)

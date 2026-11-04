@@ -983,3 +983,13 @@
 "permissionNotificationsMoveApp" = "macOS does not offer notifications to Copiator opened from this folder. Move Copiator to the Applications folder and open it from there.";
 "permissionFullDiskTitle" = "Full Disk Access needed";
 "permissionFullDisk" = "Some jobs touch folders macOS protects (Mail, Safari, Photos, Trash…); without this permission those files are not copied. Turn on Copiator in System Settings › Privacy & Security › Full Disk Access; if it is already on (for example after an update), turn it off and on again.";
+"permissionFullDiskNotice" = "A job touches folders macOS protects. Open Copiator and give it Full Disk Access, otherwise those files are not copied.";
+"settingsPermissionsSection" = "Permissions";
+"settingsPermissionsNote" = "macOS asks on its own the first time a job reads the Desktop, Documents or Downloads folder, an external or network disk, or a cloud folder. It never asks for Full Disk Access; Copiator warns you when a job needs it.";
+"settingsPermissionNotifications" = "Notifications";
+"settingsPermissionFullDisk" = "Full Disk Access";
+"permissionStatusOn" = "On";
+"permissionStatusOff" = "Off";
+"permissionStatusNotAsked" = "Not asked yet";
+"permissionStatusUnavailable" = "macOS does not offer it";
+"permissionStatusUnknown" = "Unknown";

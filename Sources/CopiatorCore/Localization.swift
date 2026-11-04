@@ -268,6 +268,9 @@ public enum LKey: String, CaseIterable, Sendable {
     // İzin uyarıları (bildirimler, Tam Disk Erişimi)
     case permissionLater, permissionOpenSettings, permissionNotificationsTitle, permissionNotificationsDenied
     case permissionNotificationsUnavailable, permissionNotificationsMoveApp, permissionFullDiskTitle, permissionFullDisk
+    case permissionFullDiskNotice, settingsPermissionsSection, settingsPermissionsNote, settingsPermissionNotifications
+    case settingsPermissionFullDisk, permissionStatusOn, permissionStatusOff, permissionStatusNotAsked, permissionStatusUnavailable
+    case permissionStatusUnknown
     // Yinelenen dosyalar
     case menuDuplicates, duplicatesTitle, duplicatesNote, duplicatesScanning, duplicatesNone, duplicatesSummary, duplicatesKeep
     case duplicatesGroup, duplicatesTrash, duplicatesTrashConfirm, duplicatesConfirmTitle, duplicatesConfirmMessage, duplicatesDone

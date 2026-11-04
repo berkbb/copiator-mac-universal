@@ -983,3 +983,13 @@
 "permissionNotificationsMoveApp" = "macOS nu oferă notificări aplicației Copiator deschise din acest dosar. Mutați Copiator în dosarul Aplicații și deschideți-o de acolo.";
 "permissionFullDiskTitle" = "Este necesar accesul complet la disc";
 "permissionFullDisk" = "Unele lucrări ating dosare protejate de macOS (Mail, Safari, Poze, Coș…); fără această permisiune, acele fișiere nu sunt copiate. Activați Copiator în Configurări sistem › Confidențialitate și securitate › Acces complet la disc; dacă este deja activat (de exemplu după o actualizare), dezactivați-l și activați-l din nou.";
+"permissionFullDiskNotice" = "O lucrare atinge dosare protejate de macOS. Deschideți Copiator și acordați-i acces complet la disc; altfel, acele fișiere nu sunt copiate.";
+"settingsPermissionsSection" = "Permisiuni";
+"settingsPermissionsNote" = "macOS întreabă singur prima dată când o lucrare citește dosarul Birou, Documente sau Descărcări, un disc extern sau de rețea ori un dosar din cloud. Pentru accesul complet la disc nu întreabă niciodată; Copiator vă avertizează când o lucrare are nevoie de el.";
+"settingsPermissionNotifications" = "Notificări";
+"settingsPermissionFullDisk" = "Acces complet la disc";
+"permissionStatusOn" = "Activat";
+"permissionStatusOff" = "Dezactivat";
+"permissionStatusNotAsked" = "Încă nu s-a cerut";
+"permissionStatusUnavailable" = "macOS nu o oferă";
+"permissionStatusUnknown" = "Necunoscut";

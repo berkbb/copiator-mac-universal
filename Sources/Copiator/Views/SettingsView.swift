@@ -109,6 +109,8 @@ private struct GeneralSettingsView: View {
                 }
             }
 
+            PermissionStatusSection()
+
             Section(settings.t(.settingsInterfaceSection)) {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(settings.t(.settingsMenuBarIcon), isOn: $settings.showMenuBarIcon)

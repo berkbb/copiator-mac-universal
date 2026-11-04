@@ -348,6 +348,12 @@ final class AppModel {
     @ObservationIgnored var isInApplicationsFolder = AppModel.isInApplicationsFolder(Bundle.main.bundleURL)
     /// Ev klasörü (testler sahte bir klasör verir).
     @ObservationIgnored var homeDirectory = FileManager.default.homeDirectoryForCurrentUser
+    /// Ana pencere önde ve görünür mü (izin bandı görünüyor mu; testler sahte bir yanıt verir).
+    @ObservationIgnored var isMainWindowVisible: () -> Bool = {
+        NSApp?.isActive == true && NSApp.windows.contains { $0.isVisible && $0.identifier?.rawValue.hasPrefix(WindowID.main) == true }
+    }
+    /// Tam Disk Erişimi gerektiği bu oturumda bildirildi mi (bildirim en çok bir kez gönderilir).
+    @ObservationIgnored private var fullDiskAccessAnnounced = false
 
     /// Yapay zekâ önerileri sunulur mu (ayar açık ve bu Mac'te cihaz üstü model var).
     var canSuggestWithAI: Bool { settings.aiSuggestions && suggestionModel.isAvailable }
@@ -1722,7 +1728,13 @@ final class AppModel {
         let skipped = settings.sandboxEngine ? SandboxProfile.personalDataDirectories(home: homeDirectory) : []
         let needed = FullDiskAccess.isNeeded(for: paths, home: homeDirectory, skipped: skipped)
             || jobs.contains { job in job.result.map { FullDiskAccess.blockedRead(in: $0.detail) } ?? false }
-        if needed != fullDiskAccessNeeded { fullDiskAccessNeeded = needed }
+        guard needed != fullDiskAccessNeeded else { return }
+        fullDiskAccessNeeded = needed
+        // Bant yalnızca pencerede görünür: iş arka planda (ör. disk takılınca) izin gerektirdiyse bir kez bildirilir.
+        if needed, !fullDiskAccessAnnounced, !isMainWindowVisible() {
+            fullDiskAccessAnnounced = true
+            notifier(t(.permissionFullDiskTitle), t(.permissionFullDiskNotice), nil)
+        }
     }
 
     /// Pencerenin üstünde gösterilecek izin uyarıları.
@@ -1741,7 +1753,7 @@ final class AppModel {
     /// sunulmuyorsa uygulama Finder'da gösterilir (taşınsın diye).
     func openPermissionSettings(_ banner: PermissionBanner) {
         switch banner {
-        case .notifications where notificationPermission == .unavailable && !isInApplicationsFolder:
+        case .notifications where permissionButtonKey(.notifications) == .buttonShowInFinder:
             NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
         case .notifications:
             NSWorkspace.shared.open(AppLinks.notificationSettings)

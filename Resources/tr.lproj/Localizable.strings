@@ -983,3 +983,13 @@
 "permissionNotificationsMoveApp" = "macOS bu klasörden açılan Copiator'a bildirim izni sunmuyor. Copiator'ı Uygulamalar klasörüne taşıyıp oradan açın.";
 "permissionFullDiskTitle" = "Tam Disk Erişimi gerekiyor";
 "permissionFullDisk" = "Bazı işler macOS'un koruduğu klasörlere (Mail, Safari, Fotoğraflar, Çöp Sepeti…) değiyor; bu izin olmadan o dosyalar kopyalanmaz. Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi'nde Copiator'ı açın; zaten açıksa (ör. bir güncellemeden sonra) kapatıp yeniden açın.";
+"permissionFullDiskNotice" = "Bir iş macOS'un koruduğu klasörlere değiyor. Copiator'ı açıp Tam Disk Erişimi verin; yoksa o dosyalar kopyalanmaz.";
+"settingsPermissionsSection" = "İzinler";
+"settingsPermissionsNote" = "Bir iş Masaüstü, Belgeler ya da İndirilenler klasörünü, harici ya da ağ diskini veya bir bulut klasörünü ilk kez okuduğunda macOS kendisi sorar. Tam Disk Erişimi için hiç sormaz; bir iş gerektirdiğinde Copiator uyarır.";
+"settingsPermissionNotifications" = "Bildirimler";
+"settingsPermissionFullDisk" = "Tam Disk Erişimi";
+"permissionStatusOn" = "Açık";
+"permissionStatusOff" = "Kapalı";
+"permissionStatusNotAsked" = "Henüz sorulmadı";
+"permissionStatusUnavailable" = "macOS izin sormuyor";
+"permissionStatusUnknown" = "Bilinmiyor";
