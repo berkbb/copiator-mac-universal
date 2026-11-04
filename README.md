@@ -96,8 +96,8 @@ The same tasks from the terminal:
 swift test                            # unit, integration (real rsync), chaos/security matrix, fuzz and UI-render tests
 ```
 
-Requires Xcode 26 or later. See [DEVELOPMENT.md](DEVELOPMENT.md) for the architecture, [roadmap.md](.agents/context/roadmap.md) for planned features and [CHANGELOG.md](CHANGELOG.md) for release notes.
+Requires Xcode 26 or later. See [DEVELOPMENT.md](DEVELOPMENT.md) for the architecture, [roadmap.md](.agents/context/roadmap.md) for planned features and [CHANGELOG.md](CHANGELOG.md) for release notes. Coding agents start from [.agents/AGENTS.md](.agents/AGENTS.md); an optional code knowledge graph is built locally with [Graphify](https://github.com/Graphify-Labs/graphify) (see DEVELOPMENT.md › Agent tooling).
 
 ## License
 
-Copiator is free software under the GNU General Public License, version 3 only (GPL-3.0-only, [LICENSE](LICENSE)); © Babadogan Tech and Edu. The bundled rsync keeps its own license, GPL-3.0-or-later, and is run as a separate, unmodified program; its exact source, build flags and checksum are in [Vendor/rsync/SOURCE.txt](Vendor/rsync/SOURCE.txt). Some components are derived from another GPL-3.0-only project of the same copyright holder; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Copiator is free software under the GNU General Public License, version 3 only ([GPL-3.0-only](LICENSE)); © Babadogan Tech and Edu. The bundled rsync keeps its own license, GPL-3.0-or-later, and is run as a separate, unmodified program; its exact source, build flags and checksum are in [Vendor/rsync/SOURCE.txt](Vendor/rsync/SOURCE.txt). Some components are derived from another GPL-3.0-only project of the same copyright holder; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

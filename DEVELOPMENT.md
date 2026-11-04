@@ -72,7 +72,10 @@ Copiator/
 ├── Tests/CopiatorAppTests/        AppModel flows with real rsync, settings, overlay timing, off-screen view rendering
 ├── Paketle.command                Double-click to package
 ├── Yayimla.command                Double-click to publish to GitHub Releases
-└── rsync-Guncelle.command         Double-click to update rsync
+├── rsync-Guncelle.command         Double-click to update rsync
+├── .agents/                       Agent governance: AGENTS.md, context/ (wikis, roadmap), rules/, skills/
+├── CLAUDE.md, .claude/            Graphify rules, skill and pre-search hook for Claude Code
+└── .graphifyrc, .graphifyignore   Graphify settings; the graph itself is in the git-ignored graphify-out/
 ```
 
 ## Architecture
@@ -195,6 +198,20 @@ COPIATOR_SNAPSHOT_DIR=/tmp/copiator-ui swift test --filter ViewRenderTests   # P
 `package.sh` signs the `.dmg` with the Ed25519 key in the login keychain (`com.babadogantech.copiator.update-signing`; the public key is `CopiatorUpdatePublicEDKey` in Info.plist; a backup lives in the git-ignored `.secrets/`). The repository's single source is `CopiatorRepository` in Info.plist.
 
 **Privacy:** the app asks before its first network request. If allowed, at launch it requests only the public release lists of `berkbb/copiator-mac-universal` and `RsyncProject/rsync`.
+
+## Agent tooling (`.agents/` and Graphify)
+
+Coding agents read [`.agents/AGENTS.md`](.agents/AGENTS.md) first: it holds the invariants (process boundary, sandbox, source safety, confirmed `--delete`, same-name decisions, on-device AI, archive health, localization), the workflow and a repository map. `.agents/rules/` keeps one file per adopted agent standard (index: [`.agents/rules/about_rules.md`](.agents/rules/about_rules.md)), `.agents/skills/` the test, snapshot and engine procedures, and `.agents/context/` the domain and code-graph wikis, the roadmap and the reflexion log. None of it is part of the app.
+
+The code knowledge graph comes from [Graphify](https://github.com/Graphify-Labs/graphify) (`uv tool install graphifyy`). It is built from code only, locally and without an LLM:
+
+```bash
+GRAPHIFY_NO_TIPS=1 GRAPHIFY_QUERY_LOG_DISABLE=1 GRAPHIFY_BACKEND=off graphify extract . --code-only
+GRAPHIFY_BACKEND=off graphify cluster-only . --no-label
+graphify query "how does a job reach rsync?"
+```
+
+The output goes to the git-ignored `graphify-out/`. The Claude Code skill and its pre-search reminder (`CLAUDE.md`, `.claude/`) are versioned; the git hooks that refresh the graph after commits and the `graph.json` merge driver are per clone, so run `graphify hook install` once after cloning. The skill files are Apache-2.0 (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)); details and privacy rules are in [`.agents/rules/graphify_knowledge_graph.md`](.agents/rules/graphify_knowledge_graph.md).
 
 ## Known limitations and unverified points
 
