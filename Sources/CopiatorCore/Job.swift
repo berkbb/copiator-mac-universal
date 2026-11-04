@@ -241,10 +241,12 @@ public struct JobRun: Codable, Equatable, Identifiable, Sendable {
     public var result: JobResult
     public var bytesTransferred: Int64?
     public var filesTransferred: Int?
+    /// Çalıştırma bittiğinde hedef diskteki boş alan (dolma tahmini için; eski kayıtlarda yok).
+    public var destinationFreeBytes: Int64?
 
     public init(
         id: UUID = UUID(), startedAt: Date, finishedAt: Date, result: JobResult, bytesTransferred: Int64? = nil,
-        filesTransferred: Int? = nil
+        filesTransferred: Int? = nil, destinationFreeBytes: Int64? = nil
     ) {
         self.id = id
         self.startedAt = startedAt
@@ -252,11 +254,12 @@ public struct JobRun: Codable, Equatable, Identifiable, Sendable {
         self.result = result
         self.bytesTransferred = bytesTransferred
         self.filesTransferred = filesTransferred
+        self.destinationFreeBytes = destinationFreeBytes
     }
 
     public var duration: TimeInterval { max(0, finishedAt.timeIntervalSince(startedAt)) }
 
-    private enum CodingKeys: String, CodingKey { case id, startedAt, finishedAt, result, bytesTransferred, filesTransferred }
+    private enum CodingKeys: String, CodingKey { case id, startedAt, finishedAt, result, bytesTransferred, filesTransferred, destinationFreeBytes }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -266,6 +269,7 @@ public struct JobRun: Codable, Equatable, Identifiable, Sendable {
         result = (try? container.decodeIfPresent(JobResult.self, forKey: .result)) ?? JobResult(kind: .failed)
         bytesTransferred = (try? container.decodeIfPresent(Int64.self, forKey: .bytesTransferred)) ?? nil
         filesTransferred = (try? container.decodeIfPresent(Int.self, forKey: .filesTransferred)) ?? nil
+        destinationFreeBytes = (try? container.decodeIfPresent(Int64.self, forKey: .destinationFreeBytes)) ?? nil
     }
 }
 

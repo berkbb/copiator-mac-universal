@@ -1037,3 +1037,13 @@
 "diagnosticsNote" = "For bug reports: versions, permissions, settings, each job’s options and rsync command and its recent log. Your user name, home folder and the names of disks, folders and files are masked; read it before you share it. The report is made on this Mac only, is written nowhere until you save it, and Copiator never sends it anywhere. Its labels are in English so a developer can read it.";
 "diagnosticsSave" = "Save…";
 "diagnosticsFileName" = "Copiator Diagnostics.txt";
+"fillForecastTitle" = "Destination space";
+"fillForecastFree" = "Free: %@";
+"fillForecastRange" = "At this rate the disk fills up in about %@";
+"fillForecastAtLeast" = "at least %@";
+"fillForecastNotFilling" = "Free space is not shrinking; the disk is not expected to fill up.";
+"fillForecastNotEnough" = "A forecast needs at least %ld successful runs to this disk over more than a day.";
+"fillForecastNote" = "Estimated from the free space after each successful run of the jobs that write to this disk, as a range; it changes when other things are written to the disk or space is freed.";
+"fillForecastRetention" = "Add a snapshot retention rule (for example the last 30 days and one per month) to this job: removing old snapshots frees space.";
+"notifyFillTitle" = "Destination disk is filling up";
+"notifyFillBody" = "“%1$@” fills up in about %2$@ at this rate.";

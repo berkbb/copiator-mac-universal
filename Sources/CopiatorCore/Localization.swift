@@ -278,6 +278,9 @@ public enum LKey: String, CaseIterable, Sendable {
     // İşleri ve ayarları başka bir Mac'e taşıma
     case menuExportSetup, menuImportSetup, exportSetupName, exportSetupFailed, toastSetupExported, setupImportTitle, setupImportNote
     case setupImportSettings, setupImportDone, setupImportFailedTitle, setupImportInvalid, setupImportNewer, setupImportTooLarge
+    // Hedefin dolma tahmini
+    case fillForecastTitle, fillForecastFree, fillForecastRange, fillForecastAtLeast, fillForecastNotFilling, fillForecastNotEnough
+    case fillForecastNote, fillForecastRetention, notifyFillTitle, notifyFillBody
     // Tanılama raporu
     case menuDiagnostics, diagnosticsTitle, diagnosticsNote, diagnosticsSave, diagnosticsFileName
     // Düşük öncelikli disk G/Ç

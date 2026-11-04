@@ -1037,3 +1037,13 @@
 "diagnosticsNote" = "Hata bildirimleri için: sürümler, izinler, ayarlar, her işin seçenekleri, rsync komutu ve son günlük satırları. Kullanıcı adınız, ev klasörünüz ve disk, klasör ve dosya adlarınız maskelenir; paylaşmadan önce okuyun. Rapor yalnızca bu Mac'te oluşturulur, siz kaydedene kadar hiçbir yere yazılmaz ve Copiator onu hiçbir yere göndermez. Bir geliştirici okuyabilsin diye başlıkları İngilizcedir.";
 "diagnosticsSave" = "Kaydet…";
 "diagnosticsFileName" = "Copiator Tanılama.txt";
+"fillForecastTitle" = "Hedef doluluğu";
+"fillForecastFree" = "Boş: %@";
+"fillForecastRange" = "Bu hızla disk yaklaşık %@ içinde dolar";
+"fillForecastAtLeast" = "en az %@";
+"fillForecastNotFilling" = "Boş alan azalmıyor; diskin dolması beklenmiyor.";
+"fillForecastNotEnough" = "Tahmin için bu diske bir günden uzun bir sürede en az %ld başarılı çalıştırma gerekir.";
+"fillForecastNote" = "Bu diske yazan işlerin her başarılı çalıştırmasından sonraki boş alandan bir aralık olarak tahmin edilir; diske başka şeyler yazılır ya da yer açılırsa değişir.";
+"fillForecastRetention" = "Bu işe bir anlık görüntü saklama kuralı ekleyin (ör. son 30 gün ve ayda bir): eski anlık görüntüler silinince yer açılır.";
+"notifyFillTitle" = "Hedef disk doluyor";
+"notifyFillBody" = "“%1$@” bu hızla yaklaşık %2$@ içinde dolar.";

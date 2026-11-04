@@ -353,6 +353,10 @@ final class AppModel {
     @ObservationIgnored var isInApplicationsFolder = AppModel.isInApplicationsFolder(Bundle.main.bundleURL)
     /// Ev klasörü (testler sahte bir klasör verir).
     @ObservationIgnored var homeDirectory = FileManager.default.homeDirectoryForCurrentUser
+    /// Bir klasörün bulunduğu diskteki boş alan (testler sahte bir değer verir).
+    @ObservationIgnored var freeSpace: (URL) -> Int64? = { DiskSpace.availableCapacity(at: $0) }
+    /// Çalıştırmanın bitiş zamanı ve dolma uyarısı için saat (testler ilerleyen sahte bir saat verir).
+    @ObservationIgnored var clock: () -> Date = { Date() }
     /// Ana pencere önde ve görünür mü (izin bandı görünüyor mu; testler sahte bir yanıt verir).
     @ObservationIgnored var isMainWindowVisible: () -> Bool = {
         NSApp?.isActive == true && NSApp.windows.contains { $0.isVisible && $0.identifier?.rawValue.hasPrefix(WindowID.main) == true }
@@ -1571,8 +1575,11 @@ final class AppModel {
         }
         let pausedByUser = isPausingRunningJob
         let suspendedForDisk = isSuspendingRunningJobForDisk && result.kind == .cancelled
+        let finishedAt = clock()
         update(id) { job in
-            JobQueue.finish(&job, with: result)
+            JobQueue.finish(&job, with: result, at: finishedAt)
+            // Dolma tahmini için hedef diskteki boş alan (yalnızca başarılı çalıştırmalarda).
+            if result.kind.isSuccess, !job.history.isEmpty { job.history[job.history.count - 1].destinationFreeBytes = freeSpace(job.destination) }
             switch result.kind {
             case .cancelled where suspendedForDisk:
                 job.suspendedForDisk = true
@@ -1594,6 +1601,7 @@ final class AppModel {
         } else if let job = job(id), result.kind != .cancelled || !pausedByUser {
             notify(job)
         }
+        if result.kind.isSuccess, let job = job(id) { warnIfFillingSoon(job, now: finishedAt) }
         // Hedefte aynı adlı dosyalar: karar sayfası açılır (başka bir sayfa açıksa o kapanınca kullanıcı listeden açar);
         // kuyruk beklemeden sıradaki işe geçer.
         if result.kind == .awaitingDecision, conflictPrompt == nil, newJobRequest == nil, routineEditor == nil {

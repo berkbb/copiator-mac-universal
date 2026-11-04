@@ -204,13 +204,14 @@ final class AppSettings {
         static let aiAutomaticOff = "aiAutomaticOff"
         static let backupReminderDays = "backupReminderDays"
         static let backupRemindedAt = "backupRemindedAt"
+        static let fillWarnedAt = "fillWarnedAt"
         static let integrityOnConnect = "integrityOnConnect"
         static let all = [
             language, appearance, notifyOnFinish, resumeInterruptedAtLaunch, defaultCopyMode, defaultPreservePermissions,
             defaultPreserveXattrs, defaultExcludeSystemFolders, customEnginePath, checkUpdatesAtLaunch, updateConsentAsked,
             sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, lowPriorityIO, defaultAdvanced, defaultVerifyAfterCopy,
             showMenuBarIcon, showDockProgress, defaultConflictPolicy, aiSuggestions, aiProvider, aiOllamaModel, aiLMStudioModel,
-            aiAutomaticOrder, aiAutomaticOff, backupReminderDays, backupRemindedAt, integrityOnConnect,
+            aiAutomaticOrder, aiAutomaticOff, backupReminderDays, backupRemindedAt, fillWarnedAt, integrityOnConnect,
         ]
     }
 
@@ -277,6 +278,8 @@ final class AppSettings {
     var backupReminderDays: Int { didSet { defaults.set(backupReminderDays, forKey: Key.backupReminderDays) } }
     /// Son hatırlatmalar (iş ya da rutin kimliği → zaman); aynı öğe için günde en çok bir bildirim.
     var backupRemindedAt: [String: Date] { didSet { defaults.set(backupRemindedAt, forKey: Key.backupRemindedAt) } }
+    /// Hedef disk dolmak üzere uyarısının son gönderildiği zaman (disk anahtarına göre; haftada en çok bir kez).
+    var fillWarnedAt: [String: Date] { didSet { defaults.set(fillWarnedAt, forKey: Key.fillWarnedAt) } }
 
     /// Disk takılınca bütünlüğü kendiliğinden denetlenen hedefler (yollar).
     var integrityOnConnect: [String] { didSet { defaults.set(integrityOnConnect, forKey: Key.integrityOnConnect) } }
@@ -340,6 +343,7 @@ final class AppSettings {
         aiProvider = SuggestionProvider(rawValue: defaults.string(forKey: Key.aiProvider) ?? "") ?? .automatic
         backupReminderDays = (defaults.object(forKey: Key.backupReminderDays) as? Int).flatMap { BackupFreshness.choices.contains($0) ? $0 : nil } ?? 30
         backupRemindedAt = (defaults.dictionary(forKey: Key.backupRemindedAt) as? [String: Date]) ?? [:]
+        fillWarnedAt = (defaults.dictionary(forKey: Key.fillWarnedAt) as? [String: Date]) ?? [:]
         integrityOnConnect = defaults.stringArray(forKey: Key.integrityOnConnect) ?? []
         aiAutomaticOrder = SuggestionProvider.order(defaults.stringArray(forKey: Key.aiAutomaticOrder) ?? [])
         aiAutomaticOff = Set((defaults.stringArray(forKey: Key.aiAutomaticOff) ?? []).compactMap(SuggestionProvider.init(rawValue:)))
@@ -388,6 +392,7 @@ final class AppSettings {
         aiSuggestions = false
         backupReminderDays = 30
         backupRemindedAt = [:]
+        fillWarnedAt = [:]
         integrityOnConnect = []
         aiProvider = .automatic
         aiAutomaticOrder = SuggestionProvider.models
@@ -520,6 +525,28 @@ final class AppSettings {
         case .placement(let index, let problem): route(index, placementProblem(problem))
         case .options(let problem): self.problem(problem)
         }
+    }
+
+    /// Dolma tahmini aralığı, uygulamanın dilinde: 60 günden kısaysa gün, iki yıldan kısaysa ay, değilse yıl ("4–6 ay").
+    /// Birime çevrilince iki uç eşitlenirse üst uç bir artırılır: tahmin her zaman bir aralıktır. Üst sınır yoksa "en az".
+    func fillRange(lower: Int, upper: Int?) -> String {
+        let reference = Double(upper ?? lower)
+        let (unit, length): (Calendar.Component, Double) = reference < 60 ? (.day, 1) : reference < 730 ? (.month, 30.44) : (.year, 365.25)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = locale
+        let formatter = DateComponentsFormatter()
+        formatter.calendar = calendar
+        formatter.unitsStyle = .full
+        formatter.allowedUnits = [unit == .day ? .day : unit == .month ? .month : .year]
+        func text(_ value: Int) -> String {
+            var components = DateComponents()
+            components.setValue(value, for: unit)
+            return formatter.string(from: components) ?? String(value)
+        }
+        let low = max(0, Int((Double(lower) / length).rounded(.down)))
+        guard let upper else { return t(.fillForecastAtLeast, text(max(low, 1))) }
+        let high = max(low + 1, Int((Double(upper) / length).rounded(.up)))
+        return "\(low)–" + text(high)
     }
 
     func bytes(_ value: Int64) -> String {

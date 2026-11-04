@@ -363,6 +363,8 @@ struct JobDetailView: View {
                     Divider()
                     CommandPreview(command: model.commandPreview(for: job))
                     Divider()
+                    FillForecastView(job: job)
+                    Divider()
                     JobHistoryList(job: job, settings: settings)
                     Divider()
                     Text(settings.t(.detailLog)).font(.headline)

@@ -1037,3 +1037,13 @@
 "diagnosticsNote" = "Pentru raportarea erorilor: versiuni, permisiuni, configurări, opțiunile și comanda rsync ale fiecărei lucrări și jurnalul recent. Numele de utilizator, dosarul de pornire și numele discurilor, dosarelor și fișierelor sunt mascate; citiți raportul înainte de a-l partaja. Raportul este creat doar pe acest Mac, nu este scris nicăieri până nu îl salvați, iar Copiator nu îl trimite nicăieri. Etichetele sunt în engleză, ca un dezvoltator să le poată citi.";
 "diagnosticsSave" = "Salvează…";
 "diagnosticsFileName" = "Diagnosticare Copiator.txt";
+"fillForecastTitle" = "Spațiul destinației";
+"fillForecastFree" = "Liber: %@";
+"fillForecastRange" = "În acest ritm discul se umple în aproximativ %@";
+"fillForecastAtLeast" = "cel puțin %@";
+"fillForecastNotFilling" = "Spațiul liber nu scade; nu se așteaptă ca discul să se umple.";
+"fillForecastNotEnough" = "O estimare necesită cel puțin %ld rulări reușite pe acest disc, pe o perioadă mai lungă de o zi.";
+"fillForecastNote" = "Estimat ca interval din spațiul liber de după fiecare rulare reușită a lucrărilor care scriu pe acest disc; se schimbă când pe disc se scriu alte lucruri sau se eliberează spațiu.";
+"fillForecastRetention" = "Adăugați acestei lucrări o regulă de păstrare a instantaneelor (de exemplu ultimele 30 de zile și unul pe lună): ștergerea instantaneelor vechi eliberează spațiu.";
+"notifyFillTitle" = "Discul de destinație se umple";
+"notifyFillBody" = "„%1$@” se umple în aproximativ %2$@ în acest ritm.";

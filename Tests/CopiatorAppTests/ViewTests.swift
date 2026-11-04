@@ -251,6 +251,17 @@ struct ViewRenderTests {
         render(PermissionBanners().environment(model).environment(settings), size: NSSize(width: 900, height: 200), name: "permission-banners")
     }
 
+    @Test func fillForecastRenders() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        await fixture.model.refreshEngine()
+        let id = try #require(fixture.addJob())
+        await fixture.model.waitUntilIdle()
+        let job = try #require(fixture.model.job(id))
+        render(ScrollView { FillForecastView(job: job).padding() }.environment(fixture.model).environment(fixture.settings),
+               size: NSSize(width: 340, height: 260), name: "fill-forecast")
+    }
+
     @Test func diagnosticSheetRenders() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
