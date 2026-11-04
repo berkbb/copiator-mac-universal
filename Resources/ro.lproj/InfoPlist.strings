@@ -1,4 +1,4 @@
 /* Textele Info.plist ale aplicației */
 "CFBundleDisplayName" = "Copiator";
 "CFBundleName" = "Copiator";
-"NSHumanReadableCopyright" = "Babadogan Tech and Edu. GPL-3.0-or-later. rsync © Andrew Tridgell, Wayne Davison și alții.";
+"NSHumanReadableCopyright" = "Babadogan Tech and Edu. GPL-3.0-only. rsync © Andrew Tridgell, Wayne Davison și alții.";

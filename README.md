@@ -89,4 +89,4 @@ Requires Xcode 26 or later. See [DEVELOPMENT.md](DEVELOPMENT.md) for the archite
 
 ## License
 
-Copiator is free software under the GNU General Public License, version 3 or later ([LICENSE](LICENSE)); © Babadogan Tech and Edu. The bundled rsync is GPL-3.0-or-later as well and is run as a separate, unmodified program; its exact source, build flags and checksum are in [Vendor/rsync/SOURCE.txt](Vendor/rsync/SOURCE.txt). Some components are derived from an MIT-licensed project; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Copiator is free software under the GNU General Public License, version 3 only (GPL-3.0-only, [LICENSE](LICENSE)); © Babadogan Tech and Edu. The bundled rsync keeps its own license, GPL-3.0-or-later, and is run as a separate, unmodified program; its exact source, build flags and checksum are in [Vendor/rsync/SOURCE.txt](Vendor/rsync/SOURCE.txt). Some components are derived from an MIT-licensed project; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

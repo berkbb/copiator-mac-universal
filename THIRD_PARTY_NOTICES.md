@@ -1,9 +1,9 @@
 # Third-Party Notices
 
 Copiator is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
-License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later
-version (`GPL-3.0-or-later`, full text in `LICENSE`). Copiator bundles, runs or derives from the following
-third-party works. Their license terms are listed below.
+License as published by the Free Software Foundation, version 3 of the License only (`GPL-3.0-only`, full text in
+`LICENSE`). Copyright (C) 2026 Babadogan Tech and Edu. Copiator bundles, runs or derives from the following works.
+Their license terms are listed below and are not changed by Copiator's license.
 
 ## rsync
 
@@ -27,7 +27,7 @@ Some components of Copiator are derived from Arhivar (MIT, © Berk Babadoğan),
 https://github.com/berkbb/arhivar-mac-universal: the process runner, the `sandbox-exec` profile generator, the disk
 space checks, quarantine propagation, open-safety helpers, the localization engine, the update checker and
 signature verification, the progress overlay, the license viewer, the build, packaging and release scripts, and
-the test infrastructure. The derived code is distributed as part of Copiator under GPL-3.0-or-later; the original
+the test infrastructure. The derived code is distributed as part of Copiator under GPL-3.0-only; the original
 notice is kept below as the MIT license requires.
 
 ```

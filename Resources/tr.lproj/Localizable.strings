@@ -238,7 +238,7 @@
 "aboutAppLicense" = "Copiator Lisansı";
 "aboutEngineLicense" = "rsync Lisansı";
 "aboutNotices" = "Üçüncü Taraf Bildirimleri";
-"aboutCopyright" = "© %@ Babadogan Tech and Edu. GPL-3.0-or-later lisanslı özgür yazılım.";
+"aboutCopyright" = "© %@ Babadogan Tech and Edu. GPL-3.0-only lisanslı özgür yazılım.";
 "aboutRepository" = "Kaynak Kodu";
 "aboutEngineWebsite" = "rsync Web Sitesi";
 "licenseAppSubtitle" = "Copiator'ın kendi kodu";

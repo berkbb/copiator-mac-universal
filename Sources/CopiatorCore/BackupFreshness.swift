@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// Yedek tazeliği: bir işin ya da rutinin son başarılı yedeğinden bu yana geçen gün. Yalnızca hatırlatır; hiçbir şeyi

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// Otomatik anlık görüntü yedekleri (Time Machine benzeri). Açıkken iş hedefi bir "anlık görüntü kökü"dür: her

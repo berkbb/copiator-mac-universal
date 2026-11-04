@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 // Copiator uygulama simgesini (AppIcon.icns) çizer. Geçici tasarım: iki üst üste disk ve eşitleme okları.
 // Kullanım: swift Scripts/make_icon.swift Resources/AppIcon.icns [--preview önizleme.png]
 import AppKit

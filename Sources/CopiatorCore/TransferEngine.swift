@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// Çalışan bir işin bildirdiği olaylar. Olaylar arka plandan gelir; çağıran ana iş parçacığına taşır.

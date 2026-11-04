@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 import Testing
 
@@ -111,12 +111,12 @@ import Testing
         for folder in ["Sources", "Tests", "Scripts"] {
             let files = FileManager.default.enumerator(at: packageRoot.appendingPathComponent(folder), includingPropertiesForKeys: nil)?
                 .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
-            for file in files where !(try String(contentsOf: file, encoding: .utf8)).hasPrefix("// SPDX-License-Identifier: GPL-3.0-or-later\n") {
+            for file in files where !(try String(contentsOf: file, encoding: .utf8)).hasPrefix("// SPDX-License-Identifier: GPL-3.0-only\n") {
                 missing.append(file.path.replacingOccurrences(of: packageRoot.path + "/", with: ""))
             }
         }
         let manifest = try String(contentsOf: packageRoot.appendingPathComponent("Package.swift"), encoding: .utf8)
-        #expect(manifest.contains("// SPDX-License-Identifier: GPL-3.0-or-later"))
+        #expect(manifest.contains("// SPDX-License-Identifier: GPL-3.0-only"))
         #expect(missing.isEmpty, "SPDX satırı eksik:\n\(missing.joined(separator: "\n"))")
     }
 

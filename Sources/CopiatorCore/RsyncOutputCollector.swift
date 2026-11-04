@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// Çalışan rsync'in stdout kayıtlarını sınıflandırır: ilerleme, dosya adı, liste sayacı, değişiklik satırı, istatistik.

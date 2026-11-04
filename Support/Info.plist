@@ -39,7 +39,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Babadogan Tech and Edu. GPL-3.0-or-later. rsync © Andrew Tridgell, Wayne Davison and others.</string>
+	<string>Babadogan Tech and Edu. GPL-3.0-only. rsync © Andrew Tridgell, Wayne Davison and others.</string>
 	<key>NSServices</key>
 	<array>
 		<dict>

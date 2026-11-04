@@ -238,7 +238,7 @@
 "aboutAppLicense" = "Licența Copiator";
 "aboutEngineLicense" = "Licența rsync";
 "aboutNotices" = "Notificări terțe părți";
-"aboutCopyright" = "© %@ Babadogan Tech and Edu. Software liber sub licența GPL-3.0-or-later.";
+"aboutCopyright" = "© %@ Babadogan Tech and Edu. Software liber sub licența GPL-3.0-only.";
 "aboutRepository" = "Cod sursă";
 "aboutEngineWebsite" = "Site-ul rsync";
 "licenseAppSubtitle" = "Codul propriu Copiator";

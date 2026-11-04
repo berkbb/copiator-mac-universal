@@ -1,4 +1,4 @@
 /* Uygulama Info.plist metinleri */
 "CFBundleDisplayName" = "Copiator";
 "CFBundleName" = "Copiator";
-"NSHumanReadableCopyright" = "Babadogan Tech and Edu. GPL-3.0-or-later. rsync © Andrew Tridgell, Wayne Davison ve diğerleri.";
+"NSHumanReadableCopyright" = "Babadogan Tech and Edu. GPL-3.0-only. rsync © Andrew Tridgell, Wayne Davison ve diğerleri.";

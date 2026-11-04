@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 // Scripts/stress-test.sh için yardımcı: Copiator'ı erişilebilirlik (AX) arayüzüyle yoklar ve sürer.
 // Klavye kullanmaz, odaktaki uygulamaya bağlı değildir. Yalnızca stres testi içindir; uygulamaya girmez.
 //

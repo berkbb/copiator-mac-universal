@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// rsync argümanlarının tek kaynağı. Her argüman burada üretilir ve testlerle denetlenir.

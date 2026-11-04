@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// Rutinleri bir dosyaya dışa aktarma ve başka bir Mac'te içe aktarma. Dosya sürümlü bir JSON'dur; içe aktarılan rutinler

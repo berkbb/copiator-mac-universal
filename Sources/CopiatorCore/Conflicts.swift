@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// Hedefte aynı adlı bir dosya varken ne yapılacağı (iş ve rutin ayarı). Varsayılan: sor. Eşitlemede (iki yönlü)

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// rsync çıkış kodunu ve hata çıktısını, kullanıcıya gösterilecek bir sonuç sınıfına çevirir.

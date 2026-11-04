@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 // Ed25519 (EdDSA) signing for Copiator update DMGs.
 //
 // The private key lives in the login keychain; a backup copy is written to a

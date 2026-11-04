@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// İşi yürüten motorun türü. Yalnızca yerel rsync vardır; başka bir yerel motor yeni bir tür olarak eklenir ve

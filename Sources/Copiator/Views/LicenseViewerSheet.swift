@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import AppKit
 import CopiatorCore
 import SwiftUI
@@ -45,7 +45,7 @@ enum LicenseDocument: String, CaseIterable, Identifiable {
 
     var licenseName: String? {
         switch self {
-        case .app: "GPL-3.0-or-later"
+        case .app: "GPL-3.0-only"
         case .engine: "GPL-3.0-or-later"
         case .notices: nil
         }

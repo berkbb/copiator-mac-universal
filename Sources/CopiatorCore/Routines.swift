@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// Kopyalama rutini: adı olan, tekrar tekrar çalıştırılan bir kural kümesi. Her rota "şu kaynaktaki, şu kurallara uyan

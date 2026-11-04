@@ -238,7 +238,7 @@
 "aboutAppLicense" = "Copiator License";
 "aboutEngineLicense" = "rsync License";
 "aboutNotices" = "Third-Party Notices";
-"aboutCopyright" = "© %@ Babadogan Tech and Edu. Free software under GPL-3.0-or-later.";
+"aboutCopyright" = "© %@ Babadogan Tech and Edu. Free software under GPL-3.0-only.";
 "aboutRepository" = "Source Code";
 "aboutEngineWebsite" = "rsync Website";
 "licenseAppSubtitle" = "Copiator's own code";

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 /// Öneri modelinin sağlayıcısı: Apple Intelligence, bu Mac'te çalışan yerel bir model sunucusu ya da "Otomatik" (seçilen
