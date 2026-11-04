@@ -2,3 +2,9 @@
 "CFBundleDisplayName" = "Copiator";
 "CFBundleName" = "Copiator";
 "NSHumanReadableCopyright" = "Babadogan Tech and Edu. GPL-3.0-only. rsync © Andrew Tridgell, Wayne Davison and others.";
+"NSDesktopFolderUsageDescription" = "Copiator needs access to copy the Desktop folders and files you add to a job.";
+"NSDocumentsFolderUsageDescription" = "Copiator needs access to copy the Documents folders and files you add to a job.";
+"NSDownloadsFolderUsageDescription" = "Copiator needs access to copy the Downloads folders and files you add to a job.";
+"NSRemovableVolumesUsageDescription" = "Copiator needs access to back up to and copy from the external disks you choose.";
+"NSNetworkVolumesUsageDescription" = "Copiator needs access to back up to and copy from the network volumes you choose.";
+"NSFileProviderDomainUsageDescription" = "Copiator needs access to copy the cloud storage folders (iCloud Drive, Dropbox…) you add to a job.";

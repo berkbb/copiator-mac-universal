@@ -79,6 +79,18 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Copiator needs access to copy the Desktop folders and files you add to a job.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Copiator needs access to copy the Documents folders and files you add to a job.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Copiator needs access to copy the Downloads folders and files you add to a job.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Copiator needs access to back up to and copy from the external disks you choose.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Copiator needs access to back up to and copy from the network volumes you choose.</string>
+	<key>NSFileProviderDomainUsageDescription</key>
+	<string>Copiator needs access to copy the cloud storage folders (iCloud Drive, Dropbox…) you add to a job.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

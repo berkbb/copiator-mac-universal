@@ -2,3 +2,9 @@
 "CFBundleDisplayName" = "Copiator";
 "CFBundleName" = "Copiator";
 "NSHumanReadableCopyright" = "Babadogan Tech and Edu. GPL-3.0-only. rsync © Andrew Tridgell, Wayne Davison și alții.";
+"NSDesktopFolderUsageDescription" = "Copiator are nevoie de acces pentru a copia dosarele și fișierele de pe Birou pe care le adăugați într-o lucrare.";
+"NSDocumentsFolderUsageDescription" = "Copiator are nevoie de acces pentru a copia dosarele și fișierele din Documente pe care le adăugați într-o lucrare.";
+"NSDownloadsFolderUsageDescription" = "Copiator are nevoie de acces pentru a copia dosarele și fișierele din Descărcări pe care le adăugați într-o lucrare.";
+"NSRemovableVolumesUsageDescription" = "Copiator are nevoie de acces pentru a face copii de rezervă pe discurile externe alese și pentru a copia de pe ele.";
+"NSNetworkVolumesUsageDescription" = "Copiator are nevoie de acces pentru a face copii de rezervă pe volumele de rețea alese și pentru a copia de pe ele.";
+"NSFileProviderDomainUsageDescription" = "Copiator are nevoie de acces pentru a copia dosarele din cloud (iCloud Drive, Dropbox…) pe care le adăugați într-o lucrare.";

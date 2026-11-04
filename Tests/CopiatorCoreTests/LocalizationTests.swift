@@ -93,6 +93,29 @@ func translationsAreNotEnglishFallbacks(code: String) throws {
     #expect(Set(infoKeys).count == 1)
 }
 
+/// macOS'un izin sorularındaki açıklamalar (Masaüstü, Belgeler, İndirilenler, harici ve ağ diskleri, bulut klasörleri)
+/// Info.plist'te var ve her dilde çevrilmiş.
+@Test func permissionPromptsAreExplainedInEveryLanguage() throws {
+    let data = try Data(contentsOf: packageRoot.appendingPathComponent("Support/Info.plist"))
+    let plist = try #require(try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+    let usage = Set(plist.keys.filter { $0.hasSuffix("UsageDescription") })
+    #expect(usage == [
+        "NSDesktopFolderUsageDescription", "NSDocumentsFolderUsageDescription", "NSDownloadsFolderUsageDescription",
+        "NSRemovableVolumesUsageDescription", "NSNetworkVolumesUsageDescription", "NSFileProviderDomainUsageDescription",
+    ])
+    var texts: [String: Set<String>] = [:]
+    for code in AppLanguage.supportedCodes {
+        let info = try table(code, "InfoPlist")
+        for key in usage {
+            let text = try #require(info[key], "\(code) \(key)")
+            #expect(text.contains("Copiator") && !text.isEmpty)
+            texts[key, default: []].insert(text)
+        }
+    }
+    // Her dil kendi metnini taşır (İngilizce kopya kalmamış).
+    for key in usage { #expect(texts[key]?.count == AppLanguage.supportedCodes.count, "\(key)") }
+}
+
 /// Her sonuç sınıfı her dilde, biçim belirteci kalmadan ve sayılarla gösterilir.
 @Test(arguments: AppLanguage.supportedCodes)
 func resultMessagesAreLocalizedAndFormatted(code: String) throws {
