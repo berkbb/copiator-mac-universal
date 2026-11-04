@@ -38,6 +38,13 @@ COPIATOR_AI_EVAL=1 COPIATOR_AI_EVAL_REPORT=/path/report.md swift test --filter A
 
 ### Step 4: Provenance Audit
 ```bash
-grep -rIli "arh[i]var" --exclude-dir=.build --exclude-dir=build --exclude-dir=dist . | grep -v THIRD_PARTY_NOTICES.md
+grep -rIli "arh[i]var" --exclude-dir=.build --exclude-dir=build --exclude-dir=dist --exclude-dir=graphify-out . | grep -v THIRD_PARTY_NOTICES.md
 ```
 - **Expected Result:** no output (the derivation note in `THIRD_PARTY_NOTICES.md` is the only allowed mention).
+
+### Step 5: Refresh the Code Graph (after code changes)
+```bash
+GRAPHIFY_NO_TIPS=1 GRAPHIFY_QUERY_LOG_DISABLE=1 GRAPHIFY_BACKEND=off graphify update .
+GRAPHIFY_BACKEND=off graphify cluster-only . --no-label
+```
+- Local AST only, no LLM. Add `--force` to `update` when code was deleted. When types were added, moved or removed, update sections 1–2 of `.agents/context/code_graph_wiki.md` from `graphify-out/GRAPH_REPORT.md` (rules: `.agents/rules/graphify_knowledge_graph.md`). The installed git hooks run `update` after commits on their own.

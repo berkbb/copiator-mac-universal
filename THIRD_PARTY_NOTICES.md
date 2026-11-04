@@ -30,6 +30,33 @@ update checker and signature verification, the progress overlay, the license vie
 scripts, and the test infrastructure. Arhivar and Copiator have the same copyright holder and the same license text
 (`LICENSE`); the derived code is distributed as part of Copiator under GPL-3.0-only.
 
+## Repository-only files (not part of the app)
+
+The source repository also contains third-party files that are used only by coding agents working on Copiator. They
+are not compiled into, bundled with, or run by Copiator.app.
+
+### Graphify agent skill (`.claude/skills/graphify/`)
+
+- Author: Safi Shamsi and the Graphify contributors — https://github.com/Graphify-Labs/graphify
+- Files: `SKILL.md`, `references/*.md` and `.graphify_version`, copied unmodified from graphifyy 0.9.101 by
+  `graphify install --project`. `CLAUDE.md`, `.claude/CLAUDE.md` and `.claude/settings.json` were also written by
+  that installer.
+- License: Apache License, Version 2.0; portions contributed earlier remain available under the MIT License. The full
+  texts are kept next to the skill as `LICENSE` and `LICENSE-MIT`, and its notice as `NOTICE`:
+
+```
+Graphify
+Copyright 2026 Safi Shamsi and the Graphify contributors.
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Portions of this software were contributed under the MIT License prior to the
+relicensing and remain available under those terms. The original MIT license
+text is retained in LICENSE-MIT.
+```
+
+These files keep their own license; Copiator's GPL-3.0-only does not apply to them.
+
 ## macOS system components
 
 - `/usr/bin/sandbox-exec`, `IOKit` (sleep assertions), `UserNotifications` and the system `libiconv` used by the

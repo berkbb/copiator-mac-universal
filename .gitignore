@@ -4,3 +4,4 @@ dist/
 .swiftpm/
 .secrets/
 .DS_Store
+graphify-out/

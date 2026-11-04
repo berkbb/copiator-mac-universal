@@ -1,0 +1,33 @@
+# Build & packaging outputs
+.build/
+.swiftpm/
+build/
+dist/
+*.dmg
+*.pkg
+*.sig
+*.dSYM/
+
+# Graphify output and agent worktrees
+graphify-out/
+.claude/
+
+# Vendored third-party binaries (the rsync engine, rebuilt by Scripts/build-rsync.sh and updated by Scripts/update-rsync.sh)
+Vendor/
+
+# Secrets, credentials, and private data
+.secrets/
+.env
+.env.*
+*.pem
+*.p12
+*.key
+*.cer
+*.mobileprovision
+*.csv
+*.sql
+*.xlsx
+
+# OS & editor metadata
+.DS_Store
+.git/

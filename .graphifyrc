@@ -1,0 +1,5 @@
+# Graphify project settings (graphifyy rcfile format: one key=value per line).
+# graphifyy recognises only viz_node_limit and language.<ext>=<language>; unknown keys are ignored.
+# Privacy is set per run through the environment, not here:
+#   GRAPHIFY_NO_TIPS=1 GRAPHIFY_QUERY_LOG_DISABLE=1 GRAPHIFY_BACKEND=off graphify extract . --code-only
+viz_node_limit=5000

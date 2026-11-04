@@ -33,7 +33,7 @@ struct LicenseViewerTests {
         let notices = try #require(LicenseDocument.notices.text(resources: workspace.resources, engineDirectory: workspace.engine))
         #expect(notices == (try original("THIRD_PARTY_NOTICES.md")))
         #expect(notices.contains("GPL-3.0-only") && notices.contains("Babadogan Tech and Edu") && notices.contains("rsync"))
-        #expect(!notices.contains("MIT License"))
+        #expect(!notices.contains("Permission is hereby granted, free of charge"))
         let engine = try #require(LicenseDocument.engine.text(resources: workspace.resources, engineDirectory: workspace.engine))
         #expect(engine == (try original("Vendor/rsync/COPYING")))
         #expect(engine.contains("GNU GENERAL PUBLIC LICENSE"))
