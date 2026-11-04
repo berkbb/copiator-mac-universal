@@ -18,7 +18,6 @@
 9d. ⬜ **[Medium] Undo the last run — deferred by the user on 2026-10-22.** Only files a run created can be removed; replaced files would need a backup folder. Needs an explicit decision before any work.
 9f. ⬜ **[Low] Backup status widget — deferred on 2026-10-23.** Proposed together with the old backup reminder, snapshot restore, integrity check, duplicate finder and routine export/import (all shipped). A WidgetKit extension needs an app group shared with the app and a signed extension, so it waits for item 11 (Developer ID signing).
 9h. ⬜ **[Low] Destination fill forecast — proposed on 2026-10-23, queued by the user.** Estimate from the run history (bytes per run, snapshot growth) and the volume's free space when the destination will be full ("about 5 months at this rate"), warn ahead of time and suggest a snapshot retention rule. Must be a range, never a single date.
-9j. ⬜ **[Low] Diagnostic bundle — proposed on 2026-10-23, queued by the user.** One file with the app and rsync versions, settings, job options and recent logs for bug reports; user names, home folder paths and file names masked, previewed before saving, never sent anywhere by the app.
 9k. ⬜ **[Low] Sleep the Mac when the queue finishes — offered on 2026-10-23 together with "eject the destination disk when done", not requested yet.** An opt-in queue-level action that puts the Mac to sleep after the last job (never while a job waits for a decision or a disk), announced with a short countdown that can be cancelled.
 
 ### Verification & Distribution
