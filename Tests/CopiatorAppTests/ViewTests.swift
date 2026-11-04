@@ -240,7 +240,7 @@ struct ViewRenderTests {
         model.fullDiskAccessGranted = false
         model.homeDirectory = fixture.url("Kaynak")
         fixture.addJob()
-        for state in [LoginItemState.off, .on, .needsApproval, .unavailable] {
+        for state in [LoginItemState.off, .on, .needsApproval] {
             model.loginItemState = state
             render(Form { OpenAtLoginRow() }.formStyle(.grouped).environment(model).environment(settings),
                    size: NSSize(width: 560, height: 200), name: state == .needsApproval ? "login-approval" : "")

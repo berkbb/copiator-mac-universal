@@ -286,7 +286,7 @@ public enum LKey: String, CaseIterable, Sendable {
     // Düşük öncelikli disk G/Ç
     case settingsLowPriorityIO, settingsLowPriorityIONote, logLowPriority
     // Girişte aç
-    case settingsOpenAtLogin, settingsOpenAtLoginNote, loginItemNeedsApproval, loginItemUnavailable, loginItemFailed
+    case settingsOpenAtLogin, settingsOpenAtLoginNote, loginItemNeedsApproval, loginItemFailed
     // Yinelenen dosyalar
     case menuDuplicates, duplicatesTitle, duplicatesNote, duplicatesScanning, duplicatesNone, duplicatesSummary, duplicatesKeep
     case duplicatesGroup, duplicatesTrash, duplicatesTrashConfirm, duplicatesConfirmTitle, duplicatesConfirmMessage, duplicatesDone

@@ -19,16 +19,15 @@ enum LoginItemState: Equatable {
     case on
     /// Kayıt yapıldı, macOS kullanıcının Sistem Ayarları › Genel › Giriş Öğeleri'nde onaylamasını bekliyor.
     case needsApproval
-    /// macOS bu kopyayı giriş öğesi olarak bulamıyor.
-    case unavailable
 
+    /// macOS hiç kaydedilmemiş uygulama için `.notFound` da döndürür (2026-11-04, /Applications'taki ad-hoc kopya):
+    /// bu da "kapalı"dır. Kayıt gerçekten olmazsa `register()` hatası uyarıyla gösterilir.
     init(_ status: SMAppService.Status) {
         switch status {
         case .enabled: self = .on
         case .requiresApproval: self = .needsApproval
-        case .notRegistered: self = .off
-        case .notFound: self = .unavailable
-        @unknown default: self = .unavailable
+        case .notRegistered, .notFound: self = .off
+        @unknown default: self = .off
         }
     }
 
@@ -82,9 +81,7 @@ struct OpenAtLoginRow: View {
                         .font(.footnote)
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
-                    if model.loginItemState == .needsApproval {
-                        Button(settings.t(.permissionOpenSettings)) { model.openLoginItemSettings() }
-                    }
+                    Button(settings.t(.permissionOpenSettings)) { model.openLoginItemSettings() }
                 }
             }
         }
@@ -92,10 +89,6 @@ struct OpenAtLoginRow: View {
     }
 
     private var problem: LKey? {
-        switch model.loginItemState {
-        case .needsApproval: .loginItemNeedsApproval
-        case .unavailable: .loginItemUnavailable
-        case .on, .off: nil
-        }
+        model.loginItemState == .needsApproval ? .loginItemNeedsApproval : nil
     }
 }

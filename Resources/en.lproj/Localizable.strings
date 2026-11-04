@@ -996,7 +996,6 @@
 "settingsOpenAtLogin" = "Open at login";
 "settingsOpenAtLoginNote" = "Copiator opens by itself when you log in to your Mac. Jobs that start when a disk is connected, the old backup reminder and the integrity check on connect only work while the app is running. Nothing is scheduled.";
 "loginItemNeedsApproval" = "macOS is waiting for your approval: turn on Copiator in System Settings › General › Login Items & Extensions.";
-"loginItemUnavailable" = "macOS cannot find this copy as a login item; open Copiator from the Applications folder.";
 "loginItemFailed" = "Open at login could not be changed: %@";
 "snapshotsModeBrowse" = "Browse";
 "snapshotsModeCompare" = "Compare";

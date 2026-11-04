@@ -57,9 +57,12 @@ struct LoginItemTests {
         item.status = .notRegistered
         model.refreshLoginItem()
         #expect(model.loginItemState == .off)
+        // Hiç kaydedilmemiş uygulama için macOS "bulunamadı" da der: bu da kapalıdır, anahtar kullanılabilir.
         item.status = .notFound
         model.refreshLoginItem()
-        #expect(model.loginItemState == .unavailable && !model.loginItemState.isRequested)
+        #expect(model.loginItemState == .off && !model.loginItemState.isRequested)
+        model.setOpenAtLogin(true)
+        #expect(model.loginItemState == .needsApproval)
     }
 
     @Test func failureIsExplainedAndStateStays() throws {
