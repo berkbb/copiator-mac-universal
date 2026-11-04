@@ -219,3 +219,7 @@
 ## Episode 52: The Stress Probe Never Looked Inside the Job List
 - **Root Cause:** `Scripts/StressProbe.swift` came from a project whose outlines hold tens of thousands of archive entries, so it skipped every `AXOutline`, `AXTable` and `AXRow`. Copiator's job list is an outline (`copiator.joblist`), so `copiator.job.toggle` was never found, pause and resume failed, and the copy checks that followed reported an unfinished copy.
 - **Guardrail:** the probe searches the job list's rows and still skips other long lists; when a probe reports "element not found", measure the real accessibility path (the button sat at depth 12) before suspecting the app.
+
+## Episode 53: Notifications Passed Every Test and Never Appeared
+- **Root Cause:** every notification test injects `notifier`, so the suites proved what the app asks for, not what macOS shows. In the installed ad-hoc signed app, `requestAuthorization` fails with "Notifications are not allowed for this application", and the Dock does not show Copiator's badge, although `DockProgress.update` runs with the right values.
+- **Guardrail:** features that go through the operating system (notifications, Dock tile, App Intents) are checked in the real, signed bundle before a release, with a bare probe app to separate system policy from app code; a release does not claim them until that check passes.
