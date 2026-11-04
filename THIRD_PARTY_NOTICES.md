@@ -38,6 +38,15 @@ Babadogan Tech and Edu), https://github.com/berkbb/descarcator-mac-universal. De
 copyright holder and the same license (`GPL-3.0-only`, `LICENSE`); the derived code is distributed as part of Copiator
 under GPL-3.0-only.
 
+## Curatare (derived components)
+
+The Full Disk Access check (probing places only that permission opens, and the System Settings link in
+`FullDiskAccess`) and the orange permission banner with its "Open System Settings" and "Later" buttons
+(`PermissionBanners`) are derived from Curatare (GNU General Public License, version 3 only, `GPL-3.0-only`;
+Copyright (C) 2026 Babadogan Tech and Edu), https://github.com/berkbb/curatare-mac-universal. Curatare and Copiator
+have the same copyright holder and the same license (`GPL-3.0-only`, `LICENSE`); the derived code is distributed as
+part of Copiator under GPL-3.0-only.
+
 ## Repository-only files (not part of the app)
 
 The source repository also contains third-party files that are used only by coding agents working on Copiator. They

@@ -975,3 +975,11 @@
 "sendToRoutineSync" = "Sync routines cannot run on selected items; choose a copy routine.";
 "optionSyncPolicy" = "If a file differs on both sides";
 "optionSyncPolicyNote" = "With “Ask”, the sync stops before copying and asks which side wins for each file; when nobody is around it waits as “Needs decision”. “Newer wins” writes the one modified more recently; if the times are equal, the file is skipped.";
+"permissionLater" = "Later";
+"permissionOpenSettings" = "Open System Settings";
+"permissionNotificationsTitle" = "Copiator cannot send notifications";
+"permissionNotificationsDenied" = "Finished jobs, old-backup reminders and integrity results cannot be announced. Allow Copiator in System Settings › Notifications.";
+"permissionNotificationsUnavailable" = "macOS did not let Copiator ask for notifications. Allow Copiator in System Settings › Notifications.";
+"permissionNotificationsMoveApp" = "macOS does not offer notifications to Copiator opened from this folder. Move Copiator to the Applications folder and open it from there.";
+"permissionFullDiskTitle" = "Full Disk Access needed";
+"permissionFullDisk" = "Some jobs touch folders macOS protects (Mail, Safari, Photos, Trash…); without this permission those files are not copied. Turn on Copiator in System Settings › Privacy & Security › Full Disk Access; if it is already on (for example after an update), turn it off and on again.";

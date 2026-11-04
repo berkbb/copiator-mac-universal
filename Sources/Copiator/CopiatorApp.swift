@@ -81,8 +81,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Pencere açılmadan (Kestirmeler ya da Finder servisiyle) başlatılsa da kuyruk ve motor hazırlanır.
         Task { await model.launch() }
-        // Bildirim izni daha önce rozetsiz verildiyse Dock simgesindeki ilerleme görünsün diye rozet de istenir.
-        Task { await model.requestBadgePermissionIfNeeded() }
+        // Bildirim izni açılışta sorulur (rozet dahil: Dock simgesindeki ilerleme onunla görünür); Tam Disk Erişimi yoklanır.
+        Task { await model.refreshPermissions(ask: true) }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // Kullanıcı Sistem Ayarları'ndan dönmüş olabilir: izin uyarıları yeni duruma göre gösterilir ya da kalkar.
+        Task { await AppModel.shared.refreshPermissions(ask: false) }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

@@ -336,6 +336,19 @@ final class AppModel {
     /// Testler sahte sunucunun (ya da boş bir portun) numarasını verir; adres her zaman 127.0.0.1'dir.
     @ObservationIgnored var localServerPorts: [LocalModelServer: Int] = [:]
 
+    /// Bildirim izninin son okunan durumu (açılışta sorulur, uygulama öne gelince yeniden okunur).
+    var notificationPermission: NotificationPermission = .unknown
+    /// Tam Disk Erişimi: true var, false yok, nil bilinmiyor (gerçek uygulama dışında yoklanmaz).
+    var fullDiskAccessGranted: Bool? { didSet { refreshFullDiskAccessNeed() } }
+    /// Tam Disk Erişimi gerektiren bir iş ya da rutin var mı (izin yokken, kayıtta ve izin yenilenince hesaplanır).
+    private(set) var fullDiskAccessNeeded = false
+    /// "Sonra" denen izin uyarıları; bu oturum için (sonraki açılışta gerekiyorsa yeniden görünür).
+    var dismissedPermissionBanners: Set<PermissionBanner> = []
+    /// Uygulama Uygulamalar klasöründen mi açıldı (macOS bildirim iznini yalnızca oradan sunar).
+    @ObservationIgnored var isInApplicationsFolder = AppModel.isInApplicationsFolder(Bundle.main.bundleURL)
+    /// Ev klasörü (testler sahte bir klasör verir).
+    @ObservationIgnored var homeDirectory = FileManager.default.homeDirectoryForCurrentUser
+
     /// Yapay zekâ önerileri sunulur mu (ayar açık ve bu Mac'te cihaz üstü model var).
     var canSuggestWithAI: Bool { settings.aiSuggestions && suggestionModel.isAvailable }
 
@@ -754,6 +767,7 @@ final class AppModel {
     }
 
     private func saveRoutines() {
+        refreshFullDiskAccessNeed()
         do {
             try routineStore.save(routines)
         } catch {
@@ -1196,6 +1210,7 @@ final class AppModel {
     }
 
     func save() {
+        refreshFullDiskAccessNeed()
         do {
             try store.save(jobs)
         } catch {
@@ -1660,14 +1675,79 @@ final class AppModel {
     /// çizdiği ilerleme çubuğunu macOS 26 yalnızca bildirim ayarlarında "simge göstergesi" açıkken gösterir.
     nonisolated static let notificationOptions: UNAuthorizationOptions = [.alert, .sound, .badge]
 
-    /// Bildirim izni daha önce rozetsiz verildiyse açılışta rozet de istenir (yeni bir soru çıkmaz, ayarlara "simge
-    /// göstergesi" eklenir). İzin hiç sorulmadıysa açılışta sorulmaz: kaydolmamış uygulamanın Dock'u kısıtlanmaz.
-    func requestBadgePermissionIfNeeded() async {
+    // MARK: - İzinler (bildirimler, Tam Disk Erişimi)
+
+    /// Bildirim izni açılışta sorulur: hiç sorulmadıysa macOS'un izin sorusu çıkar; daha önce rozetsiz verildiyse rozet
+    /// de istenir (yeni bir soru çıkmaz, ayarlara "simge göstergesi" eklenir). `ask` kapalıyken yalnızca durum okunur
+    /// (uygulama öne gelince: kullanıcı Sistem Ayarları'ndan dönmüş olabilir). Tam Disk Erişimi de yeniden yoklanır.
+    /// Yalnızca gerçek uygulama paketinde (testlerde Bundle.main bir xctest paketidir).
+    func refreshPermissions(ask: Bool) async {
         guard Bundle.main.bundleIdentifier == AppInfo.bundleIdentifier else { return }
+        fullDiskAccessGranted = FullDiskAccess.isGranted(home: homeDirectory)
         let center = UNUserNotificationCenter.current()
-        let current = await center.notificationSettings()
-        guard current.authorizationStatus != .notDetermined, current.badgeSetting == .notSupported else { return }
-        _ = try? await center.requestAuthorization(options: Self.notificationOptions)
+        var current = await center.notificationSettings()
+        // nil: bu çağrıda sorulmadı; önceki sorunun sonucu korunur (açılıştaki soru ile öne gelme yoklaması yarışabilir).
+        var requestFailed: Bool?
+        if ask, current.authorizationStatus == .notDetermined || (current.authorizationStatus == .authorized && current.badgeSetting == .notSupported) {
+            do {
+                _ = try await center.requestAuthorization(options: Self.notificationOptions)
+                requestFailed = false
+            } catch {
+                // UNErrorDomain 1: macOS bu konumdan açılan uygulamaya izin sormuyor (bkz. NotificationPermission.unavailable).
+                requestFailed = true
+            }
+            current = await center.notificationSettings()
+        }
+        notificationPermission = NotificationPermission(status: current.authorizationStatus,
+                                                        requestFailed: requestFailed ?? (notificationPermission == .unavailable))
+    }
+
+    /// Uygulama paketi Uygulamalar klasöründe (ya da bir alt klasöründe) mi?
+    nonisolated static func isInApplicationsFolder(_ bundleURL: URL) -> Bool {
+        let folder = SandboxProfile.resolved(bundleURL).deletingLastPathComponent().path
+        return folder == "/Applications" || folder.hasPrefix("/Applications/")
+    }
+
+    /// Bildirim gönderen ayarlardan biri açık mı (iş bitince, eski yedek hatırlatması, takılınca bütünlük denetimi)?
+    var usesNotifications: Bool {
+        settings.notifyOnFinish || settings.backupReminderDays > 0 || !settings.integrityOnConnect.isEmpty
+    }
+
+    /// İzin yokken iş ve rutin yollarına bakar: korumalı bir yere değen ya da kaynağı okunamamış (EPERM) bir iş varsa
+    /// izin gerekir. Kum havuzu açıkken onun zaten atladığı kişisel klasörler sayılmaz.
+    func refreshFullDiskAccessNeed() {
+        guard fullDiskAccessGranted == false else { return }
+        let paths = jobs.flatMap { [$0.source, $0.destination] }
+            + routines.flatMap { $0.routes.flatMap { [$0.source, $0.destination].compactMap { $0 } } }
+        let skipped = settings.sandboxEngine ? SandboxProfile.personalDataDirectories(home: homeDirectory) : []
+        let needed = FullDiskAccess.isNeeded(for: paths, home: homeDirectory, skipped: skipped)
+            || jobs.contains { job in job.result.map { FullDiskAccess.blockedRead(in: $0.detail) } ?? false }
+        if needed != fullDiskAccessNeeded { fullDiskAccessNeeded = needed }
+    }
+
+    /// Pencerenin üstünde gösterilecek izin uyarıları.
+    var permissionBanners: [PermissionBanner] {
+        var banners: [PermissionBanner] = []
+        if notificationPermission.isBlocked, usesNotifications, !dismissedPermissionBanners.contains(.notifications) {
+            banners.append(.notifications)
+        }
+        if fullDiskAccessGranted == false, fullDiskAccessNeeded, !dismissedPermissionBanners.contains(.fullDiskAccess) {
+            banners.append(.fullDiskAccess)
+        }
+        return banners
+    }
+
+    /// Uyarının düğmesi: ilgili Sistem Ayarları bölümü; bildirimler Uygulamalar klasörü dışından açıldığı için
+    /// sunulmuyorsa uygulama Finder'da gösterilir (taşınsın diye).
+    func openPermissionSettings(_ banner: PermissionBanner) {
+        switch banner {
+        case .notifications where notificationPermission == .unavailable && !isInApplicationsFolder:
+            NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+        case .notifications:
+            NSWorkspace.shared.open(AppLinks.notificationSettings)
+        case .fullDiskAccess:
+            NSWorkspace.shared.open(FullDiskAccess.settingsURL)
+        }
     }
 
     /// macOS bildirimi; yalnızca gerçek uygulama paketinde (testlerde Bundle.main bir xctest paketidir).
@@ -1897,6 +1977,8 @@ enum AppLinks {
     static let engineLicense = URL(string: "https://github.com/RsyncProject/rsync/blob/master/COPYING")!
     static var repository: URL { URL(string: "https://github.com/\(AppInfo.repository)")! }
     static var releases: URL { URL(string: "https://github.com/\(AppInfo.repository)/releases")! }
+    /// Sistem Ayarları › Bildirimler › Copiator.
+    static let notificationSettings = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(AppInfo.bundleIdentifier)")!
 }
 
 enum AppInfo {

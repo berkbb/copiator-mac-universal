@@ -975,3 +975,11 @@
 "sendToRoutineSync" = "Rutinele de sincronizare nu pot rula pe elemente selectate; alegeți o rutină de copiere.";
 "optionSyncPolicy" = "Dacă un fișier diferă în ambele părți";
 "optionSyncPolicyNote" = "Cu „Întreabă”, sincronizarea se oprește înainte de copiere și întreabă ce parte câștigă pentru fiecare fișier; dacă nu este nimeni, așteaptă ca „Așteaptă decizie”. „Câștigă cel mai nou” scrie fișierul modificat mai recent; dacă timpii sunt egali, fișierul este omis.";
+"permissionLater" = "Mai târziu";
+"permissionOpenSettings" = "Deschide Configurări sistem";
+"permissionNotificationsTitle" = "Copiator nu poate trimite notificări";
+"permissionNotificationsDenied" = "Lucrările terminate, mementourile pentru copiile de rezervă vechi și rezultatele verificării integrității nu pot fi anunțate. Permiteți Copiator în Configurări sistem › Notificări.";
+"permissionNotificationsUnavailable" = "macOS nu a permis aplicației Copiator să ceară notificări. Permiteți Copiator în Configurări sistem › Notificări.";
+"permissionNotificationsMoveApp" = "macOS nu oferă notificări aplicației Copiator deschise din acest dosar. Mutați Copiator în dosarul Aplicații și deschideți-o de acolo.";
+"permissionFullDiskTitle" = "Este necesar accesul complet la disc";
+"permissionFullDisk" = "Unele lucrări ating dosare protejate de macOS (Mail, Safari, Poze, Coș…); fără această permisiune, acele fișiere nu sunt copiate. Activați Copiator în Configurări sistem › Confidențialitate și securitate › Acces complet la disc; dacă este deja activat (de exemplu după o actualizare), dezactivați-l și activați-l din nou.";

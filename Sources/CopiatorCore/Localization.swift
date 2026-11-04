@@ -265,6 +265,9 @@ public enum LKey: String, CaseIterable, Sendable {
     case integrityRepaired, integrityRepairNoCopy, integrityRepairFailed, integrityRepairChanged
     case optionEjectWhenDone, optionEjectWhenDoneNote, logEjected, logEjectFailed, notifyEjectedTitle, notifyEjectedBody, notifyEjectFailedTitle
     case notifyActionBackUpNow, notifyActionShow, notifyActionDecide, toastBackUpNowQueued
+    // İzin uyarıları (bildirimler, Tam Disk Erişimi)
+    case permissionLater, permissionOpenSettings, permissionNotificationsTitle, permissionNotificationsDenied
+    case permissionNotificationsUnavailable, permissionNotificationsMoveApp, permissionFullDiskTitle, permissionFullDisk
     // Yinelenen dosyalar
     case menuDuplicates, duplicatesTitle, duplicatesNote, duplicatesScanning, duplicatesNone, duplicatesSummary, duplicatesKeep
     case duplicatesGroup, duplicatesTrash, duplicatesTrashConfirm, duplicatesConfirmTitle, duplicatesConfirmMessage, duplicatesDone

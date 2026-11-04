@@ -31,6 +31,8 @@ struct ContentView: View {
                 }
             }
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: model.jobs.isEmpty)
+            // Bildirim ya da Tam Disk Erişimi izni gerekiyorsa: neden ve Sistem Ayarları düğmesi.
+            .safeAreaInset(edge: .top, spacing: 0) { PermissionBanners() }
             .inspector(isPresented: $model.isInspectorVisible) {
                 JobDetailView()
                     .inspectorColumnWidth(min: 260, ideal: 320, max: 440)

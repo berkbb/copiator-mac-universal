@@ -975,3 +975,11 @@
 "sendToRoutineSync" = "Eşitleme rutinleri seçili öğelerle çalıştırılamaz; bir kopyalama rutini seçin.";
 "optionSyncPolicy" = "İki yanda farklı dosya varsa";
 "optionSyncPolicyNote" = "“Sor” seçiliyse eşitleme kopyalamadan önce durur ve her dosya için hangi yanın kazanacağını sorar; kimse yokken “Karar bekliyor” olarak bekler. “Yenisi kazansın” değişiklik zamanı yeni olanı yazar; zamanlar eşitse dosya atlanır.";
+"permissionLater" = "Sonra";
+"permissionOpenSettings" = "Sistem Ayarlarını Aç";
+"permissionNotificationsTitle" = "Copiator bildirim gönderemiyor";
+"permissionNotificationsDenied" = "Biten işler, eski yedek hatırlatmaları ve bütünlük sonuçları bildirilemez. Sistem Ayarları › Bildirimler'de Copiator'a izin verin.";
+"permissionNotificationsUnavailable" = "macOS, Copiator'ın bildirim izni istemesine izin vermedi. Sistem Ayarları › Bildirimler'de Copiator'a izin verin.";
+"permissionNotificationsMoveApp" = "macOS bu klasörden açılan Copiator'a bildirim izni sunmuyor. Copiator'ı Uygulamalar klasörüne taşıyıp oradan açın.";
+"permissionFullDiskTitle" = "Tam Disk Erişimi gerekiyor";
+"permissionFullDisk" = "Bazı işler macOS'un koruduğu klasörlere (Mail, Safari, Fotoğraflar, Çöp Sepeti…) değiyor; bu izin olmadan o dosyalar kopyalanmaz. Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi'nde Copiator'ı açın; zaten açıksa (ör. bir güncellemeden sonra) kapatıp yeniden açın.";
