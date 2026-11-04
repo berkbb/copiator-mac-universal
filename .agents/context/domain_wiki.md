@@ -77,6 +77,10 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 - Ad-hoc signing ties TCC grants to the code hash, so Full Disk Access may stop working after an update while the switch still looks on; the banner and the README tell the user to toggle it. An Apple Development certificate would keep grants across builds but embeds the developer's e-mail in public binaries, so releases stay ad-hoc unless the user decides otherwise.
 - `Info.plist` explains the on-demand prompts (Desktop, Documents, Downloads, removable and network volumes, file providers) in every language (`InfoPlist.strings`); `permissionPromptsAreExplainedInEveryLanguage` guards the key set.
 
+## Open at Login
+
+- Decided with the user on 2026-11-04: Copiator can open at login (`SMAppService.mainApp`) so disk-triggered jobs, the old backup reminder and the integrity check on connect survive a restart. This is not scheduling (R1 stays rejected): the app only opens. The state belongs to macOS and is re-read, never stored; approval waits and "not found" are explained in Settings.
+
 ## App Icon
 
 - Decided with the user on 2026-10-23: the icon drawn by `Scripts/make_icon.swift` is the final app icon (no longer temporary).
