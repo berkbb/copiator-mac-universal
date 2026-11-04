@@ -36,6 +36,11 @@ struct RunUndoTests {
         try w.write("Belgeler/Bos/a.txt", "a")
         try w.write("Belgeler/Dolu/b.txt", "b")
         try w.write("Belgeler/sonra.txt", "sonra")
+        // Kaynak dosyalar çoğunlukla çalıştırmadan çok eskidir: rsync değişme zamanını taşır, macOS da kopyanın oluşma
+        // zamanını ona çeker. Geri alma yine de bu kopyaları taşımalı.
+        for path in ["Belgeler/yeni.txt", "Belgeler/Bos/a.txt", "Belgeler/Dolu/b.txt", "Belgeler/sonra.txt"] {
+            try setDate(w.url(path), Date(timeIntervalSince1970: 1_700_000_000))
+        }
         try w.write("Hedef/Belgeler/degisen.txt", "eski")
         try w.write("Hedef/Belgeler/onceden.txt", "önceden vardı")
         var job = TransferJob(source: w.url("Belgeler"), destination: w.url("Hedef"), options: CopyOptions(conflictPolicy: .replace))

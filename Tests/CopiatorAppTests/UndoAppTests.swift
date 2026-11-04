@@ -28,7 +28,8 @@ struct UndoAppTests {
         #expect(FileManager.default.fileExists(atPath: fixture.url("Kaynak/not.txt").path), "kaynak değişmez")
         let undone = try #require(model.job(id))
         #expect(undone.history.last?.undoneAt != nil)
-        #expect(undone.log.contains { $0.key == LKey.logUndoneCreated.rawValue && $0.arguments == ["4", "0"] })
+        #expect(undone.log.contains { $0.key == LKey.logUndoneCreated.rawValue && $0.arguments == ["4", "0"] },
+                "\(undone.log.suffix(3).map { ($0.key ?? "", $0.arguments) }) run=\(String(describing: undone.history.last.map { ($0.startedAt.timeIntervalSince1970, $0.finishedAt.timeIntervalSince1970, $0.result.undo?.created ?? []) })) log=\(undone.log.map { $0.key ?? "raw" })")
         #expect(model.undoPlan(for: undone) == nil, "bir daha geri alınamaz")
     }
 

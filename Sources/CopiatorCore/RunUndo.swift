@@ -5,7 +5,8 @@ import Foundation
 /// Son çalıştırmayı geri alma (güvenli kısım; 2026-11-04 kullanıcı kararı). Anlık görüntülü işte son anlık görüntü
 /// Çöp Sepeti'ne taşınır ve "Latest" bir öncekine döner. Anlık görüntüsüz işte yalnızca son çalıştırmanın eklediği
 /// öğeler Çöp Sepeti'ne taşınır: üzerine yazılan ya da silinen dosyalar geri gelmez (sayıları söylenir). Hiçbir şey
-/// kalıcı olarak silinmez; çalıştırmadan önce var olan ya da sonradan değiştirilen öğelere dokunulmaz.
+/// kalıcı olarak silinmez; çalıştırmadan önce var olan (durum değişim zamanı çalıştırmadan eski) ya da sonradan içeriği
+/// değiştirilen (değişme zamanı çalıştırmadan yeni) öğelere dokunulmaz.
 public enum RunUndo {
     /// Kaydedilen en çok eklenen öğe; fazlası varsa geri alma sunulmaz (yarım geri alma yanıltıcı olurdu).
     public static let maxRecordedItems = 5_000
@@ -57,11 +58,13 @@ public enum RunUndo {
                 outcome.kept.append(path)
                 continue
             }
-            let born = Date(timeIntervalSince1970: TimeInterval(info.st_birthtimespec.tv_sec))
+            // Oluşma zamanı kanıt olamaz: rsync değişme zamanını kaynaktan alır, macOS da oluşma zamanını ondan eskiye
+            // çekilince birlikte geri alır (2026-11-04 denemesi). Durum değişim zamanı (ctime) ise rsync'in yazdığı her
+            // öğede çalıştırma sırasına düşer; çalıştırmadan önce var olup dokunulmamış öğede eskidir.
+            let touched = Date(timeIntervalSince1970: TimeInterval(info.st_ctimespec.tv_sec))
             let modified = Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec))
-            // Çalıştırmadan önce vardı ya da sonra değişti: dokunulmaz. Klasörün zamanı içine dosya eklenince değişir;
-            // klasör ancak boşsa taşınır.
-            guard born >= startedAt.addingTimeInterval(-tolerance), SandboxProfile.resolved(url).path.hasPrefix(root.path + "/") else {
+            // Çalıştırmadan önce vardı ya da sonra değişti: dokunulmaz. Klasör ancak boşsa taşınır.
+            guard touched >= startedAt.addingTimeInterval(-tolerance), SandboxProfile.resolved(url).path.hasPrefix(root.path + "/") else {
                 outcome.kept.append(path)
                 continue
             }
