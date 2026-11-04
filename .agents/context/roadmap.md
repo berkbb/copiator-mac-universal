@@ -12,7 +12,6 @@
 ### Features
 
 6. ⬜ **[Medium] Multiple sources per job** (model already keeps sources as a single URL; needs a schema version bump with migration).
-7. ⬜ **[Low] Low-priority I/O option** (e.g. `taskpolicy`-style background I/O for rsync); proposed again on 2026-10-23 and queued by the user.
 
 9c. ⬜ **[Low] `--read-batch` as its own job kind** (apply a batch file to a destination).
 9e. ⬜ **[Medium] Apple Foundation Models adapter (real fine-tuning) — decision pending, raised on 2026-10-23.** A LoRA adapter for the on-device model needs Apple's Foundation Models adapter training toolkit (Apple Developer download, Python, a Mac with a lot of memory), a labelled dataset of folder and template choices in Turkish, English and Romanian, the Foundation Models adapter entitlement for the app, delivery through Background Assets, and retraining for every new system model version. Until then the app tunes Apple through guided generation, greedy sampling and order-reversal checks.
