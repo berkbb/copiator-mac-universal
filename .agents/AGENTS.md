@@ -61,7 +61,27 @@
 
 ## 3. Mandatory Agent Workflow
 
-1. **Constitutional Alignment:** Read this file before modifying any source file, script, or resource.
-2. **Context & Symbol Lookup:** Consult `context/domain_wiki.md`, `context/code_graph_wiki.md`, `context/symbolic_memory_graph.md`, and `context/reflexion_memory_log.md` before changing argument generation, output parsing, sandboxing, queue flows or persistence.
-3. **Rule Verification:** Check `rules/about_rules.md`, `rules/math_rules.md`, `rules/ui_rules.md`, and `rules/github_spec_kit.md`.
-4. **Skill Execution:** Use `skills/sentinel_test_skill.md` to validate changes with `swift test` before completing any task; `skills/engine_maintenance_skill.md` when touching `Vendor/rsync`; `skills/snapshot_audit_skill.md` when touching persisted data or `Info.plist`.
+1. **Constitutional Alignment:** Read `.agents/AGENTS.md` before modifying any source file, script, or resource.
+2. **Graph-First Code Navigation:** When `graphify-out/graph.json` exists, run `graphify query "<question>"` (or `graphify path`, `graphify explain`, `graphify affected`) before the first grep or source-file read for a code question, and read raw files only for lines the graph located. After changing code, run `graphify update .` (local AST only). Build, privacy and refresh rules are in [`rules/graphify_knowledge_graph.md`](rules/graphify_knowledge_graph.md); `graphify-out/` is git-ignored and regenerable.
+3. **Context & Symbol Lookup:** Consult [`context/domain_wiki.md`](context/domain_wiki.md), [`context/code_graph_wiki.md`](context/code_graph_wiki.md), [`context/symbolic_memory_graph.md`](context/symbolic_memory_graph.md), and [`context/reflexion_memory_log.md`](context/reflexion_memory_log.md) before changing argument generation, output parsing, sandboxing, queue flows, AI suggestions or persistence.
+4. **Rule Verification:** Check [`rules/about_rules.md`](rules/about_rules.md) (index of all rule files), [`rules/math_rules.md`](rules/math_rules.md), [`rules/ui_rules.md`](rules/ui_rules.md), and [`rules/github_spec_kit.md`](rules/github_spec_kit.md).
+5. **Skill Execution:** Use [`skills/sentinel_test_skill.md`](skills/sentinel_test_skill.md) to validate changes with `swift test` before completing any task, [`skills/engine_maintenance_skill.md`](skills/engine_maintenance_skill.md) when touching `Vendor/rsync`, and [`skills/snapshot_audit_skill.md`](skills/snapshot_audit_skill.md) when touching persisted data or `Info.plist`.
+6. **Roadmap & Rejected Specs:** Read [`context/roadmap.md`](context/roadmap.md) before proposing work and [`context/user_rejected_spec.md`](context/user_rejected_spec.md) before proposing a feature; remove finished items from the roadmap only.
+
+---
+
+## 4. Repository Map
+
+| Path | Responsibility |
+| :--- | :--- |
+| `Package.swift` | SwiftPM manifest: `CopiatorCore`, `Copiator`, `CopiatorCoreTests`, `CopiatorAppTests`; no external packages. |
+| `Sources/CopiatorCore/` | UI-independent core: `RsyncCommand`, `CommandRunner`, `SandboxProfile`, `RsyncEngine`, `SyncEngine`, `JobStore` / `JobQueue`, `SnapshotStore`, routines and rules, placement, suggestions and local models, archive health (`ArchiveIntegrity`, `DuplicateFinder`, `SnapshotRestore`), `DiskEject`, `Localization` (`LKey`). |
+| `Sources/Copiator/` | `@MainActor` SwiftUI app (`CopiatorApp`, `AppModel`, `AppSettings`, `FinderServices`, `Intents`, `Notices`, `StatusItems`, `Views/`). |
+| `Vendor/rsync/` | Bundled unmodified rsync with `COPYING`, `NEWS.md` and `SOURCE.txt` (provenance), built by `Scripts/build-rsync.sh` and updated by `Scripts/update-rsync.sh`. |
+| `Resources/` | `AppIcon.icns` and the `tr.lproj`, `en.lproj`, `ro.lproj` tables (`Localizable`, `InfoPlist`, `ServicesMenu`, `AppShortcuts`). |
+| `Support/` | `Info.plist` (Finder services, repository and update key). |
+| `Scripts/` | `build_app.sh`, `verify_bundle.sh`, `package.sh`, `release.sh`, `set-version.sh`, `build-rsync.sh`, `update-rsync.sh`, `stress-test.sh` + `StressProbe.swift`, `make_icon.swift`, `update_signing.swift`. |
+| `Tests/` | `CopiatorCoreTests` and `CopiatorAppTests` Swift Testing suites. |
+| `docs/` | Which rsync options work inside the sandbox and which do not. |
+| `.graphifyrc`, `.graphifyignore` | Graphify settings and ignore list; the graph itself lives in the git-ignored `graphify-out/`. |
+| `CLAUDE.md`, `.claude/` | Graphify rules, project skill (`.claude/skills/graphify/`, Apache-2.0) and pre-search hook for Claude Code. |

@@ -58,6 +58,11 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 - The bundled rsync keeps its own GPL-3.0-or-later license (with its linking exception); lines that describe rsync (`Scripts/build-rsync.sh`, `Vendor/rsync/SOURCE.txt`, the engine entry of the license viewer) are not changed.
 - The project the derived components come from is GPL-3.0 with the same copyright holder (Babadogan Tech and Edu); the earlier MIT notice was outdated and was replaced. That project is named only in `THIRD_PARTY_NOTICES.md`.
 
+## Agent Tooling
+
+- Decided with the user on 2026-11-04 ("agents ler son sürüm yap. graphify yı ekle"): the `.agents/` rule files follow the current 42 Core Standards with their current names (nine files renamed, the invented reasoning-trace standard removed), and the documents link to each other and to Graphify.
+- Graphify builds a local, code-only knowledge graph without an LLM (`.graphifyrc`, `.graphifyignore`, git-ignored `graphify-out/`). The project-scoped Claude Code skill and pre-search reminder (`CLAUDE.md`, `.claude/`) are versioned; git hooks and the merge driver are per clone. The skill files keep their Apache-2.0 license and are listed under "Repository-only files" in `THIRD_PARTY_NOTICES.md`; they are not part of the app.
+
 ## App Icon
 
 - Decided with the user on 2026-10-23: the icon drawn by `Scripts/make_icon.swift` is the final app icon (no longer temporary).
