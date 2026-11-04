@@ -1046,3 +1046,10 @@
 "fillForecastRetention" = "Adăugați acestei lucrări o regulă de păstrare a instantaneelor (de exemplu ultimele 30 de zile și unul pe lună): ștergerea instantaneelor vechi eliberează spațiu.";
 "notifyFillTitle" = "Discul de destinație se umple";
 "notifyFillBody" = "„%1$@” se umple în aproximativ %2$@ în acest ritm.";
+"settingsPauseOnCriticalBattery" = "Întrerupe când bateria este aproape descărcată";
+"settingsPauseOnCriticalBatteryNote" = "Pe baterie, sub %@, lucrarea în curs se întrerupe (fișierele copiate parțial sunt păstrate) și nu pornește nicio lucrare nouă, astfel încât Mac-ul să nu se oprească în mijlocul unei copieri. Când conectați adaptorul, lucrarea se reia de unde s-a oprit.";
+"logPausedForBattery" = "Bateria sub %@: lucrarea a fost întreruptă și se reia când conectați adaptorul.";
+"logResumedOnPower" = "Adaptorul a fost conectat: lucrarea întreruptă din cauza bateriei se reia.";
+"batteryHoldNotice" = "Bateria este aproape descărcată: lucrările pornesc când conectați adaptorul.";
+"notifyBatteryPausedTitle" = "Baterie descărcată, lucrare întreruptă";
+"notifyBatteryPausedBody" = "„%@” se reia de unde s-a oprit când conectați adaptorul.";

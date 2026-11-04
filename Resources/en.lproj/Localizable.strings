@@ -1046,3 +1046,10 @@
 "fillForecastRetention" = "Add a snapshot retention rule (for example the last 30 days and one per month) to this job: removing old snapshots frees space.";
 "notifyFillTitle" = "Destination disk is filling up";
 "notifyFillBody" = "“%1$@” fills up in about %2$@ at this rate.";
+"settingsPauseOnCriticalBattery" = "Pause when the battery is critically low";
+"settingsPauseOnCriticalBatteryNote" = "On battery below %@, the running job pauses (partly copied files are kept) and no new job starts, so the Mac does not shut down in the middle of a copy. When the adapter is plugged in, the job resumes where it stopped.";
+"logPausedForBattery" = "Battery below %@: the job was paused and resumes when the adapter is plugged in.";
+"logResumedOnPower" = "Adapter plugged in: the job paused for the battery resumes.";
+"batteryHoldNotice" = "Battery critically low: jobs start when the adapter is plugged in.";
+"notifyBatteryPausedTitle" = "Battery low, job paused";
+"notifyBatteryPausedBody" = "“%@” resumes where it stopped when the adapter is plugged in.";

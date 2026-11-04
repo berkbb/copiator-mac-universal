@@ -175,6 +175,14 @@ private struct GeneralSettingsView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(settings.t(.settingsPauseOnCriticalBattery), isOn: $settings.pauseOnCriticalBattery)
+                        .accessibilityIdentifier("copiator.settings.pauseOnCriticalBattery")
+                    Text(settings.t(.settingsPauseOnCriticalBatteryNote, settings.percent(Double(PowerAdvisor.criticalBatteryPercent) / 100)))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .formStyle(.grouped)

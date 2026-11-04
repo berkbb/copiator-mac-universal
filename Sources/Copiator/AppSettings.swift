@@ -191,6 +191,7 @@ final class AppSettings {
         static let customShortcuts = "customShortcuts"
         static let keepDisplayAwake = "keepDisplayAwake"
         static let lowPriorityIO = "lowPriorityIO"
+        static let pauseOnCriticalBattery = "pauseOnCriticalBattery"
         static let defaultAdvanced = "defaultAdvancedOptions"
         static let defaultVerifyAfterCopy = "defaultVerifyAfterCopy"
         static let defaultConflictPolicy = "defaultConflictPolicy"
@@ -209,7 +210,7 @@ final class AppSettings {
         static let all = [
             language, appearance, notifyOnFinish, resumeInterruptedAtLaunch, defaultCopyMode, defaultPreservePermissions,
             defaultPreserveXattrs, defaultExcludeSystemFolders, customEnginePath, checkUpdatesAtLaunch, updateConsentAsked,
-            sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, lowPriorityIO, defaultAdvanced, defaultVerifyAfterCopy,
+            sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, lowPriorityIO, pauseOnCriticalBattery, defaultAdvanced, defaultVerifyAfterCopy,
             showMenuBarIcon, showDockProgress, defaultConflictPolicy, aiSuggestions, aiProvider, aiOllamaModel, aiLMStudioModel,
             aiAutomaticOrder, aiAutomaticOff, backupReminderDays, backupRemindedAt, fillWarnedAt, integrityOnConnect,
         ]
@@ -251,6 +252,8 @@ final class AppSettings {
     var keepDisplayAwake: Bool { didSet { defaults.set(keepDisplayAwake, forKey: Key.keepDisplayAwake) } }
     /// rsync düşük öncelikli disk G/Ç ile çalışsın (macOS arka plan sınıfı); varsayılan kapalı.
     var lowPriorityIO: Bool { didSet { defaults.set(lowPriorityIO, forKey: Key.lowPriorityIO) } }
+    /// Pil kritik seviyedeyken çalışan iş duraklasın ve yeni iş başlamasın; varsayılan açık.
+    var pauseOnCriticalBattery: Bool { didSet { defaults.set(pauseOnCriticalBattery, forKey: Key.pauseOnCriticalBattery) } }
     /// Yeni işlerin gelişmiş rsync seçenekleri (Ayarlar › rsync); her iş Yeni İş sayfasında değiştirebilir.
     var defaultAdvanced: AdvancedOptions {
         didSet {
@@ -333,6 +336,7 @@ final class AppSettings {
         queueHeld = defaults.object(forKey: Key.queueHeld) as? Bool ?? false
         keepDisplayAwake = defaults.object(forKey: Key.keepDisplayAwake) as? Bool ?? false
         lowPriorityIO = defaults.object(forKey: Key.lowPriorityIO) as? Bool ?? false
+        pauseOnCriticalBattery = defaults.object(forKey: Key.pauseOnCriticalBattery) as? Bool ?? true
         defaultAdvanced = defaults.data(forKey: Key.defaultAdvanced)
             .flatMap { try? JSONDecoder().decode(AdvancedOptions.self, from: $0) } ?? AdvancedOptions()
         defaultVerifyAfterCopy = VerifyAfterCopy(rawValue: defaults.string(forKey: Key.defaultVerifyAfterCopy) ?? "") ?? .off
@@ -384,6 +388,7 @@ final class AppSettings {
         queueHeld = false
         keepDisplayAwake = false
         lowPriorityIO = false
+        pauseOnCriticalBattery = true
         defaultAdvanced = AdvancedOptions()
         defaultVerifyAfterCopy = .off
         defaultConflictPolicy = .ask

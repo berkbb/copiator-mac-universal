@@ -494,6 +494,12 @@ final class AppModel {
     @ObservationIgnored private var isTerminating = false
     /// Çalışan işin diski çıkarılıyor: rsync durduruluyor, iş disk takılınca sürecek.
     @ObservationIgnored private var isSuspendingRunningJobForDisk = false
+    /// Pil kritik seviyede ve Mac pille çalışıyor: kuyruk bekler (bkz. `holdForBattery`).
+    private(set) var batteryHold = false
+    /// Pil yüzünden duraklatılan işler; adaptör takılınca sürer.
+    @ObservationIgnored private(set) var pausedForBattery: Set<TransferJob.ID> = []
+    @ObservationIgnored private var isSuspendingRunningJobForBattery = false
+    @ObservationIgnored private var batteryWatch: Task<Void, Never>?
     /// Kaynak ve hedefin erişilebilirliği ("disk takılınca başla" işleri için); testler sahte bir denetim verebilir.
     @ObservationIgnored var pathsAvailable: (TransferJob) -> Bool = { $0.pathsAvailable }
     /// Alt süreç kayıt dosyası (yalnızca uygulamada; testlerde nil).
@@ -1411,8 +1417,13 @@ final class AppModel {
     /// Boştaysa sıradaki bekleyen işi başlatır. İşler birer birer, listedeki sırayla çalışır.
     func scheduleNext() {
         defer { onActivityChange?() }
-        guard !isTerminating, runningJobID == nil, operation == nil, !settings.queueHeld, engineChecked,
+        guard !isTerminating, runningJobID == nil, operation == nil, !settings.queueHeld, !batteryHold, engineChecked,
               let engineURL, let engineInfo, let next = JobQueue.next(in: jobs, pathsAvailable: pathsAvailable) else { return }
+        // Pil kritik seviyedeyken yeni iş başlamaz: Mac kopyalamanın ortasında kapanmasın.
+        if batteryIsCritical(powerProvider()) {
+            holdForBattery()
+            return
+        }
         start(next, context: EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine, lowPriority: settings.lowPriorityIO))
     }
 
@@ -1575,6 +1586,7 @@ final class AppModel {
         }
         let pausedByUser = isPausingRunningJob
         let suspendedForDisk = isSuspendingRunningJobForDisk && result.kind == .cancelled
+        let suspendedForBattery = isSuspendingRunningJobForBattery && result.kind == .cancelled
         let finishedAt = clock()
         update(id) { job in
             JobQueue.finish(&job, with: result, at: finishedAt)
@@ -1584,6 +1596,9 @@ final class AppModel {
             case .cancelled where suspendedForDisk:
                 job.suspendedForDisk = true
                 job.appendLog(JobLogEntry(level: .info, key: .logSuspendedForDisk))
+            case .cancelled where suspendedForBattery:
+                job.appendLog(JobLogEntry(level: .warning, key: .logPausedForBattery,
+                                          arguments: [settings.percent(Double(PowerAdvisor.criticalBatteryPercent) / 100)]))
             case .cancelled, .stoppedAtLimit: job.appendLog(JobLogEntry(level: .info, key: .logPaused))
             case .awaitingDecision: break
             case let kind where kind.isSuccess: job.appendLog(JobLogEntry(level: .info, key: .logFinished))
@@ -1594,8 +1609,13 @@ final class AppModel {
         runningTask = nil
         isPausingRunningJob = false
         isSuspendingRunningJobForDisk = false
+        isSuspendingRunningJobForBattery = false
         endSleepGuard(for: id, announce: true)
         save()
+        if suspendedForBattery, let job = job(id) {
+            showToast(t(.batteryHoldNotice), systemImage: "battery.0percent")
+            if settings.notifyOnFinish { notifier(t(.notifyBatteryPausedTitle), t(.notifyBatteryPausedBody, job.source.lastPathComponent), nil) }
+        }
         if suspendedForDisk {
             showToast(t(.toastSuspendedForDisk), systemImage: "externaldrive.badge.exclamationmark")
         } else if let job = job(id), result.kind != .cancelled || !pausedByUser {
@@ -1879,6 +1899,60 @@ final class AppModel {
             showToast(settings.t(warning.titleKey, arguments: warning.arguments(snapshot, settings)), systemImage: warning.systemImage)
         }
         if !toLog.isEmpty { save() }
+        if runningJobID == id, batteryIsCritical(snapshot) { suspendRunningJobForBattery(id) }
+    }
+
+    // MARK: - Pil kritik seviyede
+
+    /// Pil kritik seviyede mi: ayar açık, Mac pille çalışıyor ve pil `PowerAdvisor.criticalBatteryPercent` altında.
+    func batteryIsCritical(_ snapshot: PowerSnapshot) -> Bool {
+        settings.pauseOnCriticalBattery && snapshot.source == .battery
+            && (snapshot.batteryPercent ?? 100) < PowerAdvisor.criticalBatteryPercent
+    }
+
+    /// Çalışan iş durdurulur (rsync yarım dosyaları saklar) ve duraklatılır; adaptör takılınca sürer.
+    private func suspendRunningJobForBattery(_ id: TransferJob.ID) {
+        guard !isSuspendingRunningJobForBattery else { return }
+        isSuspendingRunningJobForBattery = true
+        pausedForBattery.insert(id)
+        holdForBattery()
+        runningTask?.cancel()
+    }
+
+    /// Kuyruk bekletilir ve güç durumu izlenir: Mac adaptöre geçince (ya da ayar kapatılınca) bekleme kalkar.
+    private func holdForBattery() {
+        guard !batteryHold else { return }
+        batteryHold = true
+        batteryWatch?.cancel()
+        let interval = powerCheckInterval
+        batteryWatch = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: interval)
+                guard !Task.isCancelled, let self else { return }
+                let snapshot = self.powerProvider()
+                if snapshot.source != .battery || !self.settings.pauseOnCriticalBattery {
+                    self.releaseBatteryHold()
+                    return
+                }
+            }
+        }
+    }
+
+    /// Adaptör takıldı: pil yüzünden duraklatılan ve hâlâ duraklatılmış olan işler sıraya döner, kuyruk sürer.
+    private func releaseBatteryHold() {
+        batteryHold = false
+        batteryWatch?.cancel()
+        batteryWatch = nil
+        for id in pausedForBattery {
+            guard let job = job(id), job.status == .paused else { continue }
+            update(id) {
+                JobQueue.requeue(&$0)
+                $0.appendLog(JobLogEntry(level: .info, key: .logResumedOnPower))
+            }
+        }
+        pausedForBattery = []
+        save()
+        scheduleNext()
     }
 
     // MARK: - Komut önizlemesi

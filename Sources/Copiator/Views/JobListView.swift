@@ -95,6 +95,17 @@ struct JobListView: View {
         }
         .safeAreaInset(edge: .top) {
             VStack(spacing: 0) {
+                if model.batteryHold {
+                    // Tek satır: bkz. aşağıdaki kuyruk bandı.
+                    Label(settings.t(.batteryHoldNotice), systemImage: "battery.0percent")
+                        .font(.callout)
+                        .lineLimit(1)
+                        .help(settings.t(.batteryHoldNotice))
+                        .foregroundStyle(.orange)
+                        .padding(8)
+                        .frame(maxWidth: .infinity)
+                        .background(.orange.opacity(0.08))
+                }
                 if settings.queueHeld {
                     // Tek satır: liste üstündeki bandın yüksekliği genişliğe bağlı olmasın (bkz. PowerStatusBanner).
                     Label(settings.t(.queueHeldNotice), systemImage: "pause.circle.fill")

@@ -283,6 +283,9 @@ public enum LKey: String, CaseIterable, Sendable {
     case fillForecastNote, fillForecastRetention, notifyFillTitle, notifyFillBody
     // Tanılama raporu
     case menuDiagnostics, diagnosticsTitle, diagnosticsNote, diagnosticsSave, diagnosticsFileName
+    // Pil kritik seviyede
+    case settingsPauseOnCriticalBattery, settingsPauseOnCriticalBatteryNote, logPausedForBattery, logResumedOnPower, batteryHoldNotice
+    case notifyBatteryPausedTitle, notifyBatteryPausedBody
     // Düşük öncelikli disk G/Ç
     case settingsLowPriorityIO, settingsLowPriorityIONote, logLowPriority
     // Girişte aç
