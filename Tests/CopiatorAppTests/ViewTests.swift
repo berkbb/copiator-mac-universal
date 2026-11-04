@@ -213,6 +213,43 @@ struct ViewRenderTests {
         model.selection = [id]
         render(ContentView().environment(model).environment(settings), name: "inspector-automation")
     }
+
+    /// Anlık görüntü karşılaştırması ve arama sonuçları, izin bantları, Ayarlar'daki izin satırları ve "Girişte aç"
+    /// her durumda çizilir.
+    @Test func snapshotAndPermissionViewsRender() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        let settings = fixture.settings
+        try fixture.write("Yedek/2026-11-01-100000/Kaynak/eski.txt", "eski")
+        try fixture.write("Yedek/2026-11-02-100000/Kaynak/yeni.txt", "yeni")
+        let job = TransferJob(source: fixture.url("Kaynak"), destination: fixture.url("Yedek"),
+                              options: CopyOptions(snapshots: SnapshotOptions(enabled: true)))
+        let snapshots = SnapshotRestore.snapshots(of: job)
+        #expect(snapshots.count == 2)
+        for list in [snapshots, Array(snapshots.prefix(1))] {
+            render(SnapshotCompareView(job: job, snapshots: list, previewURL: .constant(nil)).environment(settings),
+                   size: NSSize(width: 580, height: 420), name: list.count == 2 ? "snapshot-compare" : "")
+        }
+        let results = SnapshotSearch.search("txt", in: snapshots, job: job)
+        for found in [results, SnapshotSearch.Results(hits: [], isTruncated: false), SnapshotSearch.Results(hits: results.hits, isTruncated: true)] {
+            render(SnapshotSearchResultsView(results: found, open: { _ in }).environment(settings),
+                   size: NSSize(width: 580, height: 300), name: found.isTruncated ? "snapshot-search" : "")
+        }
+        model.notificationPermission = .denied
+        model.fullDiskAccessGranted = false
+        model.homeDirectory = fixture.url("Kaynak")
+        fixture.addJob()
+        for state in [LoginItemState.off, .on, .needsApproval, .unavailable] {
+            model.loginItemState = state
+            render(Form { OpenAtLoginRow() }.formStyle(.grouped).environment(model).environment(settings),
+                   size: NSSize(width: 560, height: 200), name: state == .needsApproval ? "login-approval" : "")
+        }
+        render(Form { PermissionStatusSection() }.formStyle(.grouped).environment(model).environment(settings),
+               size: NSSize(width: 560, height: 260), name: "settings-permissions")
+        #expect(model.permissionBanners == [.notifications, .fullDiskAccess])
+        render(PermissionBanners().environment(model).environment(settings), size: NSSize(width: 900, height: 200), name: "permission-banners")
+    }
 }
 
 /// Ayrıntılar paneli iş yokken görünmez (karşılama ekranını daraltmasın); kullanıcının tercihi korunur.
