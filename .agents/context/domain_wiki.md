@@ -69,6 +69,14 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 
 - Decided with the user on 2026-11-04: the Dock tile looks like the sister download app's, a bright green progress bar drawn at the bottom of the icon with a pill showing the copy speed while a job runs, and no red number badge. The system progress control did not show in the Dock and is not used.
 
+## Permissions (macOS privacy)
+
+- Decided with the user on 2026-11-04: no waiting for a Developer ID. Notification permission is requested at launch (`AppModel.refreshPermissions(ask: true)`, options alert, sound and badge). The missing prompt was caused by the app's location, not its ad-hoc signature: the same ad-hoc build gets UNErrorDomain 1 "Notifications are not allowed for this application" when opened from `/tmp` or `build/`, and the system prompt when opened from `/Applications`.
+- Curatare-style banners (`PermissionBanners`, top of the detail column, fixed height): notifications when the permission is denied or unavailable and a notifying setting is on (finish notifications, old backup reminder, integrity on connect); Full Disk Access when the probe says it is missing and a job or route path is inside or covers a protected location not skipped by the sandbox, or a job result has a sender-side "Operation not permitted (1)". "Later" hides a banner for the session; both are re-checked when the app becomes active.
+- `FullDiskAccess.protectedLocations` lists home-relative folders that returned EPERM from a process without the permission on 2026-11-04 (Calendars, Reminders, Group Containers and iCloud Drive did not and are not listed). The probe opens TCC.db, Safari, Suggestions and CoreSpotlight; without the permission TCC.db reports ENOENT, the others EPERM.
+- Ad-hoc signing ties TCC grants to the code hash, so Full Disk Access may stop working after an update while the switch still looks on; the banner and the README tell the user to toggle it. An Apple Development certificate would keep grants across builds but embeds the developer's e-mail in public binaries, so releases stay ad-hoc unless the user decides otherwise.
+- `Info.plist` explains the on-demand prompts (Desktop, Documents, Downloads, removable and network volumes, file providers) in every language (`InfoPlist.strings`); `permissionPromptsAreExplainedInEveryLanguage` guards the key set.
+
 ## App Icon
 
 - Decided with the user on 2026-10-23: the icon drawn by `Scripts/make_icon.swift` is the final app icon (no longer temporary).
