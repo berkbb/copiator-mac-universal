@@ -15,7 +15,6 @@
 
 9c. ⬜ **[Low] `--read-batch` as its own job kind** (apply a batch file to a destination).
 9e. ⬜ **[Medium] Apple Foundation Models adapter (real fine-tuning) — decision pending, raised on 2026-10-23.** A LoRA adapter for the on-device model needs Apple's Foundation Models adapter training toolkit (Apple Developer download, Python, a Mac with a lot of memory), a labelled dataset of folder and template choices in Turkish, English and Romanian, the Foundation Models adapter entitlement for the app, delivery through Background Assets, and retraining for every new system model version. Until then the app tunes Apple through guided generation, greedy sampling and order-reversal checks.
-9d. ⬜ **[Medium] Undo the last run — deferred by the user on 2026-10-22.** Only files a run created can be removed; replaced files would need a backup folder. Needs an explicit decision before any work.
 9f. ⬜ **[Low] Backup status widget — deferred on 2026-10-23.** Proposed together with the old backup reminder, snapshot restore, integrity check, duplicate finder and routine export/import (all shipped). A WidgetKit extension needs an app group shared with the app and a signed extension, so it waits for item 11 (Developer ID signing).
 9k. ⬜ **[Low] Sleep the Mac when the queue finishes — offered on 2026-10-23 together with "eject the destination disk when done", not requested yet.** An opt-in queue-level action that puts the Mac to sleep after the last job (never while a job waits for a decision or a disk), announced with a short countdown that can be cancelled.
 

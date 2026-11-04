@@ -17,7 +17,7 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 
 | Operation | Arguments | Notes |
 | :--- | :--- | :--- |
-| **Transfer** | `-rltDhX --info=progress2 --partial [-pogA\|-pog] [--modify-window=1] [--delete] [--exclude=…] -- <source>[/] <destination>/` | `X` dropped when xattrs are off; `-pog*` never on exFAT/FAT/NTFS; `--modify-window=1` on FAT; trailing `/` on the source = "copy its contents". |
+| **Transfer** | `-rltDhX --info=progress2 [-i] --partial [-pogA\|-pog] [--modify-window=1] [--delete] [--exclude=…] -- <source>[/] <destination>/` | `X` dropped when xattrs are off; `-pog*` never on exFAT/FAT/NTFS; `--modify-window=1` on FAT; trailing `/` on the source = "copy its contents". |
 | **Verify** | `-rltDhX -n -i [-c] [-pog…] --delete [--exclude=…] -- <source>[/] <destination>/` | Dry run; `--delete` lists extra items only; sandbox has no writable folder. |
 | **openrsync (fallback)** | `-rltDh [--extended-attributes] --partial [-pog] …` | No `--info=progress2`, no `-X`, no ACLs; progress is indeterminate. Unsupported advanced options are dropped and logged. |
 | **Advanced (per job)** | `--info=progress1\|2[,name1][,flist2][,stats2] [--no-inc-recursive] [-i]` + selection, attribute, link, write, comparison, reference, backup and output flags + `--filter/--include/--exclude/-F/--*-from` | All defaults add nothing. Verify keeps only comparison-affecting flags. Order of filters: protected, system, user. |
@@ -76,6 +76,10 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 - `FullDiskAccess.protectedLocations` lists home-relative folders that returned EPERM from a process without the permission on 2026-11-04 (Calendars, Reminders, Group Containers and iCloud Drive did not and are not listed). The probe opens TCC.db, Safari, Suggestions and CoreSpotlight; without the permission TCC.db reports ENOENT, the others EPERM.
 - Ad-hoc signing ties TCC grants to the code hash, so Full Disk Access may stop working after an update while the switch still looks on; the banner and the README tell the user to toggle it. An Apple Development certificate would keep grants across builds but embeds the developer's e-mail in public binaries, so releases stay ad-hoc unless the user decides otherwise.
 - `Info.plist` explains the on-demand prompts (Desktop, Documents, Downloads, removable and network volumes, file providers) in every language (`InfoPlist.strings`); `permissionPromptsAreExplainedInEveryLanguage` guards the key set.
+
+## Undo Last Run
+
+- Decided with the user on 2026-11-04 (roadmap 9d, "safe part"): snapshot jobs undo by moving the newest snapshot to the Trash; other jobs only move the items the last run created. Replaced or deleted files are never restored (no hidden backup folder), nothing is deleted permanently, and items that existed before the run or changed after it are never touched.
 
 ## Moving to Another Mac
 
