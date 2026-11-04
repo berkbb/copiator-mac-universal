@@ -139,6 +139,8 @@ struct AppLogTests {
         #expect(AppLog.describe(EngineError.sandboxUnavailable).detail == nil)
         #expect(AppLog.describe(InsufficientSpaceError(required: 10, available: 5)).kind.contains("required 10 bytes"))
         #expect(AppLog.describe(CancellationError()).kind == "cancelled")
+        #expect(AppLog.describe(AppUpdateChecker.CheckError.noReleases).kind.contains("private"))
+        #expect(AppLog.describe(AppUpdateChecker.CheckError.badResponse(403)).kind == "GitHub answered with HTTP 403")
         #expect(AppLog.isCancellation(EngineError.cancelled) && AppLog.isCancellation(CancellationError()))
         #expect(!AppLog.isCancellation(EngineError.timedOut))
         let id = UUID(uuidString: "1A2B3C4D-0000-0000-0000-000000000000")!

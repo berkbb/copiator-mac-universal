@@ -299,6 +299,12 @@ extension AppLog {
             case .cancelled: ("cancelled", nil)
             case .sandboxUnavailable: ("rsync was not started because its sandbox (sandbox-exec) cannot be run", nil)
             }
+        case let error as AppUpdateChecker.CheckError:
+            switch error {
+            case .noReleases: ("no published release is visible (the repository is private or has no release yet)", nil)
+            case .badResponse(let status): ("GitHub answered with HTTP \(status)", nil)
+            case .invalidData: ("GitHub's answer could not be read", nil)
+            }
         case let error as InsufficientSpaceError:
             ("not enough disk space (required \(error.required) bytes, available \(error.available) bytes)", nil)
         case is CancellationError:

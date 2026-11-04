@@ -777,7 +777,9 @@ final class AppModel {
             let message = (error as? AppUpdateChecker.CheckError) == .noReleases ? t(.appUpdateNoReleases) : error.localizedDescription
             appUpdateState = .failed(message: message)
             let described = AppLog.describe(error)
-            AppLog.shared.warning(.update, "Copiator update check failed: \(described.kind)", detail: described.detail)
+            // Gizli depo ya da henüz yayımlanmamış sürüm bir hata değildir: bilgi olarak yazılır.
+            let level: AppLog.Level = (error as? AppUpdateChecker.CheckError) == .noReleases ? .info : .warning
+            AppLog.shared.log(level, .update, "Copiator update check: \(described.kind)", detail: described.detail)
             if interactive { alert = AlertItem(title: t(.updateFailed), message: message) }
         }
     }
