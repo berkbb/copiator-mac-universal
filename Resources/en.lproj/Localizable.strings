@@ -1032,3 +1032,8 @@
 "settingsLowPriorityIO" = "Run rsync with low disk priority";
 "settingsLowPriorityIONote" = "rsync runs in macOS’s background class: its disk and processor use come after other apps, so the Mac stays responsive while a large backup runs. Copying may take longer, especially while you use the Mac. Applies from the next job.";
 "logLowPriority" = "rsync runs with low disk priority";
+"menuDiagnostics" = "Diagnostic Report…";
+"diagnosticsTitle" = "Diagnostic report";
+"diagnosticsNote" = "For bug reports: versions, permissions, settings, each job’s options and rsync command and its recent log. Your user name, home folder and the names of disks, folders and files are masked; read it before you share it. The report is made on this Mac only, is written nowhere until you save it, and Copiator never sends it anywhere. Its labels are in English so a developer can read it.";
+"diagnosticsSave" = "Save…";
+"diagnosticsFileName" = "Copiator Diagnostics.txt";

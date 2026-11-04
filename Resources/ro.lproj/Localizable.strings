@@ -1032,3 +1032,8 @@
 "settingsLowPriorityIO" = "Rulează rsync cu prioritate redusă pe disc";
 "settingsLowPriorityIONote" = "rsync rulează în clasa de fundal a macOS: folosirea discului și a procesorului vine după celelalte aplicații, astfel încât Mac-ul rămâne fluid în timpul unei copii mari. Copierea poate dura mai mult, mai ales cât timp folosiți Mac-ul. Se aplică de la următoarea lucrare.";
 "logLowPriority" = "rsync rulează cu prioritate redusă pe disc";
+"menuDiagnostics" = "Raport de diagnosticare…";
+"diagnosticsTitle" = "Raport de diagnosticare";
+"diagnosticsNote" = "Pentru raportarea erorilor: versiuni, permisiuni, configurări, opțiunile și comanda rsync ale fiecărei lucrări și jurnalul recent. Numele de utilizator, dosarul de pornire și numele discurilor, dosarelor și fișierelor sunt mascate; citiți raportul înainte de a-l partaja. Raportul este creat doar pe acest Mac, nu este scris nicăieri până nu îl salvați, iar Copiator nu îl trimite nicăieri. Etichetele sunt în engleză, ca un dezvoltator să le poată citi.";
+"diagnosticsSave" = "Salvează…";
+"diagnosticsFileName" = "Diagnosticare Copiator.txt";

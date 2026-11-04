@@ -213,6 +213,11 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .help) {
             Button(settings.t(.menuEngineManual)) { NSWorkspace.shared.open(AppLinks.engineManual) }
             Button(settings.t(.menuWebsite)) { NSWorkspace.shared.open(AppLinks.repository) }
+            Divider()
+            Button(settings.t(.menuDiagnostics)) {
+                openWindow(id: WindowID.main)
+                model.showDiagnostics()
+            }
         }
     }
 }

@@ -241,6 +241,8 @@ final class AppModel {
     var routineImport: RoutineImportRequest?
     /// İşleri ve ayarları içe aktarma sayfası (bkz. MoveToMac.swift).
     var setupImport: SetupImportRequest?
+    /// Tanılama raporu önizlemesi (bkz. Diagnostics.swift).
+    var diagnostics: DiagnosticPresentation?
     /// Dosyayı Çöp Sepeti'ne taşır (testler kendi klasörlerini verir).
     @ObservationIgnored var trashItem: (URL) -> Bool = { SourceTrash.systemTrash($0) }
     /// "Bitince hedef diski çıkar": hedefin çıkarılabilir birimi ve aynı diskteki birimler (testler sahte bir birim verir).
@@ -1876,6 +1878,11 @@ final class AppModel {
     /// İşin çalıştıracağı rsync komutu (kopyalanabilir, kabuğa uygun tırnaklı). Kum havuzu ve uyku engeli komutun
     /// parçası değildir; uygulama onları ayrıca sağlar.
     func commandPreview(for job: TransferJob) -> String {
+        RsyncCommand.displayString(arguments: commandArguments(for: job))
+    }
+
+    /// İşin rsync argümanları (komut önizlemesi ve tanılama raporu için).
+    func commandArguments(for job: TransferJob) -> [String] {
         // Anlık görüntü işi kökte tarihli bir klasöre, önceki anlık görüntüye bağlanarak yazar (klasör oluşturulmaz).
         let job = job.options.snapshots.enabled ? SnapshotStore.apply(SnapshotStore.plan(in: job.destination), to: job) : job
         let info = engineInfo ?? EngineInfo(version: "3.5.1", isOpenrsync: false, supportsACLs: true, supportsXattrs: true)
@@ -1887,7 +1894,7 @@ final class AppModel {
             engine: info, destinationFileSystem: FileSystemKind.of(job.destination), sourceIsDirectory: sourceIsDirectory,
             protectedPaths: protected, enginePath: engineURL.map { SandboxProfile.resolved($0).path }
         )
-        return RsyncCommand.displayString(arguments: RsyncCommand.transfer(job, environment: environment))
+        return RsyncCommand.transfer(job, environment: environment)
     }
 
     /// Çalışan işin ya da tek seferlik işlemin bitmesini bekler (testler için).

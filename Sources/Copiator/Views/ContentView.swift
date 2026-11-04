@@ -75,6 +75,7 @@ struct ContentView: View {
         .sheet(item: $model.duplicatesRequest) { DuplicatesSheet(request: $0) }
         .sheet(item: $model.routineImport) { RoutineImportSheet(request: $0) }
         .sheet(item: $model.setupImport) { SetupImportSheet(request: $0) }
+        .sheet(item: $model.diagnostics) { DiagnosticSheet(presentation: $0) }
         .sheet(item: $model.verifyPresentation) { VerifyResultSheet(presentation: $0) }
         .confirmationDialog(
             settings.t(.verifyChooseTitle),

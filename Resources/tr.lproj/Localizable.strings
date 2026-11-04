@@ -1032,3 +1032,8 @@
 "settingsLowPriorityIO" = "rsync'i düşük disk önceliğiyle çalıştır";
 "settingsLowPriorityIONote" = "rsync, macOS'un arka plan sınıfında çalışır: disk ve işlemci kullanımı öteki uygulamalardan sonra gelir, büyük bir yedek sürerken Mac akıcı kalır. Kopyalama, özellikle Mac'i kullanırken daha uzun sürebilir. Bir sonraki işten başlayarak geçerlidir.";
 "logLowPriority" = "rsync düşük disk önceliğiyle çalışıyor";
+"menuDiagnostics" = "Tanılama Raporu…";
+"diagnosticsTitle" = "Tanılama raporu";
+"diagnosticsNote" = "Hata bildirimleri için: sürümler, izinler, ayarlar, her işin seçenekleri, rsync komutu ve son günlük satırları. Kullanıcı adınız, ev klasörünüz ve disk, klasör ve dosya adlarınız maskelenir; paylaşmadan önce okuyun. Rapor yalnızca bu Mac'te oluşturulur, siz kaydedene kadar hiçbir yere yazılmaz ve Copiator onu hiçbir yere göndermez. Bir geliştirici okuyabilsin diye başlıkları İngilizcedir.";
+"diagnosticsSave" = "Kaydet…";
+"diagnosticsFileName" = "Copiator Tanılama.txt";

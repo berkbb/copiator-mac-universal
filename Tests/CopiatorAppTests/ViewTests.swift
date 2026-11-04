@@ -251,6 +251,13 @@ struct ViewRenderTests {
         render(PermissionBanners().environment(model).environment(settings), size: NSSize(width: 900, height: 200), name: "permission-banners")
     }
 
+    @Test func diagnosticSheetRenders() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        render(DiagnosticSheet(presentation: DiagnosticPresentation(text: fixture.model.diagnosticReport()))
+            .environment(fixture.settings), size: NSSize(width: 720, height: 560), name: "diagnostics")
+    }
+
     /// İşleri ve ayarları içe aktarma sayfası: bulunmayan klasörler ve ayar seçeneğiyle, ayarsız dosyada seçeneksiz çizilir.
     @Test func setupImportSheetRenders() throws {
         let fixture = try Fixture()
