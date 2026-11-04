@@ -26,6 +26,7 @@ Copiator copies from a local disk to a local disk (internal, external, USB or ne
 - **Destination overview and folder suggestions:** see how full a destination is and what takes the space, and let the routine editor suggest the best existing folder for a file name.
 - **Backup reminder:** when a disk is connected, Copiator tells you which jobs and routines that copy to it have not run successfully for a while (30 days by default; off, 7–90 days in Settings).
 - **Restore from snapshots:** browse a job's snapshots, see a file's versions over time, preview files with Quick Look and restore a file, a folder or everything to where it was or to another folder, as an ordinary copy job that asks before replacing anything.
+- **Destination fill forecast:** the inspector estimates from the free space after past runs when the destination disk will be full, always as a range ("about 4–6 months"), warns a few weeks ahead and suggests a snapshot retention rule.
 - **Diagnostic report:** Help › Diagnostic Report… previews a plain-text report for bug reports, with your user name, home folder and the names of disks, folders and files masked; it is saved only where you choose and never sent anywhere.
 - **Low disk priority:** optionally run rsync in macOS's background class so a long backup does not slow down the apps you are using.
 - **Move to another Mac:** export your jobs and settings to one file and import them on the other Mac; jobs arrive paused, missing folders can be chosen again, and security and network choices stay as they are on the new Mac.
