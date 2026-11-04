@@ -194,10 +194,14 @@ struct AppModelTests {
     @Test func pauseAndResumeCompletesTheCopy() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
-        try fixture.writeLargeFile("Kaynak/buyuk.bin", megabytes: 768)
+        try fixture.writeLargeFile("Kaynak/buyuk.bin", megabytes: 64)
         let model = fixture.model
         await model.refreshEngine()
-        let id = try #require(fixture.addJob())
+        // Hız sınırı (yaklaşık 3 sn): kopya, makine yüklü de olsa duraklatma anında hâlâ sürer.
+        var options = CopyOptions()
+        options.advanced.bandwidthLimitKiB = 20_000
+        #expect(model.addJob(source: fixture.url("Kaynak"), destination: fixture.url("Hedef"), options: options) == nil)
+        let id = try #require(model.jobs.last?.id)
         // Kopyalama başlayana kadar bekle.
         for _ in 0..<100 where model.job(id)?.status != .copying { try await Task.sleep(for: .milliseconds(20)) }
         try await Task.sleep(for: .milliseconds(200))
@@ -215,7 +219,7 @@ struct AppModelTests {
         #expect(job.status == .finished, "\(String(describing: job.result))")
         #expect(job.log.contains { $0.key == LKey.logResumed.rawValue })
         let size = try FileManager.default.attributesOfItem(atPath: fixture.url("Hedef/Kaynak/buyuk.bin").path)[.size] as? NSNumber
-        #expect(size?.intValue == 768 << 20)
+        #expect(size?.intValue == 64 << 20)
     }
 
     /// Uygulama iş sürerken kapanırsa iş "kesildi" ve duraklatılmış olarak geri gelir; ayar açıksa kendiliğinden sürer.

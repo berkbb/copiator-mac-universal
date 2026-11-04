@@ -86,6 +86,8 @@ struct WindowLayoutTests {
         defer { fixture.cleanUp() }
         let model = fixture.model
         await model.refreshEngine()
+        // Bant çizimini sınar: kritik pilde işin hiç başlamaması (bkz. BatteryPauseTests) burada kapatılır.
+        fixture.settings.pauseOnCriticalBattery = false
         model.powerProvider = { PowerSnapshot(source: .battery, hasBattery: true, batteryPercent: 8, lowPowerMode: true) }
         try fixture.writeLargeFile("Kaynak/buyuk.bin", megabytes: 256)
         let window = makeWindow(fixture)
