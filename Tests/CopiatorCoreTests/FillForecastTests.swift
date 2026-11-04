@@ -75,3 +75,27 @@ struct FillForecastTests {
     #expect(DiskSecurity.isEncrypted(folder.appendingPathComponent("Yok/Daha/Derin")) == state)
     #expect(try DestinationSummary.compute(at: folder).isEncrypted == state)
 }
+
+/// Time Machine dışlaması: macOS'un yapışkan işareti klasörün kendisine yazılır; hangi klasörün işaretleneceği iş
+/// türüne göre seçilir; eski kayıtlarda seçenek kapalıdır.
+@Test func timeMachineExclusionMarksTheRightFolder() throws {
+    let w = try Workspace("CopiatorTimeMachine")
+    let folder = try w.mkdir("Hedef/Belgeler")
+    #expect(!TimeMachineExclusion.isExcluded(folder))
+    #expect(TimeMachineExclusion.exclude(folder))
+    #expect(TimeMachineExclusion.isExcluded(folder))
+    #expect(getxattr(folder.path, "com.apple.metadata:com_apple_backup_excludeItem", nil, 0, 0, XATTR_NOFOLLOW) > 0)
+    #expect(!TimeMachineExclusion.isExcluded(w.url("Hedef")), "üst klasör işaretlenmez")
+    #expect(!TimeMachineExclusion.exclude(w.url("Yok/Klasor")), "var olmayan klasör işaretlenemez")
+
+    let source = try w.mkdir("Belgeler")
+    let destination = w.url("Hedef")
+    #expect(TransferJob(source: source, destination: destination).timeMachineExclusionTarget == destination.appendingPathComponent("Belgeler"))
+    #expect(TransferJob(source: source, destination: destination, options: CopyOptions(copyMode: .contents)).timeMachineExclusionTarget == destination)
+    #expect(TransferJob(source: source, destination: destination, options: CopyOptions(snapshots: SnapshotOptions(enabled: true)))
+        .timeMachineExclusionTarget == destination)
+    let old = try JSONDecoder().decode(CopyOptions.self, from: Data("{}".utf8))
+    #expect(!old.excludeFromTimeMachine)
+    let saved = try JSONDecoder().decode(CopyOptions.self, from: JSONEncoder().encode(CopyOptions(excludeFromTimeMachine: true)))
+    #expect(saved.excludeFromTimeMachine)
+}

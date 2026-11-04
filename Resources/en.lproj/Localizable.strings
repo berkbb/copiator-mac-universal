@@ -1055,3 +1055,7 @@
 "notifyBatteryPausedBody" = "“%@” resumes where it stopped when the adapter is plugged in.";
 "destinationNotEncrypted" = "The destination disk is not encrypted";
 "destinationNotEncryptedNote" = "If the disk is lost or stolen, anyone can read the backups on it. Copiator does not encrypt; you can erase the disk as an encrypted APFS volume in Disk Utility, or turn on encryption for it in Finder (right-click › Encrypt), and back up again.";
+"optionExcludeFromTimeMachine" = "Keep the copies out of Time Machine";
+"optionExcludeFromTimeMachineNote" = "After each successful run, the copied folder (for snapshots, the snapshot folder) is marked so Time Machine does not back it up a second time. This only matters when the destination is on a disk Time Machine backs up, such as this Mac’s own disk; other files in the destination are not affected.";
+"logTimeMachineExcluded" = "The copies are now kept out of Time Machine.";
+"logTimeMachineExcludeFailed" = "The copies could not be kept out of Time Machine.";

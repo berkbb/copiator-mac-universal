@@ -1055,3 +1055,7 @@
 "notifyBatteryPausedBody" = "„%@” se reia de unde s-a oprit când conectați adaptorul.";
 "destinationNotEncrypted" = "Discul de destinație nu este criptat";
 "destinationNotEncryptedNote" = "Dacă discul este pierdut sau furat, oricine poate citi copiile de rezervă de pe el. Copiator nu criptează; puteți șterge discul ca volum APFS criptat în Utilitar disc sau activa criptarea în Finder (clic dreapta › Criptează), apoi faceți din nou copia de rezervă.";
+"optionExcludeFromTimeMachine" = "Ține copiile în afara Time Machine";
+"optionExcludeFromTimeMachineNote" = "După fiecare rulare reușită, dosarul copiat (la instantanee, dosarul instantaneelor) este marcat astfel încât Time Machine să nu îl salveze a doua oară. Contează doar când destinația este pe un disc salvat de Time Machine, de exemplu discul acestui Mac; celelalte fișiere din destinație nu sunt afectate.";
+"logTimeMachineExcluded" = "Copiile sunt acum ținute în afara Time Machine.";
+"logTimeMachineExcludeFailed" = "Copiile nu au putut fi ținute în afara Time Machine.";

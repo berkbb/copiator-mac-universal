@@ -91,3 +91,37 @@ struct BatteryPauseTests {
         #expect(!model.batteryIsCritical(PowerSnapshot(source: .battery, hasBattery: true, batteryPercent: 10)))
     }
 }
+
+/// "Kopyaları Time Machine'e alma": başarılı çalıştırmadan sonra hedefteki kopya işaretlenir (her çalıştırmada yeniden,
+/// günlüğe bir kez); seçenek kapalıyken işaretlenmez.
+@Suite(.enabled(if: rsyncURL != nil, "Vendor/rsync/rsync yok"), .serialized)
+@MainActor
+struct TimeMachineExclusionAppTests {
+    @Test func successfulRunsKeepTheCopyOutOfTimeMachine() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        await model.refreshEngine()
+        #expect(model.addJob(source: fixture.url("Kaynak"), destination: fixture.url("Hedef"),
+                             options: CopyOptions(conflictPolicy: .replace, excludeFromTimeMachine: true)) == nil)
+        let id = try #require(model.jobs.last?.id)
+        await model.waitUntilIdle()
+        let copy = fixture.url("Hedef/Kaynak")
+        #expect(TimeMachineExclusion.isExcluded(copy))
+        #expect(!TimeMachineExclusion.isExcluded(fixture.url("Hedef")))
+        // İkinci çalıştırma: işaret kalır, günlüğe yeniden yazılmaz.
+        model.resume([id])
+        await model.waitUntilIdle()
+        #expect(TimeMachineExclusion.isExcluded(copy))
+        #expect(model.job(id)?.log.filter { $0.key == LKey.logTimeMachineExcluded.rawValue }.count == 1)
+    }
+
+    @Test func offLeavesTheCopyAlone() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        await fixture.model.refreshEngine()
+        fixture.addJob()
+        await fixture.model.waitUntilIdle()
+        #expect(!TimeMachineExclusion.isExcluded(fixture.url("Hedef/Kaynak")))
+    }
+}

@@ -1624,6 +1624,7 @@ final class AppModel {
             notify(job)
         }
         if result.kind.isSuccess, let job = job(id) { warnIfFillingSoon(job, now: finishedAt) }
+        if result.kind.isSuccess, let job = job(id), job.options.excludeFromTimeMachine { keepOutOfTimeMachine(job) }
         // Hedefte aynı adlı dosyalar: karar sayfası açılır (başka bir sayfa açıksa o kapanınca kullanıcı listeden açar);
         // kuyruk beklemeden sıradaki işe geçer.
         if result.kind == .awaitingDecision, conflictPrompt == nil, newJobRequest == nil, routineEditor == nil {
@@ -1637,6 +1638,18 @@ final class AppModel {
         startDueIntegrityChecks()
         ejectIdleDisks()
         scheduleNext()
+    }
+
+    /// Hedefteki kopyaları Time Machine dışında tutar. İşaret her başarılı çalıştırmadan sonra yeniden yazılır: rsync
+    /// öznitelikleri kopyalarken kökteki işareti kaynağınkiyle değiştirir (2026-11-04 testinde görüldü). Günlüğe yalnızca
+    /// ilk kez ve hata olursa yazılır.
+    private func keepOutOfTimeMachine(_ job: TransferJob) {
+        let excluded = TimeMachineExclusion.exclude(job.timeMachineExclusionTarget)
+        guard !excluded || !job.log.contains(where: { $0.key == LKey.logTimeMachineExcluded.rawValue }) else { return }
+        update(job.id) {
+            $0.appendLog(JobLogEntry(level: excluded ? .info : .warning, key: excluded ? .logTimeMachineExcluded : .logTimeMachineExcludeFailed))
+        }
+        save()
     }
 
     /// Çıkarılmayı bekleyen disklerden artık kullanılmayanları çıkarır (sırada bekleyen, çalışan ya da karar bekleyen iş

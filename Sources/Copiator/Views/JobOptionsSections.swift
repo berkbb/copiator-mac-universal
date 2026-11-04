@@ -101,6 +101,14 @@ struct AutomationSection: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle(settings.t(.optionExcludeFromTimeMachine), isOn: $options.excludeFromTimeMachine)
+                    .accessibilityIdentifier("copiator.newjob.excludeFromTimeMachine")
+                Text(settings.t(.optionExcludeFromTimeMachineNote))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             VerifyAfterCopyPicker(selection: $options.verifyAfterCopy)
         } header: {
             Text(settings.t(.sectionAutomation))

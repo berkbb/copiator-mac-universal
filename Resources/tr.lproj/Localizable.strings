@@ -1055,3 +1055,7 @@
 "notifyBatteryPausedBody" = "“%@” adaptör takılınca kaldığı yerden sürecek.";
 "destinationNotEncrypted" = "Hedef disk şifreli değil";
 "destinationNotEncryptedNote" = "Disk kaybolur ya da çalınırsa üzerindeki yedekleri herkes okuyabilir. Copiator şifrelemez; diski Disk İzlencesi'nde şifreli bir APFS birimi olarak silebilir ya da Finder'da şifrelemeyi açabilirsiniz (sağ tık › Şifrele), sonra yeniden yedekleyin.";
+"optionExcludeFromTimeMachine" = "Kopyaları Time Machine'e alma";
+"optionExcludeFromTimeMachineNote" = "Her başarılı çalıştırmadan sonra kopyalanan klasör (anlık görüntülerde anlık görüntü klasörü), Time Machine onu ikinci kez yedeklemesin diye işaretlenir. Yalnızca hedef, Time Machine'in yedeklediği bir diskteyse (ör. bu Mac'in kendi diski) önemlidir; hedefteki başka dosyalar etkilenmez.";
+"logTimeMachineExcluded" = "Kopyalar artık Time Machine dışında tutuluyor.";
+"logTimeMachineExcludeFailed" = "Kopyalar Time Machine dışında tutulamadı.";

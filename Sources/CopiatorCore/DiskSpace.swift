@@ -251,3 +251,24 @@ public enum DiskSecurity {
     }
 }
 
+/// Time Machine dışlaması: macOS'un yapışkan "yedekten dışla" işareti (`isExcludedFromBackup`) öğenin kendisine yazılır;
+/// öğe taşınsa da kalır, yönetici izni gerekmez. Yalnızca Time Machine'in yedeklediği disklerde etkisi vardır.
+public enum TimeMachineExclusion {
+    @discardableResult
+    public static func exclude(_ url: URL) -> Bool {
+        var url = url
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        do {
+            try url.setResourceValues(values)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    public static func isExcluded(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup) == true
+    }
+}
+

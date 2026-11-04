@@ -67,13 +67,16 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     /// "Taşı": kopyalamadan sonra hedefteki karşılığıyla içeriği birebir aynı olan kaynak dosyalar Çöp Sepeti'ne taşınır
     /// (bkz. `SourceTrash`). Yalnızca kullanıcı açıkça seçip onaylarsa; anlık görüntüde kullanılmaz.
     public var trashSourceAfterCopy: Bool
+    /// Hedefteki kopyalar Time Machine yedeklerinin dışında tutulur (bkz. `TimeMachineExclusion`); eski kayıtlarda kapalı.
+    public var excludeFromTimeMachine: Bool
 
     public init(
         copyMode: CopyMode = .folder, preservePermissions: Bool = false, preserveExtendedAttributes: Bool = true,
         deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions(),
         snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false,
         rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask, suggestsRememberingConflictChoice: Bool = false,
-        placement: RoutePlacement? = nil, selectedItems: [String]? = nil, trashSourceAfterCopy: Bool = false, ejectWhenDone: Bool = false
+        placement: RoutePlacement? = nil, selectedItems: [String]? = nil, trashSourceAfterCopy: Bool = false, ejectWhenDone: Bool = false,
+        excludeFromTimeMachine: Bool = false
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -91,12 +94,13 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.selectedItems = selectedItems
         self.trashSourceAfterCopy = trashSourceAfterCopy
         self.ejectWhenDone = ejectWhenDone
+        self.excludeFromTimeMachine = excludeFromTimeMachine
     }
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
         case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy, suggestsRememberingConflictChoice, placement
-        case selectedItems, trashSourceAfterCopy, ejectWhenDone
+        case selectedItems, trashSourceAfterCopy, ejectWhenDone, excludeFromTimeMachine
     }
 
     public init(from decoder: Decoder) throws {
@@ -117,6 +121,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         selectedItems = (try? container.decodeIfPresent([String].self, forKey: .selectedItems)) ?? nil
         trashSourceAfterCopy = (try? container.decodeIfPresent(Bool.self, forKey: .trashSourceAfterCopy)) ?? false
         ejectWhenDone = (try? container.decodeIfPresent(Bool.self, forKey: .ejectWhenDone)) ?? false
+        excludeFromTimeMachine = (try? container.decodeIfPresent(Bool.self, forKey: .excludeFromTimeMachine)) ?? false
         conflictPolicy = (try? container.decodeIfPresent(ConflictPolicy.self, forKey: .conflictPolicy)) ?? defaults.conflictPolicy
         // Ayarı hiç olmayan (bu sürümden önce kaydedilmiş) seçenekler eski kabul edilir.
         suggestsRememberingConflictChoice = (try? container.decodeIfPresent(Bool.self, forKey: .suggestsRememberingConflictChoice))
@@ -397,6 +402,15 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
 
     /// Kullanıcının kararı bekleniyor: hedefte aynı adlı dosyalar ya da klasörü seçilmemiş dosyalar.
     public var isAwaitingDecision: Bool { (pendingConflicts != nil || pendingPlacements != nil) && status == .paused }
+
+    /// Time Machine dışında tutulacak klasör: anlık görüntülü işte anlık görüntülerin kökü (hedef), ötekilerde kaynağın
+    /// hedefteki karşılığı. Hedef klasörün başka içeriği dışlanmaz.
+    public var timeMachineExclusionTarget: URL {
+        if options.snapshots.enabled { return destination }
+        var info = stat()
+        let sourceIsDirectory = lstat(source.path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR
+        return target(sourceIsDirectory: sourceIsDirectory)
+    }
 
     /// Kaynağın hedefteki karşılığı: "klasörün kendisi" kipinde hedef/Ad, "içeriği" kipinde hedefin kendisi.
     /// Kaynak bir dosyaysa her zaman hedef/Ad.

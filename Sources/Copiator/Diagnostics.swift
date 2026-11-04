@@ -70,6 +70,7 @@ extension AppModel {
                 + " verify=\(options.verifyAfterCopy.rawValue) conflicts=\(options.conflictPolicy.rawValue)"
                 + " snapshots=\(flag(snapshots.enabled))" + (snapshots.hasRetention ? "+retention" : "")
                 + " runWhenConnected=\(flag(options.runWhenConnected)) ejectWhenDone=\(flag(options.ejectWhenDone))"
+                + " excludeFromTimeMachine=\(flag(options.excludeFromTimeMachine))"
                 + " trashSource=\(flag(options.trashSourceAfterCopy)) rules=\(options.rules == nil ? "no" : "yes")"
                 + " placement=\(options.placement == nil ? "no" : "yes")")
             lines.append("    command: " + RsyncCommand.displayString(arguments: commandArguments(for: job).map(masker.argument)))

@@ -283,6 +283,8 @@ public enum LKey: String, CaseIterable, Sendable {
     case fillForecastNote, fillForecastRetention, notifyFillTitle, notifyFillBody
     // Tanılama raporu
     case menuDiagnostics, diagnosticsTitle, diagnosticsNote, diagnosticsSave, diagnosticsFileName
+    // Time Machine dışlaması
+    case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk
     case destinationNotEncrypted, destinationNotEncryptedNote
     // Pil kritik seviyede
