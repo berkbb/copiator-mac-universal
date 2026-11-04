@@ -1016,3 +1016,16 @@
 "snapshotsCompareNote" = "Dosyalar okunmaz: aynı dosyaya bağlı kopyalar değişmemiş, boyutu ya da tarihi farklı olan dosya değişmiş sayılır. Gizli dosyalar listelenmez.";
 "snapshotsCompareNeedsTwo" = "Karşılaştırmak için en az iki anlık görüntü gerekir";
 "snapshotsQuickLook" = "Önizle";
+"menuExportSetup" = "İşleri ve Ayarları Dışa Aktar…";
+"menuImportSetup" = "İşleri ve Ayarları İçe Aktar…";
+"exportSetupName" = "Copiator Kurulumu.json";
+"exportSetupFailed" = "İşler ve ayarlar dışa aktarılamadı";
+"toastSetupExported" = "İşler ve ayarlar dışa aktarıldı";
+"setupImportTitle" = "İşleri ve ayarları içe aktar";
+"setupImportNote" = "İçe aktarılan işler yeni kimlikle, geçmişsiz ve duraklatılmış gelir; siz başlatana kadar hiçbiri çalışmaz. Bu Mac'te bulunmayan klasörleri seçin ya da o işi dışarıda bırakın. Ayarlardan bildirimler, görünüm, varsayılan seçenekler ve kısayollar gelir; güncelleme izni, kum havuzu, yapay zekâ önerileri ve öteki Mac'e özgü yollar değişmez. Rutinleri Dosya › Rutinleri Dışa Aktar ile taşıyın.";
+"setupImportSettings" = "Dosyadaki ayarları da uygula";
+"setupImportDone" = "%ld iş içe aktarıldı (duraklatılmış)";
+"setupImportFailedTitle" = "İşler ve ayarlar içe aktarılamadı";
+"setupImportInvalid" = "Bu dosya bir Copiator kurulum dosyası değil ya da bozuk.";
+"setupImportNewer" = "Bu dosya Copiator'ın daha yeni bir sürümüyle oluşturulmuş; önce Copiator'ı güncelleyin.";
+"setupImportTooLarge" = "Dosya bir kurulum dosyası için çok büyük.";

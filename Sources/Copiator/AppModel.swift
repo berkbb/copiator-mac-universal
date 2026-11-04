@@ -239,6 +239,8 @@ final class AppModel {
     var integrityRequest: IntegrityRequest?
     var duplicatesRequest: DuplicatesRequest?
     var routineImport: RoutineImportRequest?
+    /// İşleri ve ayarları içe aktarma sayfası (bkz. MoveToMac.swift).
+    var setupImport: SetupImportRequest?
     /// Dosyayı Çöp Sepeti'ne taşır (testler kendi klasörlerini verir).
     @ObservationIgnored var trashItem: (URL) -> Bool = { SourceTrash.systemTrash($0) }
     /// "Bitince hedef diski çıkar": hedefin çıkarılabilir birimi ve aynı diskteki birimler (testler sahte bir birim verir).
@@ -1260,6 +1262,16 @@ final class AppModel {
     }
 
     /// İş eklenmeden ya da kaydedilmeden önceki denetimler. - Returns: Sorun varsa açıklaması.
+    /// İçe aktarılan bir iş kuyruğa eklenebilir mi (yeni bir işle aynı denetim)?
+    func importProblem(_ job: TransferJob) -> String? {
+        validationMessage(source: job.source, destination: job.destination, options: job.options)
+    }
+
+    /// İçe aktarılan işi kuyruğun sonuna ekler; kaydetme ve sıradaki işi başlatma çağıranındır (duraklatılmış iş başlamaz).
+    func appendImported(_ job: TransferJob) {
+        jobs.append(job)
+    }
+
     private func validationMessage(source: URL, destination: URL, options: CopyOptions) -> String? {
         if let problem = JobValidation.check(source: source, destination: destination, copyMode: options.copyMode) {
             return settings.result(JobResult(kind: RsyncEngine.resultKind(for: problem)))

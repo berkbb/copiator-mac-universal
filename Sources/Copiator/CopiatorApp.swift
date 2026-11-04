@@ -145,6 +145,13 @@ struct AppCommands: Commands {
             }
             Button(settings.t(.menuExportRoutines)) { RoutineTransferPanels.chooseExport(nil, model: model, settings: settings) }
                 .disabled(model.routines.isEmpty)
+            Divider()
+            // Başka bir Mac'e taşıma: işler (duraklatılmış gelir) ve taşınabilir ayarlar.
+            Button(settings.t(.menuImportSetup)) {
+                openWindow(id: WindowID.main)
+                SetupTransferPanels.chooseImport(model: model)
+            }
+            Button(settings.t(.menuExportSetup)) { SetupTransferPanels.chooseExport(model: model, settings: settings) }
         }
 
         CommandMenu(settings.t(.menuJob)) {

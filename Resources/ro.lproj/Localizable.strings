@@ -1016,3 +1016,16 @@
 "snapshotsCompareNote" = "Fișierele nu sunt citite: copiile legate de același fișier sunt considerate nemodificate, iar un fișier cu altă dimensiune sau dată este considerat modificat. Fișierele ascunse nu sunt listate.";
 "snapshotsCompareNeedsTwo" = "Compararea necesită cel puțin două instantanee";
 "snapshotsQuickLook" = "Previzualizare rapidă";
+"menuExportSetup" = "Exportă lucrările și configurările…";
+"menuImportSetup" = "Importă lucrările și configurările…";
+"exportSetupName" = "Configurare Copiator.json";
+"exportSetupFailed" = "Lucrările și configurările nu au putut fi exportate";
+"toastSetupExported" = "Lucrările și configurările au fost exportate";
+"setupImportTitle" = "Importă lucrările și configurările";
+"setupImportNote" = "Lucrările importate sosesc întrerupte, cu identități noi și fără istoric; niciuna nu rulează până nu o porniți. Alegeți dosarele care nu există pe acest Mac sau lăsați lucrarea respectivă deoparte. Configurările aduc notificările, aspectul, opțiunile implicite și scurtăturile; permisiunea pentru actualizări, sandboxul, sugestiile AI și căile care țin de celălalt Mac nu se schimbă. Mutați rutinele cu Fișier › Exportă rutinele.";
+"setupImportSettings" = "Aplică și configurările din fișier";
+"setupImportDone" = "%ld lucrări importate (întrerupte)";
+"setupImportFailedTitle" = "Lucrările și configurările nu au putut fi importate";
+"setupImportInvalid" = "Acest fișier nu este un fișier de configurare Copiator sau este deteriorat.";
+"setupImportNewer" = "Acest fișier a fost creat de o versiune mai nouă a Copiator; actualizați mai întâi Copiator.";
+"setupImportTooLarge" = "Fișierul este prea mare pentru un fișier de configurare.";

@@ -1016,3 +1016,16 @@
 "snapshotsCompareNote" = "Files are not read: copies linked to the same file count as unchanged, and a file whose size or date differs counts as changed. Hidden files are not listed.";
 "snapshotsCompareNeedsTwo" = "Comparing needs at least two snapshots";
 "snapshotsQuickLook" = "Quick Look";
+"menuExportSetup" = "Export Jobs and Settings…";
+"menuImportSetup" = "Import Jobs and Settings…";
+"exportSetupName" = "Copiator Setup.json";
+"exportSetupFailed" = "Jobs and settings could not be exported";
+"toastSetupExported" = "Jobs and settings exported";
+"setupImportTitle" = "Import jobs and settings";
+"setupImportNote" = "Imported jobs arrive paused with new identities and no history; none of them runs until you start it. Choose the folders that do not exist on this Mac, or leave that job out. Settings bring notifications, appearance, default options and shortcuts; the update permission, the sandbox, AI suggestions and paths that belong to the other Mac are not changed. Move routines with File › Export Routines.";
+"setupImportSettings" = "Also apply the settings from the file";
+"setupImportDone" = "%ld jobs imported (paused)";
+"setupImportFailedTitle" = "Jobs and settings could not be imported";
+"setupImportInvalid" = "This file is not a Copiator setup file, or it is damaged.";
+"setupImportNewer" = "This file was made by a newer version of Copiator; update Copiator first.";
+"setupImportTooLarge" = "The file is too large for a setup file.";

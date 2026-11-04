@@ -275,6 +275,9 @@ public enum LKey: String, CaseIterable, Sendable {
     case permissionFullDiskNotice, settingsPermissionsSection, settingsPermissionsNote, settingsPermissionNotifications
     case settingsPermissionFullDisk, permissionStatusOn, permissionStatusOff, permissionStatusNotAsked, permissionStatusUnavailable
     case permissionStatusUnknown
+    // İşleri ve ayarları başka bir Mac'e taşıma
+    case menuExportSetup, menuImportSetup, exportSetupName, exportSetupFailed, toastSetupExported, setupImportTitle, setupImportNote
+    case setupImportSettings, setupImportDone, setupImportFailedTitle, setupImportInvalid, setupImportNewer, setupImportTooLarge
     // Girişte aç
     case settingsOpenAtLogin, settingsOpenAtLoginNote, loginItemNeedsApproval, loginItemUnavailable, loginItemFailed
     // Yinelenen dosyalar

@@ -250,6 +250,21 @@ struct ViewRenderTests {
         #expect(model.permissionBanners == [.notifications, .fullDiskAccess])
         render(PermissionBanners().environment(model).environment(settings), size: NSSize(width: 900, height: 200), name: "permission-banners")
     }
+
+    /// İşleri ve ayarları içe aktarma sayfası: bulunmayan klasörler ve ayar seçeneğiyle, ayarsız dosyada seçeneksiz çizilir.
+    @Test func setupImportSheetRenders() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let jobs = [
+            TransferJob(source: fixture.url("Kaynak"), destination: fixture.url("Hedef"), status: .paused),
+            TransferJob(source: fixture.url("Yok/Kaynak"), destination: fixture.url("Yok/Hedef"), status: .paused),
+        ]
+        for settings in [PortableSettings(fixture.settings), nil] {
+            render(SetupImportSheet(request: SetupImportRequest(jobs: jobs, settings: settings))
+                .environment(fixture.model).environment(fixture.settings),
+                   size: NSSize(width: 640, height: 520), name: settings == nil ? "" : "setup-import")
+        }
+    }
 }
 
 /// Ayrıntılar paneli iş yokken görünmez (karşılama ekranını daraltmasın); kullanıcının tercihi korunur.
