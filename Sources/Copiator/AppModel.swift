@@ -355,6 +355,8 @@ final class AppModel {
     @ObservationIgnored var homeDirectory = FileManager.default.homeDirectoryForCurrentUser
     /// Bir klasörün bulunduğu diskteki boş alan (testler sahte bir değer verir).
     @ObservationIgnored var freeSpace: (URL) -> Int64? = { DiskSpace.availableCapacity(at: $0) }
+    /// Bir klasörün diski şifreli mi (testler sahte bir yanıt verir).
+    @ObservationIgnored var volumeEncryption: (URL) -> Bool? = { DiskSecurity.isEncrypted($0) }
     /// Çalıştırmanın bitiş zamanı ve dolma uyarısı için saat (testler ilerleyen sahte bir saat verir).
     @ObservationIgnored var clock: () -> Date = { Date() }
     /// Ana pencere önde ve görünür mü (izin bandı görünüyor mu; testler sahte bir yanıt verir).

@@ -1053,3 +1053,5 @@
 "batteryHoldNotice" = "Battery critically low: jobs start when the adapter is plugged in.";
 "notifyBatteryPausedTitle" = "Battery low, job paused";
 "notifyBatteryPausedBody" = "“%@” resumes where it stopped when the adapter is plugged in.";
+"destinationNotEncrypted" = "The destination disk is not encrypted";
+"destinationNotEncryptedNote" = "If the disk is lost or stolen, anyone can read the backups on it. Copiator does not encrypt; you can erase the disk as an encrypted APFS volume in Disk Utility, or turn on encryption for it in Finder (right-click › Encrypt), and back up again.";

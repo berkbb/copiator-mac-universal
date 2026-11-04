@@ -145,6 +145,7 @@ struct DestinationSummarySheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                if summary.isEncrypted == false { UnencryptedDiskNote() }
                 Text(settings.t(.summaryCounts, summary.files, summary.folders, settings.bytes(summary.bytes)))
                 if !summary.topFolders.isEmpty {
                     Text(settings.t(.summaryFolders)).font(.headline)

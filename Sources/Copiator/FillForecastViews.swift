@@ -38,6 +38,7 @@ struct FillForecastView: View {
     @Environment(AppSettings.self) private var settings
     @State private var outcome: FillForecast.Outcome?
     @State private var free: Int64?
+    @State private var encrypted: Bool?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -45,6 +46,7 @@ struct FillForecastView: View {
             if let free {
                 Text(settings.t(.fillForecastFree, settings.bytes(free))).font(.callout)
             }
+            if encrypted == false { UnencryptedDiskNote() }
             switch outcome {
             case .range(let lower, let upper)?:
                 let soon = lower <= FillForecast.warningDays
@@ -72,6 +74,28 @@ struct FillForecastView: View {
         .task(id: "\(job.id)-\(job.history.count)") {
             outcome = model.fillForecast(for: job)
             free = model.freeSpace(job.destination)
+            encrypted = model.volumeEncryption(job.destination)
         }
     }
 }
+
+/// Hedef disk şifreli değil: disk kaybolursa ya da çalınırsa yedekler okunabilir. Copiator şifrelemez; kullanıcı Disk
+/// İzlencesi'nde şifreli bir APFS birimi kullanabilir.
+struct UnencryptedDiskNote: View {
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label(settings.t(.destinationNotEncrypted), systemImage: "lock.open")
+                .font(.callout)
+                .foregroundStyle(.orange)
+            Text(settings.t(.destinationNotEncryptedNote))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("copiator.destination.notEncrypted")
+    }
+}
+

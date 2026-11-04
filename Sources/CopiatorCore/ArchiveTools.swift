@@ -63,6 +63,8 @@ public struct DestinationSummary: Equatable, Sendable {
 
     public var totalCapacity: Int64?
     public var availableCapacity: Int64?
+    /// Disk şifreli mi (nil: bilinmiyor; bkz. `DiskSecurity`).
+    public var isEncrypted: Bool?
     /// Klasördeki dosyaların toplamı.
     public var bytes: Int64 = 0
     public var files = 0
@@ -75,7 +77,8 @@ public struct DestinationSummary: Equatable, Sendable {
     public static let maxExtensions = 5
 
     public static func compute(at root: URL, isCancelled: () -> Bool = { false }) throws -> DestinationSummary {
-        var summary = DestinationSummary(totalCapacity: DiskSpace.totalCapacity(at: root), availableCapacity: DiskSpace.availableCapacity(at: root))
+        var summary = DestinationSummary(totalCapacity: DiskSpace.totalCapacity(at: root), availableCapacity: DiskSpace.availableCapacity(at: root),
+                                         isEncrypted: DiskSecurity.isEncrypted(root))
         let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .fileSizeKey]
         guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys,
                                                               options: [.skipsHiddenFiles, .producesRelativePathURLs]) else { return summary }

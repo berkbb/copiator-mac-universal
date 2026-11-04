@@ -1053,3 +1053,5 @@
 "batteryHoldNotice" = "Bateria este aproape descărcată: lucrările pornesc când conectați adaptorul.";
 "notifyBatteryPausedTitle" = "Baterie descărcată, lucrare întreruptă";
 "notifyBatteryPausedBody" = "„%@” se reia de unde s-a oprit când conectați adaptorul.";
+"destinationNotEncrypted" = "Discul de destinație nu este criptat";
+"destinationNotEncryptedNote" = "Dacă discul este pierdut sau furat, oricine poate citi copiile de rezervă de pe el. Copiator nu criptează; puteți șterge discul ca volum APFS criptat în Utilitar disc sau activa criptarea în Finder (clic dreapta › Criptează), apoi faceți din nou copia de rezervă.";

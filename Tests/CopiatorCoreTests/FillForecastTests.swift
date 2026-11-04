@@ -64,3 +64,14 @@ struct FillForecastTests {
         #expect(saved.destinationFreeBytes == 5)
     }
 }
+
+/// Hedef diskin şifre durumu okunur; henüz var olmayan bir klasör için var olan en yakın üst klasörün diskine bakılır.
+/// Hedef özeti aynı değeri taşır.
+@Test func encryptionIsReadFromTheNearestExistingFolder() throws {
+    let w = try Workspace("CopiatorEncryption")
+    let folder = try w.mkdir("Hedef")
+    let state = DiskSecurity.isEncrypted(folder)
+    #expect(state != nil, "dahili diskte sistem bir yanıt verir")
+    #expect(DiskSecurity.isEncrypted(folder.appendingPathComponent("Yok/Daha/Derin")) == state)
+    #expect(try DestinationSummary.compute(at: folder).isEncrypted == state)
+}

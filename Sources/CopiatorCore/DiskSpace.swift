@@ -236,3 +236,18 @@ enum OwnerAccess {
         return try body()
     }
 }
+
+/// Hedef diskin şifrelenip şifrelenmediği (APFS şifreli birim, FileVault ya da şifreli disk görüntüsü). Yalnızca okunur;
+/// Copiator diski şifrelemez.
+public enum DiskSecurity {
+    /// true: şifreli; false: şifresiz; nil: bilinmiyor (disk takılı değil ya da sistem söylemiyor). Henüz var olmayan
+    /// bir klasör için var olan en yakın üst klasörün diskine bakılır.
+    public static func isEncrypted(_ url: URL) -> Bool? {
+        var existing = url.standardizedFileURL
+        while !FileManager.default.fileExists(atPath: existing.path), existing.pathComponents.count > 1 {
+            existing.deleteLastPathComponent()
+        }
+        return try? existing.resourceValues(forKeys: [.volumeIsEncryptedKey]).volumeIsEncrypted
+    }
+}
+

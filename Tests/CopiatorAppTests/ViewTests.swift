@@ -260,6 +260,13 @@ struct ViewRenderTests {
         let job = try #require(fixture.model.job(id))
         render(ScrollView { FillForecastView(job: job).padding() }.environment(fixture.model).environment(fixture.settings),
                size: NSSize(width: 340, height: 260), name: "fill-forecast")
+        // Şifresiz hedef disk: uyarı panelde ve hedef özetinde çizilir.
+        fixture.model.volumeEncryption = { _ in false }
+        render(ScrollView { FillForecastView(job: job).padding() }.environment(fixture.model).environment(fixture.settings),
+               size: NSSize(width: 340, height: 360), name: "fill-forecast-unencrypted")
+        let summary = DestinationSummary(totalCapacity: 1 << 40, availableCapacity: 1 << 39, isEncrypted: false)
+        render(DestinationSummarySheet(request: DestinationSummaryRequest(destination: fixture.url("Hedef")), summary: summary)
+            .environment(fixture.settings), size: NSSize(width: 560, height: 560), name: "summary-unencrypted")
     }
 
     @Test func diagnosticSheetRenders() throws {

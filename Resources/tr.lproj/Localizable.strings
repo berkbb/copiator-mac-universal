@@ -1053,3 +1053,5 @@
 "batteryHoldNotice" = "Pil kritik seviyede: işler adaptör takılınca başlayacak.";
 "notifyBatteryPausedTitle" = "Pil azaldı, iş duraklatıldı";
 "notifyBatteryPausedBody" = "“%@” adaptör takılınca kaldığı yerden sürecek.";
+"destinationNotEncrypted" = "Hedef disk şifreli değil";
+"destinationNotEncryptedNote" = "Disk kaybolur ya da çalınırsa üzerindeki yedekleri herkes okuyabilir. Copiator şifrelemez; diski Disk İzlencesi'nde şifreli bir APFS birimi olarak silebilir ya da Finder'da şifrelemeyi açabilirsiniz (sağ tık › Şifrele), sonra yeniden yedekleyin.";
