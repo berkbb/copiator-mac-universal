@@ -211,6 +211,10 @@ struct DuplicatesSheet: View {
                                         .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
+                                    // Düz biçimli düğmenin içindeki metinler ekran okuyucuya ad olarak ulaşmayabilir: yol ve
+                                    // kalacak dosya açıkça söylenir (2026-11-04 erişilebilirlik turu).
+                                    .accessibilityLabel(OpenSafety.visibleName(path) + (kept ? ", " + settings.t(.duplicatesKeep) : ""))
+                                    .accessibilityAddTraits(kept ? .isSelected : [])
                                 }
                             }
                         }
