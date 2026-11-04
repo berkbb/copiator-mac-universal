@@ -40,8 +40,9 @@ func formatSpecifiersMatchEnglish(code: String) throws {
 func translationsAreNotEnglishFallbacks(code: String) throws {
     let english = try table("en")
     let other = try table(code)
-    // Dilde gerçekten aynı yazılan sözcükler: "OK", "General" (tr/ro), "Active" (ro, "etkin" çoğulu).
+    // Dilde gerçekten aynı yazılan sözcükler: "OK", "General" (tr/ro), "Active" (ro, "etkin" çoğulu), "Disk" (tr).
     let sameEverywhere: Set<String> = ["appName", "buttonOK", "progressSpeed", "notifyFailedBody", "settingsGeneral", "filterActive", "settingsRsync",
+                                       "consoleCategoryDisk",
                                        "fileKindPDF", "fileKindAudio", "fileKindText", "fileKindDocument",
                                        "unitKB", "unitMB", "unitGB", "unitTB"]
     let identical = LKey.allCases.map(\.rawValue).filter { key in

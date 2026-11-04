@@ -283,6 +283,11 @@ public enum LKey: String, CaseIterable, Sendable {
     case fillForecastNote, fillForecastRetention, notifyFillTitle, notifyFillBody
     // Tanılama raporu
     case menuDiagnostics, diagnosticsTitle, diagnosticsNote, diagnosticsSave, diagnosticsFileName
+    // Günlük (konsol) penceresi
+    case menuShowConsole, consoleTitle, consoleMessageCount, consoleAllMessages, consoleProblems, consoleSearchPrompt, consoleClear
+    case consoleOpenInConsole, consoleEmptyTitle, consoleEmptyMessage, consoleSelectHint, consoleColumnTime, consoleColumnType
+    case consoleColumnCategory, consoleColumnProcess, consoleColumnMessage, consoleLevelInfo, consoleLevelWarning, consoleLevelError
+    case consoleCategoryApp, consoleCategoryEngine, consoleCategoryJob, consoleCategoryDisk, consoleCategoryIntegrity, consoleCategoryUpdate
     // Kuyruk bitince Mac'i uyut
     case menuSleepWhenDone, sleepArmedNotice, sleepCountdownNotice, sleepNowButton, notifySleepTitle, notifySleepBody
     // Son çalıştırmayı geri alma

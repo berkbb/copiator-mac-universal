@@ -579,6 +579,8 @@ final class AppModel {
     func launch() async {
         guard !didLaunch else { return }
         didLaunch = true
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        AppLog.shared.info(.app, "Copiator \(AppInfo.version) (\(AppInfo.build)) started on macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion)")
         settings.applyAppearance()
         reapOrphanedProcesses()
         refreshShortcutParameters()
@@ -667,6 +669,7 @@ final class AppModel {
             engineURL = nil
             engineInfo = nil
             engineStatus = .missing
+            AppLog.shared.error(.engine, "No executable rsync found")
             return
         }
         var probed: [(url: URL, info: EngineInfo?)] = []
@@ -677,10 +680,13 @@ final class AppModel {
             engineURL = chosen.url
             engineInfo = chosen.info
             engineStatus = .ready(version: chosen.info.version, limited: !chosen.info.supportsProgress2)
+            AppLog.shared.info(.engine, "rsync \(chosen.info.version) ready (\(chosen.info.supportsProgress2 ? "full" : "limited") mode, "
+                + "\(settings.customEnginePath == nil ? "bundled or system" : "custom")), sandbox \(settings.sandboxEngine ? "on" : "off")")
         } else {
             engineURL = candidates.first
             engineInfo = nil
             engineStatus = .blocked
+            AppLog.shared.error(.engine, "rsync did not start or did not answer in time")
         }
     }
 
@@ -717,6 +723,8 @@ final class AppModel {
             }
         } catch {
             updateState = .failed(message: message(for: error))
+            let described = AppLog.describe(error)
+            AppLog.shared.warning(.update, "rsync update check failed: \(described.kind)", detail: described.detail)
             if interactive { alert = AlertItem(title: t(.updateFailed), message: message(for: error)) }
         }
     }
@@ -768,6 +776,8 @@ final class AppModel {
         } catch {
             let message = (error as? AppUpdateChecker.CheckError) == .noReleases ? t(.appUpdateNoReleases) : error.localizedDescription
             appUpdateState = .failed(message: message)
+            let described = AppLog.describe(error)
+            AppLog.shared.warning(.update, "Copiator update check failed: \(described.kind)", detail: described.detail)
             if interactive { alert = AlertItem(title: t(.updateFailed), message: message) }
         }
     }
@@ -1080,6 +1090,15 @@ final class AppModel {
     }
 
     private func finishIntegrityCheck(_ key: String, outcome: IntegrityOutcome?) {
+        switch outcome {
+        case .report(let report)?:
+            AppLog.shared.log(report.hasProblems ? .warning : .info, .integrity, "Integrity check finished: \(report.corrupted.count) damaged, "
+                              + "\(report.missing.count) missing, \(report.unreadable.count) unreadable")
+        case .failed(let message)?:
+            AppLog.shared.error(.integrity, "Integrity check failed", detail: message)
+        case nil:
+            AppLog.shared.info(.integrity, "Integrity check stopped")
+        }
         integrityFlags[key] = nil
         integrityRuns[key] = nil
         integrityResults[key] = outcome
@@ -1470,6 +1489,7 @@ final class AppModel {
                                 arguments: [String(outcome.trashed), String(outcome.kept.count + outcome.failed.count)])
         }
         let now = clock()
+        AppLog.shared.info(.job, "Last run of job \(AppLog.short(id)) undone (\(entry.key ?? ""): \(entry.arguments.joined(separator: ", ")))")
         update(id) { job in
             job.history[job.history.count - 1].undoneAt = now
             job.appendLog(entry)
@@ -1512,6 +1532,7 @@ final class AppModel {
     /// serbest kalır) ve disk takılınca sürmek üzere duraklatılır. Sırada bekleyen ve o diski kullanan işler de
     /// duraklatılır ("disk takılınca başla" seçili olanlar zaten bekler).
     func volumeWillUnmount(_ volume: URL) {
+        AppLog.shared.info(.disk, "Volume is unmounting; \(jobs.filter { $0.uses(volume: volume) }.count) jobs use it")
         if let id = runningJobID, let job = job(id), job.uses(volume: volume) {
             isSuspendingRunningJobForDisk = true
             runningTask?.cancel()
@@ -1550,6 +1571,7 @@ final class AppModel {
     /// Bir disk takıldı: o disk yüzünden duraklatılan işler sürer; hedefi bu diskte olan "disk takılınca başla" işleri
     /// (bitmiş ya da hatalı olsalar da) yeniden sıraya girer. Kullanıcının duraklattığı işlere dokunulmaz.
     func volumeDidMount(_ volume: URL) {
+        AppLog.shared.info(.disk, "Volume mounted; \(jobs.filter { $0.uses(volume: volume) }.count) jobs use it")
         var changed = false
         for job in jobs where job.uses(volume: volume) && pathsAvailable(job) {
             if job.status == .paused && job.suspendedForDisk {
@@ -1591,6 +1613,8 @@ final class AppModel {
 
     private func start(_ id: TransferJob.ID, context: EngineContext) {
         guard let job = job(id) else { return }
+        AppLog.shared.info(.job, "Job \(AppLog.short(id)) started (\(job.kind.rawValue), snapshots \(job.options.snapshots.enabled ? "on" : "off"), "
+            + "sandbox \(context.sandboxed ? "on" : "off"), low priority \(context.lowPriority ? "on" : "off"))")
         runningJobID = id
         isPausingRunningJob = false
         let resuming = job.progress != nil || job.wasInterrupted || job.result?.kind == .cancelled
@@ -1661,6 +1685,11 @@ final class AppModel {
             return
         }
         let pausedByUser = isPausingRunningJob
+        let duration = job(id)?.startedAt.map { Int(clock().timeIntervalSince($0)) } ?? 0
+        let level: AppLog.Level = result.kind.isSuccess || result.kind == .cancelled || result.kind == .awaitingDecision || result.kind == .stoppedAtLimit
+            ? .info : (result.kind == .partial || result.kind == .verificationFailed ? .warning : .error)
+        AppLog.shared.log(level, .job, "Job \(AppLog.short(id)) ended: \(result.kind.rawValue)" + (result.exitCode.map { ", exit \($0)" } ?? "")
+                          + ", \(duration) s", detail: result.detail)
         let suspendedForDisk = isSuspendingRunningJobForDisk && result.kind == .cancelled
         let suspendedForBattery = isSuspendingRunningJobForBattery && result.kind == .cancelled
         let finishedAt = clock()
@@ -1758,7 +1787,8 @@ final class AppModel {
     func sleepNow() {
         cancelSleepCountdown()
         sleepWhenQueueFinishes = false
-        _ = sleeper()
+        AppLog.shared.info(.app, "Queue finished: putting the Mac to sleep")
+        if !sleeper() { AppLog.shared.error(.app, "The Mac could not be put to sleep") }
     }
 
     /// `pmset sleepnow`: yönetici izni gerektirmez; uyku engeli iş bitince bırakılmıştır.
@@ -1819,9 +1849,11 @@ final class AppModel {
     private func didEject(_ name: String, job id: TransferJob.ID, error: String?) {
         let visible = OpenSafety.visibleName(name)
         if let error {
+            AppLog.shared.warning(.disk, "Disk of job \(AppLog.short(id)) could not be ejected", detail: error)
             update(id) { $0.appendLog(JobLogEntry(level: .warning, key: .logEjectFailed, arguments: [visible, error])) }
             if settings.notifyOnFinish { notifier(t(.notifyEjectFailedTitle), t(.logEjectFailed, visible, error), nil) }
         } else {
+            AppLog.shared.info(.disk, "Disk of job \(AppLog.short(id)) ejected")
             update(id) { $0.appendLog(JobLogEntry(level: .info, key: .logEjected, arguments: [visible])) }
             showToast(t(.notifyEjectedBody, visible), systemImage: "eject")
             if settings.notifyOnFinish { notifier(t(.notifyEjectedTitle), t(.notifyEjectedBody, visible), nil) }
@@ -1904,6 +1936,10 @@ final class AppModel {
         }
         notificationPermission = NotificationPermission(status: current.authorizationStatus,
                                                         requestFailed: requestFailed ?? (notificationPermission == .unavailable))
+        if ask {
+            AppLog.shared.info(.app, "Permissions: notifications \(notificationPermission), full disk access "
+                               + "\(fullDiskAccessGranted.map { $0 ? "on" : "off" } ?? "unknown"), open at login \(loginItemState)")
+        }
     }
 
     /// Uygulama paketi Uygulamalar klasöründe (ya da bir alt klasöründe) mi?
@@ -2073,6 +2109,7 @@ final class AppModel {
     private func holdForBattery() {
         guard !batteryHold else { return }
         batteryHold = true
+        AppLog.shared.warning(.app, "Battery critically low: the queue holds until the adapter is plugged in")
         batteryWatch?.cancel()
         let interval = powerCheckInterval
         batteryWatch = Task { [weak self] in
@@ -2091,6 +2128,7 @@ final class AppModel {
     /// Adaptör takıldı: pil yüzünden duraklatılan ve hâlâ duraklatılmış olan işler sıraya döner, kuyruk sürer.
     private func releaseBatteryHold() {
         batteryHold = false
+        AppLog.shared.info(.app, "Adapter plugged in: \(pausedForBattery.count) jobs paused for the battery resume")
         batteryWatch?.cancel()
         batteryWatch = nil
         for id in pausedForBattery {
@@ -2264,4 +2302,5 @@ enum AppInfo {
 enum WindowID {
     static let main = "main"
     static let about = "about"
+    static let console = "console"
 }

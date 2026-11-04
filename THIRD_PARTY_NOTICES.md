@@ -26,8 +26,9 @@ binary from it. Users can replace the executable at any time (Settings › Advan
 Some components of Copiator are derived from Arhivar (GNU General Public License, version 3 only, `GPL-3.0-only`;
 Copyright (C) 2026 Babadogan Tech and Edu), https://github.com/berkbb/arhivar-mac-universal: the process runner, the
 `sandbox-exec` profile generator, the disk space checks, quarantine propagation, open-safety helpers, the localization
-engine, the update checker and signature verification, the progress overlay, the license viewer, the build, packaging
-and release scripts, and the test infrastructure. Arhivar and Copiator have the same copyright holder and the same
+engine, the update checker and signature verification, the progress overlay, the license viewer, the app log and its
+Console-like log window (`AppLog`, `LogStore`, `ConsoleView`), the build, packaging and release scripts, and the test
+infrastructure. Arhivar and Copiator have the same copyright holder and the same
 license (`GPL-3.0-only`, `LICENSE`); the derived code is distributed as part of Copiator under GPL-3.0-only.
 
 ## Descarcator (derived components)

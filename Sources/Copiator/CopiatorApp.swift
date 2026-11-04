@@ -33,6 +33,15 @@ struct CopiatorApp: App {
         .restorationBehavior(.disabled)
         .commandsRemoved()
 
+        // Konsol benzeri günlük; Pencere menüsündeki "Günlüğü Göster" (⌥⌘L) ile açılır.
+        Window(settings.t(.consoleTitle), id: WindowID.console) {
+            ConsoleView(store: LogStore.shared)
+                .environment(settings)
+        }
+        .defaultSize(width: 960, height: 560)
+        .restorationBehavior(.disabled)
+        .commandsRemoved()
+
         Settings {
             SettingsView()
                 .environment(model)
@@ -202,6 +211,12 @@ struct AppCommands: Commands {
                 .disabled(!model.jobs.contains { $0.status == .finished })
             Button(settings.t(.menuRemoveAll)) { model.requestRemoveAll() }
                 .disabled(model.removableJobs.isEmpty)
+        }
+
+        CommandGroup(before: .windowList) {
+            Button(settings.t(.menuShowConsole)) { openWindow(id: WindowID.console) }
+                .keyboardShortcut("l", modifiers: [.command, .option])
+            Divider()
         }
 
         CommandGroup(before: .toolbar) {
