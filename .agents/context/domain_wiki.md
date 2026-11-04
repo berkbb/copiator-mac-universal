@@ -52,6 +52,12 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 - `Scripts/package.sh`: tests → `build_app.sh` (universal app + bundled rsync, ad-hoc signed) → `verify_bundle.sh` → `.dmg` → Ed25519 `.dmg.sig` (keychain item `com.babadogantech.copiator.update-signing`, public key `CopiatorUpdatePublicEDKey`) → `SHA256SUMS.txt`.
 - `Scripts/release.sh` tags `v<version>` and uploads with `gh release create`; no GitHub Actions.
 
+## License
+
+- Decided with the user on 2026-11-04: Copiator's own code is GPL-3.0-only (previously GPL-3.0-or-later). Every Swift source starts with `// SPDX-License-Identifier: GPL-3.0-only`; About, license viewer, `NSHumanReadableCopyright`, README and `THIRD_PARTY_NOTICES.md` say GPL-3.0-only. The `LICENSE` file is the unchanged GPLv3 text.
+- The bundled rsync keeps its own GPL-3.0-or-later license (with its linking exception); lines that describe rsync (`Scripts/build-rsync.sh`, `Vendor/rsync/SOURCE.txt`, the engine entry of the license viewer) are not changed.
+- The project the derived components come from is GPL-3.0 with the same copyright holder (Babadogan Tech and Edu); the earlier MIT notice was outdated and was replaced. That project is named only in `THIRD_PARTY_NOTICES.md`.
+
 ## App Icon
 
 - Decided with the user on 2026-10-23: the icon drawn by `Scripts/make_icon.swift` is the final app icon (no longer temporary).

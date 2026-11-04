@@ -6,7 +6,7 @@
 
 ## 1. Project Identity & Mission
 
-**Copiator** (`copiator-mac-universal`, bundle id `com.babadogantech.copiator`) is a native macOS 26 (Tahoe) universal (`arm64` + `x86_64`) local backup and sync app built with Swift 6.2 and SwiftUI (Liquid Glass). Its engine is `rsync`, run as a separate process inside an isolated kernel sandbox (`sandbox-exec`). License: **GPL-3.0-or-later**.
+**Copiator** (`copiator-mac-universal`, bundle id `com.babadogantech.copiator`) is a native macOS 26 (Tahoe) universal (`arm64` + `x86_64`) local backup and sync app built with Swift 6.2 and SwiftUI (Liquid Glass). Its engine is `rsync`, run as a separate process inside an isolated kernel sandbox (`sandbox-exec`). License: **GPL-3.0-only** (the bundled rsync keeps its own GPL-3.0-or-later license).
 
 ### Constitutional Invariants (Non-Negotiable)
 
@@ -15,7 +15,7 @@
    - The sandbox denies writes to every source **after** allowing writes to the destination (SBPL: last match wins), so a source nested inside the destination stays read-only.
    - Jobs whose source and destination target overlap are refused (`JobValidation.check`).
 2. **`--delete` Only When Chosen and Confirmed:** `CopyOptions.deleteExtraneous` defaults to `false`, is never a settings default, and the New Job sheet asks for confirmation. Verify adds `--delete` only together with `-n` (listing only) and with no writable sandbox folder.
-3. **Process Boundary & GPL Compliance:** rsync is never linked. The bundled binary is built from the unmodified upstream tag by `Scripts/build-rsync.sh`; its provenance (tag, commit, flags, SHA-256) lives in `Vendor/rsync/SOURCE.txt`. Every Swift source starts with `// SPDX-License-Identifier: GPL-3.0-or-later`.
+3. **Process Boundary & GPL Compliance:** rsync is never linked. The bundled binary is built from the unmodified upstream tag by `Scripts/build-rsync.sh`; its provenance (tag, commit, flags, SHA-256) lives in `Vendor/rsync/SOURCE.txt`. Every Swift source starts with `// SPDX-License-Identifier: GPL-3.0-only` (`Package.swift` on its second line).
 4. **Kernel Sandbox Isolation (`SandboxProfile.forTransfer`):** no network, writes only to the destination, no `process-exec` except rsync itself, no `mach-lookup`, personal-data folders read-denied unless chosen as the source (and excluded from larger sources as anchored `--exclude` patterns, placed before user filter rules). Always resolve paths with `realpath(3)` (`SandboxProfile.resolved`).
    - Extra permissions exist only for paths the user chooses in a job (`AdvancedOptions.readablePaths`, `writableFiles`, `writableDirectories`): list files and reference directory (read); `--log-file`, `--write-batch` file and `.sh` (write file); outside `--backup-dir` and `--link-dest` reference (write folder). Paths written inside the source are refused (`Problem.writesInsideSource`). Never widen these to whole parent folders.
    - List files are never read by rsync from protected folders: `RsyncEngine.stageListFiles` passes a private 0700 copy.

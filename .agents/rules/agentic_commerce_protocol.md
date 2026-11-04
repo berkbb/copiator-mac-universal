@@ -13,4 +13,4 @@ Standardizes discovery, checkout, and order event integrity when commerce workfl
 
 ## 2. Application in Copiator
 
-- Dormant in `copiator-mac-universal` (free open-source GPL-3.0-or-later desktop utility with zero commerce/payment flows).
+- Dormant in `copiator-mac-universal` (free open-source GPL-3.0-only desktop utility with zero commerce/payment flows).

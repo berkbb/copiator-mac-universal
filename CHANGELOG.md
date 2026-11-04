@@ -47,6 +47,10 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 - **Shortcuts and Siri:** "Run Copy Job" (choose a job), "Pause All Jobs", "Resume All Jobs", with phrases in Turkish, English and Romanian. `Scripts/build_app.sh` generates the App Intents metadata with `appintentsmetadataprocessor`.
 - **Sleep and power:** the sleep assertion (`caffeinate -i` equivalent) is verified in the system's assertion list; the app tells you when it is taken and released (start, finish, pause, cancel, quit) and shows a banner while a job runs. New option "Keep the display awake during a job" (`caffeinate -d` equivalent). Power advice for battery, low battery, Low Power Mode, the lid and the display, re-checked every minute during a job.
 
+### Changed
+
+- **License: GPL-3.0-only.** Copiator's own code is now licensed under the GNU General Public License, version 3 only (was "version 3 or later"); the `LICENSE` text is unchanged. Source headers, the About window, the license viewer, the bundle's copyright line, the README and the third-party notices say so. The bundled rsync keeps its own GPL-3.0-or-later license. The notice for the derived components now states the source project's actual license, GPL-3.0 with the same copyright holder, instead of MIT.
+
 ### Fixed
 
 - **A placement template could leave the destination:** a value such as ". .." became ".." after its leading dot was trimmed once. Names are now trimmed until they stop changing, and a staged path with "." or ".." is never created (found by the new placement fuzz test).
