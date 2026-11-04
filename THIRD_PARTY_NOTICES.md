@@ -30,6 +30,14 @@ engine, the update checker and signature verification, the progress overlay, the
 and release scripts, and the test infrastructure. Arhivar and Copiator have the same copyright holder and the same
 license (`GPL-3.0-only`, `LICENSE`); the derived code is distributed as part of Copiator under GPL-3.0-only.
 
+## Descarcator (derived components)
+
+The Dock tile drawing (the drawn progress bar and speed pill, `DockTileView`, and the `DockProgress` tile surface) and
+its tests are derived from Descarcator (GNU General Public License, version 3 only, `GPL-3.0-only`; Copyright (C) 2026
+Babadogan Tech and Edu), https://github.com/berkbb/descarcator-mac-universal. Descarcator and Copiator have the same
+copyright holder and the same license (`GPL-3.0-only`, `LICENSE`); the derived code is distributed as part of Copiator
+under GPL-3.0-only.
+
 ## Repository-only files (not part of the app)
 
 The source repository also contains third-party files that are used only by coding agents working on Copiator. They

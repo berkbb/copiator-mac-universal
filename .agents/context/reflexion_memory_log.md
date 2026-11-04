@@ -228,3 +228,7 @@
 - **Root Cause:** `volumeDidMount` started the integrity check at once, in parallel with the job that also starts on that disk, so the first check recorded an empty folder and could have recorded rsync's temporary files as later "missing" ones.
 - **Guardrail:** checks on connect wait in `pendingIntegrityChecks` until `DiskEject.isBusy` is false for the volume, and `integrityOnConnectWaitsForTheDisksJobs` (with two guards checked by mutation) keeps the order: jobs, then the check, then the eject.
 
+## Episode 55: Blaming the System for a Dock Bar the App Never Drew
+- **Root Cause:** the Dock showed no progress for Copiator, and after a bare test app under Copiator's bundle id could not show a badge, the report blamed system policy. The user remembered a green bar, which came from the sister download app: it draws its tile itself, while Copiator placed a system `NSProgressIndicator` on the tile, which never appeared in the Dock (a build from before the session behaved the same). Requesting notification permission without `.badge` also keeps a registered app's drawn tile hidden.
+- **Guardrail:** when a user says something used to work, compare with the sister app or an older build before concluding; the Dock tile is drawn (`DockTileView`), notification permission includes `.badge`, and `DockProgressTests` checks the drawn pixels. A live check during a real copy is part of the hands-on round.
+

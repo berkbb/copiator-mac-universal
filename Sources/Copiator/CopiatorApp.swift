@@ -76,11 +76,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         volumes.start(model: model)
         model.onActivityChange = { [dock, weak model] in
             guard let model else { return }
-            dock.update(fraction: model.runningFraction, active: model.runningJobID != nil, badge: model.pendingCount,
-                        enabled: model.settings.showDockProgress)
+            dock.update(fraction: model.runningFraction, active: model.runningJobID != nil, enabled: model.settings.showDockProgress,
+                        speed: model.runningSpeedText)
         }
         // Pencere açılmadan (Kestirmeler ya da Finder servisiyle) başlatılsa da kuyruk ve motor hazırlanır.
         Task { await model.launch() }
+        // Bildirim izni daha önce rozetsiz verildiyse Dock simgesindeki ilerleme görünsün diye rozet de istenir.
+        Task { await model.requestBadgePermissionIfNeeded() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

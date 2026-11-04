@@ -1509,8 +1509,15 @@ final class AppModel {
         return job.progress?.fraction
     }
 
-    /// Çalışan ve sırada bekleyen işlerin sayısı (Dock rozeti).
+    /// Çalışan ve sırada bekleyen işlerin sayısı.
     var pendingCount: Int { jobs.lazy.filter { $0.status == .waiting || $0.status.isActive }.count }
+
+    /// Çalışan işin kopyalama hızı, Dock simgesi için biçimlendirilmiş ("→ 25,0 MB/sn"); kopyalamıyorsa nil.
+    var runningSpeedText: String? {
+        guard let id = runningJobID, let job = job(id), job.status == .copying,
+              let rate = job.progress?.bytesPerSecond, rate > 0 else { return nil }
+        return "→ " + t(.progressSpeed, settings.bytes(Int64(rate)))
+    }
 
     private func finishRun(_ id: TransferJob.ID, result: JobResult) {
         // Çıkışta durdurulan iş "kesildi" olarak kalır (bkz. `prepareForTermination`); sıradaki iş başlatılmaz.
@@ -1649,11 +1656,25 @@ final class AppModel {
         }
     }
 
+    /// Bildirim izni: uyarı, ses ve simge göstergesi (rozet). Bildirimlere kaydolmuş bir uygulamanın Dock simgesine
+    /// çizdiği ilerleme çubuğunu macOS 26 yalnızca bildirim ayarlarında "simge göstergesi" açıkken gösterir.
+    nonisolated static let notificationOptions: UNAuthorizationOptions = [.alert, .sound, .badge]
+
+    /// Bildirim izni daha önce rozetsiz verildiyse açılışta rozet de istenir (yeni bir soru çıkmaz, ayarlara "simge
+    /// göstergesi" eklenir). İzin hiç sorulmadıysa açılışta sorulmaz: kaydolmamış uygulamanın Dock'u kısıtlanmaz.
+    func requestBadgePermissionIfNeeded() async {
+        guard Bundle.main.bundleIdentifier == AppInfo.bundleIdentifier else { return }
+        let center = UNUserNotificationCenter.current()
+        let current = await center.notificationSettings()
+        guard current.authorizationStatus != .notDetermined, current.badgeSetting == .notSupported else { return }
+        _ = try? await center.requestAuthorization(options: Self.notificationOptions)
+    }
+
     /// macOS bildirimi; yalnızca gerçek uygulama paketinde (testlerde Bundle.main bir xctest paketidir).
     nonisolated static func postUserNotification(title: String, body: String, action: NoticeAction?) {
         guard Bundle.main.bundleIdentifier == AppInfo.bundleIdentifier else { return }
         let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+        center.requestAuthorization(options: notificationOptions) { granted, _ in
             guard granted else { return }
             let content = UNMutableNotificationContent()
             content.title = title

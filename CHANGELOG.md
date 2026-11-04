@@ -57,6 +57,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ### Fixed
 
+- **Dock progress shows again:** while a job runs, the Dock icon now shows a bright green progress bar and the copy speed ("→ 25,5 MB/s"), drawn by the app the same way as in the sister download app; the system progress control used before never appeared in the Dock. The red number badge for pending jobs is gone (the menu bar window and the sidebar show them), and notification permission now includes the icon badge, which macOS 26 requires for an app's drawn Dock content to stay visible.
 - "Check automatically when this disk is connected" no longer runs at the same moment as the jobs that start on that disk, when it could see an empty or half-written destination; it now waits until the disk's waiting, running and decision-waiting jobs are done, and "eject when done" waits for the check.
 - Developer tooling: the stress round's accessibility probe skipped every outline, including Copiator's job list, so it could not find the pause/resume button; it now searches the job list and the full round passes (20,000 files and a 2 GB file, pause and resume, quarantine kept, worst UI response 64 ms, VoiceOver labels).
 - **A placement template could leave the destination:** a value such as ". .." became ".." after its leading dot was trimmed once. Names are now trimmed until they stop changing, and a staged path with "." or ".." is never created (found by the new placement fuzz test).
