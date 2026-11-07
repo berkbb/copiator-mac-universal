@@ -252,3 +252,8 @@
 ## Episode 60: `standardizedFileURL` Is Not a Neutral Normalizer
 - **Root Cause:** archive search built relative paths from `url.standardizedFileURL.path`, which turns "/private/var/…" into "/var/…" while the resolved root kept "/private", so every result fell back to its bare file name.
 - **Guardrail:** compare paths that come from the same source of truth (the enumerator's raw `url.path` against the resolved root); use `standardizedFileURL` only on both sides of a comparison, never against a `realpath` result.
+
+## Episode 61: A Timeout on the Shared Pool
+- **Root Cause:** the 1.2.0 release run failed `runnerTimesOut` (no timeout for `sleep 5` with a 0.3-second limit), while five full runs before it passed. Instead of calling it flaky, a measurement showed that a `DispatchQueue.global().asyncAfter` timer fired after 8.8 seconds while the shared pool was full of blocking work; a private serial queue fired on time. A private *concurrent* queue did not help: it waits for the same pool. `CommandRunner` used the shared pool for the timeout, the forced stop and the blocking wait for the last output.
+- **Guardrail:** timers live on `CommandRunner.timers` (serial), the drain wait on its own thread; `runnerTimesOutWhileTheSharedPoolIsBusy` fills the pool briefly and fails when the timeout goes back to the shared pool (checked by doing exactly that). A test that fails only under load gets a measurement before it is called flaky.
+

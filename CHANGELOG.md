@@ -27,6 +27,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 ### Fixed
 
 - **Undoing a run that moved its sources to the Trash** used to move the destination copies to the Trash as well, leaving both sides in the Trash. The run now records where each source went in the Trash; undo first puts the sources back (only from a Trash folder into the job's source, only where the old place is free) and keeps the copy of any source that cannot be put back. Runs recorded by 1.1.0 with "Move to the Trash" on are not offered for undo.
+- A command's timeout (and the forced stop two seconds after a stop request) could fire seconds late, or not at all, while macOS's shared dispatch pool was busy: a 0.3-second timer ran after 8.8 seconds in a measurement. Timers now run on Copiator's own serial queue and the wait for a finished process's last output runs on its own thread. Found when a release test run failed under load.
 - The undo line in the job log showed meaningless large numbers instead of the item counts; log strings now take their values as text, and a test keeps every log string that way.
 
 ### Changed

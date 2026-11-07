@@ -37,6 +37,17 @@ private let shell = CommandRunner(executableURL: URL(fileURLWithPath: "/bin/sh")
     }
 }
 
+/// Ortak GCD havuzu bloklanan işlerle doluyken de zaman aşımı zamanında çalışır: zamanlayıcı uygulamanın kendi kuyruğundadır.
+/// (Ortak havuzdaki bir zamanlayıcı havuz boşalana kadar beklerdi; süreç o arada biter ve zaman aşımı hiç bildirilmezdi.)
+/// Havuz kısa süre dolu tutulur (yaklaşık 1,2 sn); süreç ondan önce biter, yani ortak havuzdaki bir zamanlayıcı zaman aşımını
+/// hiç bildirmezdi. Sürecin bittiği bildirim Foundation'ın kendi kuyruğundan geldiği için toplam süre ölçülmez.
+@Test func runnerTimesOutWhileTheSharedPoolIsBusy() async {
+    for _ in 0..<80 { DispatchQueue.global().async { Thread.sleep(forTimeInterval: 1.2) } }
+    await #expect(throws: EngineError.timedOut) {
+        _ = try await shell.run(["-c", "sleep 0.8"], timeout: 0.3)
+    }
+}
+
 @Test func runnerCancels() async {
     let task = Task { try await shell.run(["-c", "sleep 5"]) }
     try? await Task.sleep(for: .milliseconds(200))

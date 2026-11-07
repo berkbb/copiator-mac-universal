@@ -62,6 +62,12 @@ public struct CommandRunner: Sendable {
     /// `retainStdout` kapalıyken saklanan son çıktı (yalnızca tanı için).
     public static let streamTailBytes = 64 << 10
 
+    /// Zaman aşımı ve sonlandırma sonrası zorla durdurma bu seri kuyrukta çalışır. Ortak GCD havuzu
+    /// (`DispatchQueue.global()`, eşzamanlı özel kuyruklar da) bloklanan işlerle dolduğunda oradaki bir zamanlayıcı
+    /// saniyelerce gecikebilir (0,3 sn'lik zaman aşımı 8,8 sn sonra çalıştı); seri özel kuyruk gerektiğinde kendi iş
+    /// parçacığını alır. Buradaki işler kısadır, bloklamaz.
+    static let timers = DispatchQueue(label: "com.babadogantech.copiator.runner.timers")
+
     /// Süreci çalıştırır. Sıfırdan farklı çıkış kodu hata sayılmaz; sınıflandırma çağırana aittir.
     /// - Parameters:
     ///   - timeout: Saniye; aşılırsa süreç sonlandırılır ve `timedOut` fırlatılır.
@@ -107,7 +113,8 @@ public struct CommandRunner: Sendable {
                     // Tüm çıktı okunduktan sonra sonucu teslim et. Süreç bittiği hâlde boruyu açık tutan bir torun süreç
                     // (ör. öldürülen bir kabuğun "sleep" çocuğu) EOF'u geciktirirse en çok `drainGracePeriod` beklenir;
                     // yoksa iptal, torun çıkana kadar asılı kalırdı.
-                    DispatchQueue.global().async {
+                    // Bekleme bloklar: ortak havuzu doldurmasın diye kendi iş parçacığında (okuyucular gibi).
+                    CommandRunner.startReader {
                         _ = readers.wait(timeout: .now() + CommandRunner.drainGracePeriod)
                         continuation.resume(with: state.finish(exitCode: exitCode))
                     }
@@ -140,7 +147,7 @@ public struct CommandRunner: Sendable {
 
                 if state.isCancelled { box.terminate() }
                 if let timeout {
-                    DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+                    CommandRunner.timers.asyncAfter(deadline: .now() + timeout) {
                         if box.isRunning {
                             state.markTimedOut()
                             box.terminate()
@@ -197,7 +204,7 @@ private final class ProcessBox: @unchecked Sendable {
         guard process.isRunning else { return }
         process.terminate()
         let pid = process.processIdentifier
-        DispatchQueue.global().asyncAfter(deadline: .now() + Self.killGracePeriod) { [self] in
+        CommandRunner.timers.asyncAfter(deadline: .now() + Self.killGracePeriod) { [self] in
             // Süreç hâlâ çalışıyorsa zorla durdur; böylece sonlanma işleyicisi çalışır ve bekleyen devam (continuation) döner.
             if process.isRunning { kill(pid, SIGKILL) }
         }
