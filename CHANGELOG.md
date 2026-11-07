@@ -5,6 +5,8 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-11-07
+
 ### Added
 
 - **Search the Archive…** (job context menu): finds files at the destination by name and, when asked, by the text inside PDF and text files (from the Spotlight index when the volume has one, which also covers Office documents, otherwise by reading the files) and by the date taken and camera model of photos. Case, diacritics and Turkish I/ı/İ/i are ignored; hidden items, links and the inside of packages are skipped; files are only read. A result can be shown in Finder, opened (kinds that can run code are shown in Finder instead), saved as a copy elsewhere or moved to the Trash after a confirmation.
