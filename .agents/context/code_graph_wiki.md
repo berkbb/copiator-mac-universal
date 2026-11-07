@@ -3,15 +3,15 @@
 > **Memory Category:** TencentDB Code-Graph Memory Asset
 > **Scope:** Module boundaries, key types, call hierarchy, and cross-file modification impact map.
 > **Generated from:** `graphify-out/GRAPH_REPORT.md` and `graphify-out/graph.json` (graphifyy 0.9.101, local tree-sitter AST, `--code-only`, no LLM backend). Sections 3–4 are hand-maintained and checked against the graph.
-> **Built at commit:** `4dc138c` on 2026-11-04 (the code is unchanged in the agent-tooling change; the git hooks rebuild the graph after each commit).
+> **Built at commit:** `28654f7` plus the uncommitted 2026-11-07 changes (archive search, run report, folder tree, name per file, moving-run undo), refreshed with `graphify update .` and `cluster-only`; the git hooks rebuild the graph after each commit.
 > **Regenerate:** `GRAPHIFY_NO_TIPS=1 GRAPHIFY_QUERY_LOG_DISABLE=1 GRAPHIFY_BACKEND=off graphify extract . --code-only`, then `GRAPHIFY_BACKEND=off graphify cluster-only . --no-label`, then update sections 1–2 from the new report. `graphify-out/` is git-ignored.
 
 ---
 
 ## 1. Graph Summary
 
-- **Corpus:** 130 code files (122 Swift, 8 shell) → 4,092 nodes, 10,456 edges, 130 Leiden communities (15 thin ones omitted from the report).
-- **Edge provenance:** 84% `EXTRACTED`, 16% `INFERRED` (1,631 edges, average confidence 0.85), 0% `AMBIGUOUS`.
+- **Corpus:** 4,953 nodes, 12,739 edges, 166 Leiden communities (26 thin ones omitted from the report) after the 2026-11-07 refresh. New types since the previous build: `ArchiveSearch`, `RunReport`, `FolderTree`, `PlacementNaming`, `RunUndo.MovedSource`, `ArchiveSearchSheet`, `RunReportPanel`.
+- **Edge provenance:** 84% `EXTRACTED`, 16% `INFERRED` (2,050 edges, average confidence 0.85), 0% `AMBIGUOUS`.
 - **Edge relations:** `calls` 3,473 · `references` 2,701 · `case_of` 1,430 · `method` 1,295 · `contains` 658 · `implements` 496 · `imports` 341 · `defines` 26 · `inherits` 23 · `dispatches_to` 13.
 - **Module dependencies:** `Copiator` → `CopiatorCore`; `CopiatorCoreTests` → `CopiatorCore`; `CopiatorAppTests` → `Copiator`, `CopiatorCore`. `CopiatorCore` imports no app target. Import cycles: none.
 - **Not indexed:** `Vendor/` (the bundled rsync), Markdown docs (`--code-only`), `.strings` tables, `Info.plist`, `.claude/` and build outputs (see `.graphifyignore`).

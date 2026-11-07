@@ -244,3 +244,11 @@
 - **Root Cause:** "undo last run" decided whether a file was created by the run from its creation time. rsync `-t` sets the copy's modification time to the source's, and macOS then moves the creation time back to it, so every copy of an older source file looked older than the run and undo would have moved nothing in real use. The tests passed because their source files were written seconds before the run; under parallel load the gap grew past the 2-second tolerance and the test failed only sometimes.
 - **Guardrail:** time-based evidence must be checked against realistic data (old source files, preserved times); the undo test now uses year-old sources and the decision uses the status-change time. A test that fails only under load is investigated with recorded timestamps before it is called flaky.
 
+
+## Episode 59: Undo That Sent Both Sides to the Trash
+- **Root Cause:** "undo last run" knew only what a run created at the destination. A run with "Move to the Trash after copying" had also moved its sources to the Trash, so undoing it moved the copies there too and left the only copies of the files in the Trash. Found by comparing Copiator with the `ev` scripts, whose undo puts moved files back. The same comparison showed the undo log line printing pointer-sized numbers: log arguments are stored as text, and the string used `%ld`.
+- **Guardrail:** the trash step returns where each item went (`SourceTrash.systemTrashLocating`) and the undo record carries it; `RunUndo.restoreSources` puts sources back first and keeps the copy of any source it cannot restore. `logStringsTakeTextArguments` keeps every `log…` string on `%@`. When adding a destructive step, check what its undo means for the other side of the copy.
+
+## Episode 60: `standardizedFileURL` Is Not a Neutral Normalizer
+- **Root Cause:** archive search built relative paths from `url.standardizedFileURL.path`, which turns "/private/var/…" into "/var/…" while the resolved root kept "/private", so every result fell back to its bare file name.
+- **Guardrail:** compare paths that come from the same source of truth (the enumerator's raw `url.path` against the resolved root); use `standardizedFileURL` only on both sides of a comparison, never against a `realpath` result.
