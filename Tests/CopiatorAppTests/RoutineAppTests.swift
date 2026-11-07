@@ -302,13 +302,14 @@ struct RoutineViewTests {
         render(AnyView(MenuBarContent().environment(model).environment(settings)), NSSize(width: 320, height: 320), "menubar-routines")
         render(AnyView(RoutinePickerSheet(request: RoutinePickerRequest(items: [fixture.url("Kaynak/not.txt"), fixture.url("Kaynak/alt")]))
             .environment(model).environment(settings)), NSSize(width: 520, height: 440), "send-to-routine")
-        render(AnyView(DestinationSummarySheet(request: DestinationSummaryRequest(destination: fixture.url("Kaynak"))).environment(settings)),
+        render(AnyView(DestinationSummarySheet(request: DestinationSummaryRequest(destination: fixture.url("Kaynak"))).environment(model)
+            .environment(settings)),
                NSSize(width: 560, height: 560), "destination-summary-scanning")
         try fixture.write("Kaynak/Fotoğraflar/a.jpg", String(repeating: "x", count: 4000))
         try fixture.write("Kaynak/Belgeler/b.pdf", String(repeating: "x", count: 1500))
         let summary = try DestinationSummary.compute(at: fixture.url("Kaynak"))
         render(AnyView(DestinationSummarySheet(request: DestinationSummaryRequest(destination: fixture.url("Kaynak")), summary: summary)
-            .environment(settings)), NSSize(width: 560, height: 560), "destination-summary")
+            .environment(model).environment(settings)), NSSize(width: 560, height: 560), "destination-summary")
         model.selectedRoutineID = nil
         render(AnyView(ContentView().environment(model).environment(settings)), NSSize(width: 1080, height: 680), "queue-routines")
     }

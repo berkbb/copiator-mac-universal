@@ -26,6 +26,7 @@ extension AppSettings {
         case .cameraModel: t(.ruleAttrCamera)
         case .content: t(.ruleAttrContent)
         case .inDestination: t(.ruleAttrInDestination)
+        case .location: t(.ruleAttrLocation)
         }
     }
 
@@ -46,8 +47,18 @@ extension AppSettings {
         case .notWithinLast: t(.ruleOpNotWithinLast)
         case .before: t(.ruleOpBefore)
         case .after: t(.ruleOpAfter)
-        case .isTrue: t(attribute == .hidden ? .ruleOpHidden : attribute == .inDestination ? .ruleOpExists : .ruleOpHasTag)
-        case .isFalse: t(attribute == .hidden ? .ruleOpVisible : attribute == .inDestination ? .ruleOpNotExists : .ruleOpNoTag)
+        case .isTrue:
+            switch attribute {
+            case .hidden: t(.ruleOpHidden)
+            case .inDestination, .location: t(.ruleOpExists)
+            default: t(.ruleOpHasTag)
+            }
+        case .isFalse:
+            switch attribute {
+            case .hidden: t(.ruleOpVisible)
+            case .inDestination, .location: t(.ruleOpNotExists)
+            default: t(.ruleOpNoTag)
+            }
         }
     }
 

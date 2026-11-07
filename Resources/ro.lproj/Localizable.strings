@@ -805,6 +805,14 @@
 "ruleAttrInDestination" = "Copie cu același conținut la destinație";
 "ruleOpExists" = "există";
 "ruleOpNotExists" = "nu există";
+"ruleAttrLocation" = "Informații de localizare (GPS)";
+"menuSaveFolderTree" = "Salvează arborele de dosare…";
+"folderTreeTitle" = "# Arborele de dosare pentru %@";
+"folderTreeRoot" = "Dosar rădăcină: %@";
+"folderTreeTruncated" = "Arborele se oprește la %@ rânduri; restul nu apare în fișier.";
+"folderTreeFileName" = "Arborele de dosare %@.md";
+"toastFolderTreeSaved" = "Arborele de dosare a fost salvat";
+"folderTreeFailed" = "Arborele de dosare nu a putut fi salvat: %@";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copiază %ld elemente cu o rutină";

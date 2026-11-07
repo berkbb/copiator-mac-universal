@@ -15,8 +15,12 @@ public struct MediaInfo: Equatable, Sendable {
     /// Saniye.
     public var duration: Double?
     public var cameraModel: String?
+    /// Konum bilgisi (GPS enlem ve boylamı) var; okunamadıysa nil.
+    public var hasLocation: Bool?
 
-    public init(captureDate: Date? = nil, pixelWidth: Int? = nil, pixelHeight: Int? = nil, duration: Double? = nil, cameraModel: String? = nil) {
+    public init(captureDate: Date? = nil, pixelWidth: Int? = nil, pixelHeight: Int? = nil, duration: Double? = nil, cameraModel: String? = nil,
+                hasLocation: Bool? = nil) {
+        self.hasLocation = hasLocation
         self.captureDate = captureDate
         self.pixelWidth = pixelWidth
         self.pixelHeight = pixelHeight
@@ -56,6 +60,8 @@ public struct MediaInfo: Equatable, Sendable {
         if let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] {
             info.cameraModel = (tiff[kCGImagePropertyTIFFModel] as? String)?.trimmingCharacters(in: .whitespaces)
         }
+        let gps = properties[kCGImagePropertyGPSDictionary] as? [CFString: Any]
+        info.hasLocation = gps?[kCGImagePropertyGPSLatitude] != nil && gps?[kCGImagePropertyGPSLongitude] != nil
         return info
     }
 
@@ -92,6 +98,12 @@ public struct MediaInfo: Equatable, Sendable {
         if let metadata = try? await asset.load(.metadata) {
             let model = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .quickTimeMetadataModel).first
             if let model, let text = try? await model.load(.stringValue) { info.cameraModel = text }
+            // QuickTime konum kaydı ("+39.9334+032.8597+0850/", ISO 6709).
+            let location = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .quickTimeMetadataLocationISO6709).first
+                ?? AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .quickTimeUserDataLocationISO6709).first
+            var hasLocation = false
+            if let location, let text = try? await location.load(.stringValue) { hasLocation = !text.trimmingCharacters(in: .whitespaces).isEmpty }
+            info.hasLocation = hasLocation
         }
         return info
     }
@@ -306,6 +318,9 @@ public struct RuleEvaluator: @unchecked Sendable {
         case .captureDate: return compare(item.media?.captureDate, condition)
         case .cameraModel: return item.media?.cameraModel.map { compare($0, condition) } ?? false
         case .hidden: return condition.op == .isTrue ? item.isHidden : !item.isHidden
+        case .location:
+            let present = item.media?.hasLocation == true
+            return condition.op == .isTrue ? present : !present
         case .inDestination:
             var present = false
             if let destinationIndex, !item.isDirectory, let url = item.url, let size = item.size {

@@ -7,16 +7,20 @@ import UniformTypeIdentifiers
 @testable import CopiatorCore
 
 /// Çekim tarihi ve kamera modeli taşıyan küçük bir JPEG.
-private func writePhoto(_ url: URL, taken: String, camera: String) throws {
+private func writePhoto(_ url: URL, taken: String, camera: String, latitude: Double? = nil) throws {
     try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     let context = try #require(CGContext(data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 16,
                                          space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
     let image = try #require(context.makeImage())
     let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil))
-    let properties: [CFString: Any] = [
+    var properties: [CFString: Any] = [
         kCGImagePropertyExifDictionary: [kCGImagePropertyExifDateTimeOriginal: taken],
         kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFModel: camera],
     ]
+    if let latitude {
+        properties[kCGImagePropertyGPSDictionary] = [kCGImagePropertyGPSLatitude: latitude, kCGImagePropertyGPSLatitudeRef: "N",
+                                                     kCGImagePropertyGPSLongitude: 32.8597, kCGImagePropertyGPSLongitudeRef: "E"]
+    }
     CGImageDestinationAddImage(destination, image, properties as CFDictionary)
     #expect(CGImageDestinationFinalize(destination))
 }
@@ -63,3 +67,17 @@ private func writePhoto(_ url: URL, taken: String, camera: String) throws {
     #expect(ArchiveSearch.snippet(in: "yok", around: "fatura") == nil)
 }
 
+/// "Konum bilgisi (GPS)" ölçütü: koordinatı olan fotoğraf "var"a, olmayan "yok"a uyar; fotoğraf olmayan dosya "yok"tur.
+@Test func locationCriterionReadsGPSCoordinates() async throws {
+    let w = try Workspace("CopiatorLocationRule")
+    try writePhoto(w.url("Foto/konumlu.jpg"), taken: "2026:08:15 14:03:00", camera: "X", latitude: 39.9334)
+    try writePhoto(w.url("Foto/konumsuz.jpg"), taken: "2026:08:15 14:03:00", camera: "X")
+    try w.write("Foto/not.txt", "not")
+    #expect(MediaInfo.image(w.url("Foto/konumlu.jpg"))?.hasLocation == true)
+    #expect(MediaInfo.image(w.url("Foto/konumsuz.jpg"))?.hasLocation == false)
+    let has = RuleGroup(conditions: [RuleCondition.starting(.location)])
+    #expect(try await RuleScanner.scan(w.url("Foto"), rules: has).paths == ["konumlu.jpg"])
+    let none = RuleGroup(conditions: [RuleCondition(attribute: .location, op: .isFalse)])
+    #expect(Set(try await RuleScanner.scan(w.url("Foto"), rules: none).paths) == ["konumsuz.jpg", "not.txt"])
+    #expect(RuleAttribute.location.isAdvanced && RuleAttribute.location.needsMedia && RuleAttribute.location.valueKind == .flag)
+}

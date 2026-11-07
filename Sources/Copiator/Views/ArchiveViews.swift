@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import CopiatorCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Seçili öğeleri bir rutine gönderme
 
@@ -87,6 +88,7 @@ struct RoutinePickerSheet: View {
 /// Hedef klasörün özeti: birimin doluluğu, dosya ve klasör sayısı, üst klasörlere ve uzantılara göre boyut.
 struct DestinationSummarySheet: View {
     let request: DestinationSummaryRequest
+    @Environment(AppModel.self) private var model
     @Environment(AppSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
     @State private var summary: DestinationSummary?
@@ -113,6 +115,9 @@ struct DestinationSummarySheet: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             HStack {
+                Button(settings.t(.menuSaveFolderTree), systemImage: "list.bullet.indent") { saveTree() }
+                    .disabled(model.savingFolderTree)
+                if model.savingFolderTree { ProgressView().controlSize(.small) }
                 Spacer()
                 Button(settings.t(.buttonClose)) { dismiss() }
                     .keyboardShortcut(.defaultAction)
@@ -129,6 +134,16 @@ struct DestinationSummarySheet: View {
                 failed = true
             }
         }
+    }
+
+    /// Klasör ağacını Markdown olarak kaydetme yeri sorulur; ağaç arka planda çıkarılır.
+    private func saveTree() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = settings.t(.folderTreeFileName, request.destination.lastPathComponent)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { await model.saveFolderTree(of: request.destination, to: url) }
     }
 
     private func content(_ summary: DestinationSummary) -> some View {

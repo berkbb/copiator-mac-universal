@@ -99,6 +99,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await AppModel.shared.refreshPermissions(ask: false) }
     }
 
+    /// Dock simgesine bırakılan öğeler (Info.plist'teki belge türü yalnızca bırakmayı kabul eder; Copiator hiçbir türü
+    /// açan uygulama olmaz): pencereye bırakmadaki gibi ilk öğe Yeni İş sayfasında kaynak olur.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        let model = AppModel.shared
+        model.presentMainWindow()
+        model.handleDrop(urls)
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         AppModel.shared.prepareForTermination()
     }

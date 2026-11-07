@@ -805,6 +805,14 @@
 "ruleAttrInDestination" = "Copy with the same contents at the destination";
 "ruleOpExists" = "exists";
 "ruleOpNotExists" = "does not exist";
+"ruleAttrLocation" = "Location (GPS)";
+"menuSaveFolderTree" = "Save Folder Tree…";
+"folderTreeTitle" = "# Folder tree of %@";
+"folderTreeRoot" = "Root folder: %@";
+"folderTreeTruncated" = "The tree stops at %@ lines; the rest is not in the file.";
+"folderTreeFileName" = "%@ folder tree.md";
+"toastFolderTreeSaved" = "Folder tree saved";
+"folderTreeFailed" = "The folder tree could not be saved: %@";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copy %ld items with a routine";

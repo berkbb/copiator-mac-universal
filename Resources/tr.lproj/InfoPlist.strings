@@ -8,3 +8,4 @@
 "NSRemovableVolumesUsageDescription" = "Copiator, seçtiğiniz harici disklere yedeklemek ve onlardan kopyalamak için erişim istiyor.";
 "NSNetworkVolumesUsageDescription" = "Copiator, seçtiğiniz ağ birimlerine yedeklemek ve onlardan kopyalamak için erişim istiyor.";
 "NSFileProviderDomainUsageDescription" = "Copiator, bir işe eklediğiniz bulut klasörlerini (iCloud Drive, Dropbox…) kopyalamak için erişim istiyor.";
+"File or Folder to Back Up" = "Yedeklenecek Dosya ya da Klasör";

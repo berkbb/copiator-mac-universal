@@ -57,6 +57,22 @@
 	<string>Copiator needs access to back up to and copy from the network volumes you choose.</string>
 	<key>NSRemovableVolumesUsageDescription</key>
 	<string>Copiator needs access to back up to and copy from the external disks you choose.</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>File or Folder to Back Up</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>None</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.folder</string>
+				<string>public.item</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSServices</key>
 	<array>
 		<dict>

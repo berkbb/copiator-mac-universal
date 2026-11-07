@@ -805,6 +805,14 @@
 "ruleAttrInDestination" = "Hedefte aynı içerikli kopya";
 "ruleOpExists" = "var";
 "ruleOpNotExists" = "yok";
+"ruleAttrLocation" = "Konum bilgisi (GPS)";
+"menuSaveFolderTree" = "Klasör Ağacını Kaydet…";
+"folderTreeTitle" = "# %@ klasör ağacı";
+"folderTreeRoot" = "Kök klasör: %@";
+"folderTreeTruncated" = "Ağaç %@ satırda kesildi; gerisi dosyaya girmedi.";
+"folderTreeFileName" = "%@ klasör ağacı.md";
+"toastFolderTreeSaved" = "Klasör ağacı kaydedildi";
+"folderTreeFailed" = "Klasör ağacı kaydedilemedi: %@";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "%ld öğeyi bir rutinle kopyala";

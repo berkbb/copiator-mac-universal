@@ -8,3 +8,4 @@
 "NSRemovableVolumesUsageDescription" = "Copiator needs access to back up to and copy from the external disks you choose.";
 "NSNetworkVolumesUsageDescription" = "Copiator needs access to back up to and copy from the network volumes you choose.";
 "NSFileProviderDomainUsageDescription" = "Copiator needs access to copy the cloud storage folders (iCloud Drive, Dropbox…) you add to a job.";
+"File or Folder to Back Up" = "File or Folder to Back Up";

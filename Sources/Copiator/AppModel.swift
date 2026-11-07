@@ -250,6 +250,8 @@ final class AppModel {
     /// Hedef özeti sayfası.
     var summaryRequest: DestinationSummaryRequest?
     var archiveSearch: ArchiveSearchRequest?
+    /// Klasör ağacı çıkarılıyor (bkz. `saveFolderTree`).
+    private(set) var savingFolderTree = false
     /// Arşivlenmiş kaynakları temizleme sayfası.
     var cleanupRequest: CleanupRequest?
     var snapshotBrowser: SnapshotBrowserRequest?
@@ -982,6 +984,24 @@ final class AppModel {
 
     func showDestinationSummary(_ destination: URL) {
         summaryRequest = DestinationSummaryRequest(destination: destination)
+    }
+
+    /// Hedefin klasör ağacını Markdown olarak yazar (bkz. `FolderTree`); hedef yalnızca okunur.
+    func saveFolderTree(of root: URL, to url: URL) async {
+        savingFolderTree = true
+        defer { savingFolderTree = false }
+        let strings = settings.strings, language = settings.languageCode, locale = settings.locale
+        let output = await Task.detached(priority: .userInitiated) {
+            FolderTree.markdown(of: root, text: { key, arguments in
+                String(format: strings.string(key, language: language), locale: locale, arguments: arguments.map { $0 as CVarArg })
+            })
+        }.value
+        do {
+            try Data(output.text.utf8).write(to: url, options: .atomic)
+            showToast(t(.toastFolderTreeSaved), systemImage: "list.bullet.indent")
+        } catch {
+            alert = AlertItem(title: t(.errorTitle), message: t(.folderTreeFailed, error.localizedDescription))
+        }
     }
 
     // MARK: - Arşivde arama (bkz. ArchiveSearch)

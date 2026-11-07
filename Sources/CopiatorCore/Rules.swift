@@ -48,6 +48,9 @@ public enum RuleAttribute: String, Codable, CaseIterable, Identifiable, Sendable
     case resolution
     case duration
     case cameraModel
+    /// Fotoğraf ve video: konum bilgisi (GPS koordinatı) var mı. Yalnızca var ya da yok bakılır; yer adı aranmaz (koordinatı
+    /// bir yere çevirmek ağ ister, kurallar ağa çıkmaz).
+    case location
     /// Dosyanın içinde geçen metin (Spotlight dizininden; PDF ve metin dosyaları doğrudan da okunur).
     case content
     /// Aynı içerikte bir dosya hedefte zaten var (adı ya da yeri farklı olsa da; bkz. `DestinationIndex`).
@@ -72,12 +75,12 @@ public enum RuleAttribute: String, Codable, CaseIterable, Identifiable, Sendable
         case .kind: .kind
         case .size, .depth, .resolution, .duration: .number
         case .modified, .created, .added, .captureDate: .date
-        case .hidden, .inDestination: .flag
+        case .hidden, .inDestination, .location: .flag
         }
     }
 
     /// Fotoğraf ya da video üst verisi gerekir (tarama sırasında ayrıca okunur).
-    public var needsMedia: Bool { [.captureDate, .resolution, .duration, .cameraModel].contains(self) }
+    public var needsMedia: Bool { [.captureDate, .resolution, .duration, .cameraModel, .location].contains(self) }
 
     /// Bu özellikte kullanılabilen karşılaştırmalar (ilki varsayılandır).
     public var operators: [RuleOperator] {
@@ -89,7 +92,7 @@ public enum RuleAttribute: String, Codable, CaseIterable, Identifiable, Sendable
         case .depth: [.atMost, .atLeast, .equals]
         case .modified, .created, .added, .captureDate: [.withinLast, .notWithinLast, .before, .after]
         case .tag: [.equals, .contains, .isTrue, .isFalse]
-        case .hidden, .inDestination: [.isTrue, .isFalse]
+        case .hidden, .inDestination, .location: [.isTrue, .isFalse]
         case .content: [.contains]
         }
     }
@@ -246,6 +249,7 @@ public struct RuleCondition: Codable, Equatable, Identifiable, Sendable {
         case .depth: RuleCondition(attribute: .depth, op: .atMost, number: 0, unit: .levels)
         case .hidden: RuleCondition(attribute: .hidden, op: .isTrue)
         case .inDestination: RuleCondition(attribute: .inDestination, op: .isFalse)
+        case .location: RuleCondition(attribute: .location, op: .isTrue)
         case .tag: RuleCondition(attribute: .tag, op: .equals)
         default: RuleCondition(attribute: attribute)
         }

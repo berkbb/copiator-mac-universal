@@ -307,6 +307,11 @@ public enum LKey: String, CaseIterable, Sendable {
     case archiveSearchMatchName, archiveSearchMatchContent, archiveSearchMatchPhoto, archiveSearchReveal, archiveSearchOpen
     case archiveSearchSaveCopy, archiveSearchTrash, archiveSearchTrashTitle, archiveSearchTrashMessage, archiveSearchTrashButton
     case archiveSearchOpenRefused, archiveSearchActionFailed, toastArchiveTrashed, toastArchiveCopied
+    // Konum ölçütü
+    case ruleAttrLocation
+    // Klasör ağacı
+    case menuSaveFolderTree, folderTreeTitle, folderTreeRoot, folderTreeTruncated, folderTreeFileName, toastFolderTreeSaved
+    case folderTreeFailed
     // Time Machine dışlaması
     case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk

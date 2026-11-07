@@ -266,7 +266,7 @@ struct ViewRenderTests {
                size: NSSize(width: 340, height: 360), name: "fill-forecast-unencrypted")
         let summary = DestinationSummary(totalCapacity: 1 << 40, availableCapacity: 1 << 39, isEncrypted: false)
         render(DestinationSummarySheet(request: DestinationSummaryRequest(destination: fixture.url("Hedef")), summary: summary)
-            .environment(fixture.settings), size: NSSize(width: 560, height: 560), name: "summary-unencrypted")
+            .environment(fixture.model).environment(fixture.settings), size: NSSize(width: 560, height: 560), name: "summary-unencrypted")
     }
 
     /// Arşivde arama: üç eşleşme türü (ad, içerik, fotoğraf bilgisi), sınır notu ve boş sonuç.

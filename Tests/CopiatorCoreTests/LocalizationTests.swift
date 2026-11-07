@@ -103,6 +103,14 @@ func translationsAreNotEnglishFallbacks(code: String) throws {
         #expect(Set(menu.keys) == Set(services), "\(code) ServicesMenu.strings")
     }
     #expect(Set(infoKeys).count == 1)
+    // Dock'a bırakmayı kabul eden belge türü: yalnızca bırakma (LSHandlerRank None; Copiator hiçbir türü açan uygulama
+    // olmaz) ve adı her dilde çevrilmiş.
+    let types = plist["CFBundleDocumentTypes"] as? [[String: Any]] ?? []
+    #expect(!types.isEmpty && types.allSatisfy { $0["LSHandlerRank"] as? String == "None" })
+    for code in AppLanguage.supportedCodes {
+        let info = try table(code, "InfoPlist")
+        for name in types.compactMap({ $0["CFBundleTypeName"] as? String }) { #expect(info[name] != nil, "\(code): \(name)") }
+    }
 }
 
 /// macOS'un izin sorularındaki açıklamalar (Masaüstü, Belgeler, İndirilenler, harici ve ağ diskleri, bulut klasörleri)

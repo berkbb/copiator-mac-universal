@@ -8,3 +8,4 @@
 "NSRemovableVolumesUsageDescription" = "Copiator are nevoie de acces pentru a face copii de rezervă pe discurile externe alese și pentru a copia de pe ele.";
 "NSNetworkVolumesUsageDescription" = "Copiator are nevoie de acces pentru a face copii de rezervă pe volumele de rețea alese și pentru a copia de pe ele.";
 "NSFileProviderDomainUsageDescription" = "Copiator are nevoie de acces pentru a copia dosarele din cloud (iCloud Drive, Dropbox…) pe care le adăugați într-o lucrare.";
+"File or Folder to Back Up" = "Fișier sau dosar de salvat";
