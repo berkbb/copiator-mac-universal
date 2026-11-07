@@ -1,8 +1,8 @@
 # Domain Rules Index & Governance Structure Standard (`about_rules.md`)
 
 > **Scope:** Index of the domain rules and the 42 Core Standards in `.agents/rules/` for Copiator. Every standard has a rule file, except Reflexion, which is served by `.agents/context/reflexion_memory_log.md`. Each file states plainly which parts apply to the app and which apply only to coding agents working on this repository.
-> **Last Reviewed:** 2026-11-04
-> **Change Summary:** 2026-11-04: rewritten as the index of every rule file after the standard files were rewritten from the 2026-11-03 standards review; nine outdated file names replaced (see Section 6), the invented reasoning-trace standard removed, and `graphify_knowledge_graph.md` added. 2026-10-21: adopted for `copiator-mac-universal`.
+> **Last Reviewed:** 2026-11-07
+> **Change Summary:** 2026-11-07: A2UI v1.0 recorded as current (since 2026-11-06; formerly a release candidate) and the Mistral row updated to the Agents SDK and Managed Agents (public preview), in line with Descarcator's 2026-11-06 source check; Section 5 gets the A2UI and Mistral lines. 2026-11-04: rewritten as the index of every rule file after the standard files were rewritten from the 2026-11-03 standards review; nine outdated file names replaced (see Section 6), the invented reasoning-trace standard removed, and `graphify_knowledge_graph.md` added. 2026-10-21: adopted for `copiator-mac-universal`.
 
 ---
 
@@ -38,7 +38,7 @@ The app implements none of these. Each file records the upstream facts and turns
 | [`mcp_enterprise_managed_authorization.md`](mcp_enterprise_managed_authorization.md) | MCP Enterprise-Managed Authorization (Stable 2026-07-28) | Tokens are credentials; a policy denial is final. |
 | [`agent_skills_specification.md`](agent_skills_specification.md) | Agent Skills Specification (`agentskills.io`) | `SKILL.md` layout for new skills in `.agents/skills/`. |
 | [`agent2agent_protocol.md`](agent2agent_protocol.md) | Agent2Agent Protocol v1.0 (`v1.0.1`) | A status is not authorization; briefs state scope and done-criteria. |
-| [`agent_to_user_interface_protocol.md`](agent_to_user_interface_protocol.md) | A2UI v0.9.1 (v1.0 release candidate) | Generated UI is reviewed code; reuse the existing views. |
+| [`agent_to_user_interface_protocol.md`](agent_to_user_interface_protocol.md) | A2UI v1.0 (current since 2026-11-06) | Generated UI is reviewed code; reuse the existing views. |
 | [`agent_user_interaction_protocol.md`](agent_user_interaction_protocol.md) | AG-UI (date-tagged releases) | Every run ends honestly; shown state matches reality. |
 | [`aaif_agentic_foundation.md`](aaif_agentic_foundation.md) | Agentic AI Foundation (project list of 2026-11-03) | Cite current names only; check membership before claiming it. |
 | [`openinference_specification.md`](openinference_specification.md) | Arize OpenInference (conventions 0.1.43) | Report every span kind honestly; never quiet a job log. |
@@ -46,7 +46,7 @@ The app implements none of these. Each file records the upstream facts and turns
 | [`openai_harmony_response_format.md`](openai_harmony_response_format.md) | OpenAI Harmony (`openai-harmony` 0.0.8) | No renderer here; local servers apply their own templates and answers are validated. |
 | [`microsoft_agent_framework.md`](microsoft_agent_framework.md) | Microsoft Agent Framework (`python-1.24.0`, `dotnet-1.27.0`) | Functions over agents in the app; explicit handoffs; one writer per file. |
 | [`qwen_agent_interpreter.md`](qwen_agent_interpreter.md) | Alibaba Qwen-Agent (`v0.0.26`, PyPI 0.0.34) | No interpreter in the app; agent code runs outside the project tree. |
-| [`mistral_function_calling.md`](mistral_function_calling.md) | Mistral Function Calling & Agents API (undated docs) | A proposed call is not an execution; the rsync and local model contracts are checked. |
+| [`mistral_function_calling.md`](mistral_function_calling.md) | Mistral Function Calling, Agents SDK & Managed Agents (undated docs, public preview) | A proposed call is not an execution; the rsync and local model contracts are checked. |
 | [`langgraph_state_machine.md`](langgraph_state_machine.md) | LangGraph `1.2.19` | The app's state graph is explicit; agent state is written down. |
 | [`crewai_task_delegation.md`](crewai_task_delegation.md) | CrewAI `1.15.34` | Scoped tasks with explicit dependencies. |
 | [`autogpt_autonomous_loop.md`](autogpt_autonomous_loop.md) | AutoGPT Platform (`beta-v0.10.0`) | No goal loop in the app; bounded plan–act–check cycles (3-Strike Rule). |
@@ -84,7 +84,7 @@ The 42nd Core Standard, Reflexion (Shinn et al., arXiv:2303.11366), is served by
 5. **Reflexion:** The Reflexion standard is served by `.agents/context/reflexion_memory_log.md`, not by a rule file.
 6. **Names:** Rule files use current upstream names only. Retired or renamed upstreams and invented standards listed in the global `CLAUDE.md` never get a file.
 
-## 5. `CLAUDE.md` Claims Not Confirmed by Primary Sources (2026-11-03 review)
+## 5. `CLAUDE.md` Claims Not Confirmed by Primary Sources (2026-11-03 and 2026-11-07 reviews)
 
 Each item is recorded in the named file. The global `CLAUDE.md` may need a correction:
 
@@ -107,6 +107,8 @@ Each item is recorded in the named file. The global `CLAUDE.md` may need a corre
   - "About 30% fewer steps" comes from the README, not the CodeAct paper (`huggingface_smolagents_codeagent.md`).
 - **IBM Granite and AWS AgentCore:** Neither vendor publishes a document with the "Enterprise Agent Standard" or "Governance Standard" name (`ibm_granite_enterprise.md`, `aws_bedrock_agentcore.md`).
 - **Spec Kit:** The upstream changelog dates the `taskstoissues` deprecation to v1.1.3. The rule file keeps v1.1.0, as `CLAUDE.md` states, by the user's decision (`github_spec_kit.md`).
+- **A2UI:** v1.0 is current since 2026-11-06, not a release candidate; v0.9.1 is Closed and v0.8 Deprecated (`agent_to_user_interface_protocol.md`; 2026-11-07 review, from Descarcator's 2026-11-06 source check).
+- **Mistral:** The "Agents API" that `CLAUDE.md` names is replaced by the Agents SDK and Managed Agents (public preview); its overview is kept in a deprecated section for existing integrations (`mistral_function_calling.md`; 2026-11-07 review, from Descarcator's 2026-11-06 source check).
 
 ## 6. File Name History (2026-11-04)
 

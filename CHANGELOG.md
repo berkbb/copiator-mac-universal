@@ -5,6 +5,10 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+### Changed
+
+- A2UI v1.0 recorded as current and the Mistral standard updated to the Agents SDK and Managed Agents in `.agents/rules` (index: `.agents/rules/about_rules.md`).
+
 ## [1.1.0] — 2026-11-04
 
 ### Added

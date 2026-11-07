@@ -1,9 +1,9 @@
-# Mistral AI Function Calling & Agents API Standard (`mistral_function_calling.md`)
+# Mistral AI Function Calling, Agents SDK & Managed Agents Standard (`mistral_function_calling.md`)
 
-> **Upstream Source:** <https://docs.mistral.ai/capabilities/function_calling/> (Agents API: <https://docs.mistral.ai/agents/introduction>)
-> **Version / Date:** Undated documentation pages (footer "Mistral AI © 2026"), content as read on 2026-11-03
-> **Last Reviewed:** 2026-11-04
-> **Change Summary:** 2026-11-04: rewritten from the 2026-11-03 standards review (formerly `mistral_tool_binding.md`); upstream summary carried over without a new fetch; Copiator requirements rewritten.
+> **Upstream Source:** <https://docs.mistral.ai/capabilities/function_calling/> (Agents SDK `mistralai-agents` and Managed Agents, public preview: <https://docs.mistral.ai/studio/agents/overview>; migration guide: <https://docs.mistral.ai/studio/agents/getting-started/from-agents-api>; the former Agents and Conversations API (`client.beta.agents`) is deprecated: <https://docs.mistral.ai/studio/agents/deprecated/overview>)
+> **Version / Date:** Undated documentation pages (footer "Mistral AI © 2026"), content as read on 2026-11-06; Managed Agents and the Agents SDK are marked public preview
+> **Last Reviewed:** 2026-11-07
+> **Change Summary:** 2026-11-07: brought in line with Descarcator's 2026-11-06 source check (no new fetch): the function calling page is unchanged (five steps, tool format, `tool_choice`, `parallel_tool_calls`, `role: "tool"` results), but the agents documentation now describes the Agents SDK (`mistralai-agents`) and Managed Agents in public preview, the migration guide says the Agents SDK replaces the Agents and Conversations API, and the former Agents API overview sits in a deprecated section; the title, the upstream sources and the Agents API bullet were rewritten to match; the Core Requirements are unchanged. 2026-11-04: rewritten from the 2026-11-03 standards review (formerly `mistral_tool_binding.md`); upstream summary carried over without a new fetch; Copiator requirements rewritten.
 
 ---
 
@@ -13,7 +13,9 @@
 - Each tool is a JSON object with `"type": "function"` and a `function` block holding `name`, `description`, and a JSON Schema `parameters` object with `properties` and `required`.
 - The docs say "the function execution lies on the user/developer side"; the model does not run the function itself.
 - `tool_choice` is `auto` (default), `any` (forces tool use), or `none`. `parallel_tool_calls` defaults to `true`; `false` forces single calls. Results go back as a `role: "tool"` message with the function `name`, `content`, and a `tool_call_id` matching the call's `id`.
-- The Agents API adds built-in connector tools (code execution, web search, image generation, document library), persistent conversations, and handoffs that let agents call other agents.
+- Managed Agents and the Agents SDK (`mistralai-agents`, public preview, so the API and limits may change) run an agent on its own for long periods in a stateful session that keeps every message, tool call, and result; after a crash, a turn continues from its last finished model or tool call.
+- The migration guide says the Agents SDK replaces the Agents and Conversations API (`client.beta.agents`, `client.beta.conversations`): an agent becomes an `agents.Agent` object in the caller's process, conversations become sessions, handoffs become subagents (`agents.Subagent`), connectors are added by name, code execution uses `agents.MistralSandbox()`, and tool approval is set with `permission_mode` or `permission_policy`.
+- The earlier Agents API overview (built-in code execution, web search, image generation, and document library tools, persistent conversations, and handoffs between agents) is kept in a deprecated section for existing integrations; no removal date is given.
 
 ## Core Requirements
 
