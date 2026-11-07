@@ -134,6 +134,7 @@ public enum JobQueue {
         for index in job.history.indices.dropLast() where job.history[index].result.undo != nil { job.history[index].result.undo = nil }
         // Rapor da (dosya listesi) yalnızca son çalıştırmada kalır.
         for index in job.history.indices.dropLast() where job.history[index].result.report != nil { job.history[index].result.report = nil }
+        for index in job.history.indices.dropLast() where job.history[index].result.pendingMoves != nil { job.history[index].result.pendingMoves = nil }
         job.result = result
         job.wasInterrupted = false
         switch result.kind {

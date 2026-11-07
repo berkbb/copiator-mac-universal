@@ -834,6 +834,9 @@
 "createFolderButton" = "Creează dosarul";
 "createFoldersButton" = "Creează %ld dosare de destinație lipsă";
 "createFolderFailed" = "Dosarul nu a putut fi creat: %@";
+"logSourcesTrashDeferred" = "%@ fișiere sursă se vor muta în Coș după ce toate rutele rutinei le copiază.";
+"logSourcesTrashTooMany" = "%@ fișiere sursă depășesc limita înregistrării și nu se vor muta în Coș.";
+"logRoutineSourcesTrashed" = "Toate rutele rutinei au copiat: %1$@ fișiere sursă și %2$@ dosare golite au fost mutate în Coș; %3$@ fișiere fără copie identică la fiecare destinație au rămas pe loc.";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copiază %ld elemente cu o rutină";
@@ -866,7 +869,7 @@
 "logSourcesTrashed" = "%1$@ fișiere sursă ale căror copii au fost verificate și %2$@ dosare golite au fost mutate în Coș; %3$@ fișiere fără o copie identică la destinație au rămas pe loc.";
 "logSourceTrashFailed" = "%@ nu a putut fi mutat în Coș și a rămas pe loc.";
 "optionTrashSource" = "Mută fișierele sursă în Coș după copiere";
-"optionTrashSourceNote" = "Sunt mutate doar fișierele a căror copie de la destinație are conținut identic verificat; nimic nu se șterge definitiv, iar subdosarele golite merg și ele în Coș. Indisponibil cu instantanee.";
+"optionTrashSourceNote" = "Sunt mutate doar fișierele a căror copie de la destinație are conținut identic verificat; nimic nu se șterge definitiv, iar subdosarele golite merg și ele în Coș. Indisponibil cu instantanee. Într-o rutină cu mai multe rute, o sursă se mută doar după ce toate rutele care au selectat-o au copiat-o și verificat-o; cât timp o rută își așteaptă discul, sursa rămâne.";
 "trashConfirmTitle" = "Mutați fișierele sursă în Coș?";
 "trashConfirmMessage" = "Fișierele din %@ vor fi mutate în Coș după ce se verifică faptul că copiile lor de la destinație sunt identice. Le puteți recupera din Coș.";
 "trashConfirmButton" = "Mută în Coș";

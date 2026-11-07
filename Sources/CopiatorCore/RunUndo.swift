@@ -126,6 +126,12 @@ public enum RunUndo {
                     continue
                 }
             }
+            // Kaynak zaten yerinde (ör. aynı kaynağı taşıyan çok rotalı rutinin başka bir rotası geri alındı): Çöp'te değil ve
+            // eski yerindeki dosya bu kopyayla birebir aynıysa kopya korunmaz; değilse tek kopya o olabilir.
+            if acceptable(file), !exists(file.trashed), exists(file.original), let target = file.target,
+               let digest = DestinationIndex.digest(of: file.original), digest == DestinationIndex.digest(of: target) {
+                continue
+            }
             outcome.notRestored.append(file.original)
             if let target = file.target { outcome.keepTargets.insert(Self.key(target)) }
         }

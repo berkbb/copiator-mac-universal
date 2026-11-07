@@ -834,6 +834,9 @@
 "createFolderButton" = "Klasörü Oluştur";
 "createFoldersButton" = "Eksik %ld Hedef Klasörünü Oluştur";
 "createFolderFailed" = "Klasör oluşturulamadı: %@";
+"logSourcesTrashDeferred" = "%@ kaynak dosya, rutinin bütün rotaları kopyalayınca Çöp Sepeti'ne taşınacak.";
+"logSourcesTrashTooMany" = "%@ kaynak dosya kayıt sınırını aştığı için Çöp Sepeti'ne taşınmayacak.";
+"logRoutineSourcesTrashed" = "Rutinin bütün rotaları kopyaladı: %1$@ kaynak dosya ve boşalan %2$@ klasör Çöp Sepeti'ne taşındı; her hedefte birebir aynısı olmayan %3$@ dosya yerinde bırakıldı.";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "%ld öğeyi bir rutinle kopyala";
@@ -866,7 +869,7 @@
 "logSourcesTrashed" = "Kopyası doğrulanan %1$@ kaynak dosya ve boşalan %2$@ klasör Çöp Sepeti'ne taşındı; hedefte birebir aynısı olmayan %3$@ dosya yerinde bırakıldı.";
 "logSourceTrashFailed" = "%@ Çöp Sepeti'ne taşınamadı; yerinde kaldı.";
 "optionTrashSource" = "Kopyaladıktan sonra kaynak dosyaları Çöp Sepeti'ne taşı";
-"optionTrashSourceNote" = "Yalnızca hedefteki kopyasıyla içeriği birebir aynı olduğu doğrulanan dosyalar taşınır; kalıcı silme yapılmaz, boşalan alt klasörler de Çöp'e gider. Anlık görüntülerle kullanılamaz.";
+"optionTrashSourceNote" = "Yalnızca hedefteki kopyasıyla içeriği birebir aynı olduğu doğrulanan dosyalar taşınır; kalıcı silme yapılmaz, boşalan alt klasörler de Çöp'e gider. Anlık görüntülerle kullanılamaz. Birden çok rotalı bir rutinde kaynak, onu seçen bütün rotalar kopyalayıp doğrulayınca taşınır; bir rota diskini bekliyorsa kaynak yerinde kalır.";
 "trashConfirmTitle" = "Kaynak dosyalar Çöp Sepeti'ne taşınsın mı?";
 "trashConfirmMessage" = "%@ içindeki dosyalar, hedefteki kopyalarıyla birebir aynı oldukları doğrulandıktan sonra Çöp Sepeti'ne taşınacak. Çöp Sepeti'nden geri alabilirsiniz.";
 "trashConfirmButton" = "Çöp Sepeti'ne Taşı";

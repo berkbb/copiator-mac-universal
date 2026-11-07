@@ -965,6 +965,12 @@ final class AppModel {
                 jobs.append(job)
             }
         }
+        // Çok rotalı rutinde "Taşı": bu çalıştırmanın bütün rota işleri (bekleyen ya da çalışan eski iş dahil) aynı gruba girer;
+        // kaynaklar ancak grubun bütün işleri kopyalayınca taşınır (bkz. `completeRoutineMove`).
+        let group: UUID? = routine.routes.count > 1 ? UUID() : nil
+        for route in routine.routes {
+            if let index = jobs.firstIndex(where: { $0.routeID == route.id }) { jobs[index].moveGroup = group }
+        }
         routine.lastRunAt = Date()
         if let index = routines.firstIndex(where: { $0.id == id }) { routines[index] = routine }
         saveRoutines()
@@ -1265,6 +1271,11 @@ final class AppModel {
                 added.append(job)
             }
         }
+        // Birden çok iş (rota ya da klasör) varsa "Taşı" hepsi bitince taşır.
+        if added.count > 1 {
+            let group = UUID()
+            for index in added.indices { added[index].moveGroup = group }
+        }
         jobs += added
         save()
         showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
@@ -1426,6 +1437,50 @@ final class AppModel {
             return settings.problem(problem)
         }
         return nil
+    }
+
+    /// Çok rotalı rutinde "Taşı": rutinin BÜTÜN rotaları bu çalıştırmada başarıyla bitince her kaynak, onu seçen her rotanın
+    /// hedefindeki karşılığıyla yeniden karşılaştırılır; hepsi birebir aynıysa Çöp'e gider. Bir rota bekliyorsa (ör. diski
+    /// takılı değil), karar bekliyorsa ya da başarısızsa hiçbir kaynak taşınmaz; o rota bitince yeniden denenir. Taşınan
+    /// kaynaklar her rotanın geri alma kaydına yazılır (geri alma onları yerine koyar).
+    private func completeRoutineMove(after id: TransferJob.ID) {
+        guard let job = job(id), let group = job.moveGroup, job.options.trashSourceAfterCopy else { return }
+        let routeJobs = jobs.filter { $0.moveGroup == group }
+        guard routeJobs.allSatisfy({ routeJob in
+            routeJob.status == .finished && routeJob.history.last?.result.kind.isSuccess == true && routeJob.history.last?.result.pendingMoves != nil
+        }) else { return }
+        let routineID = job.routineID ?? group
+        let plans = routeJobs.map { ($0.id, $0.history.last?.result.pendingMoves ?? []) }
+        // Kayıt tüketilir: aynı çalıştırmada kaynaklar iki kez taşınmaya kalkılmaz.
+        for (routeJobID, _) in plans {
+            update(routeJobID) { $0.history[$0.history.count - 1].result.pendingMoves = nil }
+        }
+        save()
+        let moves = plans.flatMap(\.1)
+        let trash = sourceTrashItem
+        AppLog.shared.info(.job, "Routine \(AppLog.short(routineID)) finished all routes; moving \(Set(moves.map(\.source)).count) sources")
+        Task {
+            let outcome = await Task.detached(priority: .utility) { SourceTrash.moveAcrossRoutes(moves, trash: trash) }.value
+            for (routeJobID, own) in plans {
+                let targets = Dictionary(own.map { ($0.source, $0.target) }, uniquingKeysWith: { first, _ in first })
+                // Her rotanın geri alma kaydı: kendi kopyalarıyla eşleşen taşınan dosyalar ve boşalan klasörler.
+                let moved = outcome.located.compactMap { item -> RunUndo.MovedSource? in
+                    guard item.target != nil else { return item }
+                    return targets[item.original].map { RunUndo.MovedSource(original: item.original, trashed: item.trashed, target: $0) }
+                }
+                update(routeJobID) { routeJob in
+                    let last = routeJob.history.count - 1
+                    if last >= 0, routeJob.history[last].result.undo != nil {
+                        routeJob.history[last].result.undo?.movedSources = outcome.unlocated == 0 ? moved : []
+                        routeJob.history[last].result.undo?.movedSourcesIncomplete = outcome.unlocated > 0
+                        routeJob.result = routeJob.history[last].result
+                    }
+                    routeJob.appendLog(JobLogEntry(level: outcome.failed.isEmpty ? .info : .warning, key: .logRoutineSourcesTrashed,
+                                                   arguments: [String(outcome.moved), String(outcome.folders), String(outcome.kept)]))
+                }
+            }
+            save()
+        }
     }
 
     /// Takılı bir diskte (ya da bu Mac'te) olmayan hedef klasörü, kullanıcının isteğiyle oluşturur (ara klasörler dahil).
@@ -1894,6 +1949,7 @@ final class AppModel {
         } else if let job = job(id), result.kind != .cancelled || !pausedByUser {
             notify(job)
         }
+        if result.kind.isSuccess { completeRoutineMove(after: id) }
         if result.kind.isSuccess, let job = job(id) { warnIfFillingSoon(job, now: finishedAt) }
         if result.kind.isSuccess, let job = job(id), job.options.excludeFromTimeMachine { keepOutOfTimeMachine(job) }
         // Hedefte aynı adlı dosyalar: karar sayfası açılır (başka bir sayfa açıksa o kapanınca kullanıcı listeden açar);

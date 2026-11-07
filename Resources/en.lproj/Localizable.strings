@@ -834,6 +834,9 @@
 "createFolderButton" = "Create Folder";
 "createFoldersButton" = "Create %ld Missing Destination Folders";
 "createFolderFailed" = "The folder could not be created: %@";
+"logSourcesTrashDeferred" = "%@ source files will move to the Trash once every route of the routine has copied them.";
+"logSourcesTrashTooMany" = "%@ source files are over the record limit and will not move to the Trash.";
+"logRoutineSourcesTrashed" = "Every route of the routine has copied: %1$@ source files and %2$@ emptied folders were moved to the Trash; %3$@ files without an identical copy at every destination were left in place.";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copy %ld items with a routine";
@@ -866,7 +869,7 @@
 "logSourcesTrashed" = "%1$@ source files whose copies were verified and %2$@ emptied folders were moved to the Trash; %3$@ files without an identical copy at the destination were left in place.";
 "logSourceTrashFailed" = "%@ could not be moved to the Trash and was left in place.";
 "optionTrashSource" = "Move the source files to the Trash after copying";
-"optionTrashSourceNote" = "Only files whose copy at the destination is verified to have identical contents are moved; nothing is deleted permanently, and emptied subfolders go to the Trash too. Not available with snapshots.";
+"optionTrashSourceNote" = "Only files whose copy at the destination is verified to have identical contents are moved; nothing is deleted permanently, and emptied subfolders go to the Trash too. Not available with snapshots. In a routine with several routes, a source moves only after every route that selected it has copied and verified it; while a route waits for its disk, the source stays.";
 "trashConfirmTitle" = "Move the source files to the Trash?";
 "trashConfirmMessage" = "The files in %@ will be moved to the Trash once their copies at the destination are verified to be identical. You can restore them from the Trash.";
 "trashConfirmButton" = "Move to Trash";

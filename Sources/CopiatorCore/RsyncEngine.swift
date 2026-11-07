@@ -255,14 +255,22 @@ public struct RsyncEngine: TransferEngine {
             let pairs = SourceTrash.pairs(for: original, selection: selection.map { ($0.source, $0.paths, $0.targets) },
                                           skippedNames: skippedNames, skippedPaths: Set(protectedPaths), isCancelled: { Task.isCancelled })
             let root = Self.isDirectory(original.source) ? original.source : original.source.deletingLastPathComponent()
-            let outcome = SourceTrash.moveVerified(pairs, root: root, trash: context.trashItem, isCancelled: { Task.isCancelled })
-            trashed = outcome
-            onEvent(.log(JobLogEntry(level: .info, key: .logSourcesTrashed,
-                                     arguments: [String(outcome.moved), String(outcome.folders), String(outcome.kept)])))
-            if !outcome.failed.isEmpty {
-                onEvent(.logBatch(outcome.failed.prefix(Self.maxLoggedDifferences).map {
-                    JobLogEntry(level: .warning, key: .logSourceTrashFailed, arguments: [$0])
-                }))
+            if original.moveGroup != nil {
+                // Çok rotalı rutin: kaynaklar ancak bütün rotalar kopyalayınca taşınır; bu rota yalnızca karşılıkları kaydeder.
+                result.pendingMoves = SourceTrash.pendingMoves(pairs, root: root)
+                onEvent(.log(JobLogEntry(level: result.pendingMoves == nil ? .warning : .info,
+                                         key: result.pendingMoves == nil ? .logSourcesTrashTooMany : .logSourcesTrashDeferred,
+                                         arguments: [String(pairs.count)])))
+            } else {
+                let outcome = SourceTrash.moveVerified(pairs, root: root, trash: context.trashItem, isCancelled: { Task.isCancelled })
+                trashed = outcome
+                onEvent(.log(JobLogEntry(level: .info, key: .logSourcesTrashed,
+                                         arguments: [String(outcome.moved), String(outcome.folders), String(outcome.kept)])))
+                if !outcome.failed.isEmpty {
+                    onEvent(.logBatch(outcome.failed.prefix(Self.maxLoggedDifferences).map {
+                        JobLogEntry(level: .warning, key: .logSourceTrashFailed, arguments: [$0])
+                    }))
+                }
             }
         }
 

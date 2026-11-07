@@ -215,6 +215,9 @@ public struct JobResult: Codable, Equatable, Sendable {
     public var undo: RunUndo.Record?
     /// Çalıştırma raporu (yalnızca son çalıştırmada tutulur; bkz. `RunReport`).
     public var report: RunReport?
+    /// Çok rotalı rutinde "Taşı": bu rotanın kopyaladığı kaynaklar ve hedefteki karşılıkları; kaynaklar, rutinin bütün
+    /// rotaları bitince Çöp'e taşınır (bkz. `SourceTrash.moveAcrossRoutes`). Taşıma yapılınca ya da kayıt sınırı aşılınca nil.
+    public var pendingMoves: [SourceTrash.PendingMove]?
 
     public init(
         kind: JobResultKind, exitCode: Int32? = nil, noteCount: Int = 0, detail: String = "",
@@ -231,7 +234,7 @@ public struct JobResult: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case kind, exitCode, noteCount, detail, requiredBytes, availableBytes, snapshot, differenceCount, undo, report
+        case kind, exitCode, noteCount, detail, requiredBytes, availableBytes, snapshot, differenceCount, undo, report, pendingMoves
     }
 
     public init(from decoder: Decoder) throws {
@@ -245,6 +248,7 @@ public struct JobResult: Codable, Equatable, Sendable {
         snapshot = (try? container.decodeIfPresent(String.self, forKey: .snapshot)) ?? nil
         undo = (try? container.decodeIfPresent(RunUndo.Record.self, forKey: .undo)) ?? nil
         report = (try? container.decodeIfPresent(RunReport.self, forKey: .report)) ?? nil
+        pendingMoves = (try? container.decodeIfPresent([SourceTrash.PendingMove].self, forKey: .pendingMoves)) ?? nil
         differenceCount = (try? container.decodeIfPresent(Int.self, forKey: .differenceCount)) ?? nil
     }
 }
@@ -333,6 +337,9 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
     public var wasInterrupted: Bool
     /// Kaynağın ya da hedefin diski çıkarıldığı için duraklatıldı: disk yeniden takılınca kendiliğinden sürer.
     public var suspendedForDisk: Bool
+    /// Çok rotalı bir rutin çalıştırmasının ortak kimliği: "Taşı" kaynakları hemen Çöp'e taşımaz; aynı gruptaki bütün işler
+    /// başarıyla bitince taşınır (bkz. `SourceTrash.moveAcrossRoutes`). Tek işte ve tek rotalı rutinde nil.
+    public var moveGroup: UUID?
     /// Önceki çalıştırmalar, eskiden yeniye.
     public var history: [JobRun]
     /// İşi oluşturan rutin ve rota (rutin silinince nil olur; iş sıradan bir iş olarak kalır).
@@ -371,6 +378,7 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         self.finishedAt = nil
         self.wasInterrupted = false
         self.suspendedForDisk = false
+        self.moveGroup = nil
         self.history = []
         self.routineID = nil
         self.routeID = nil
@@ -383,7 +391,7 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case id, kind, source, destination, options, status, progress, result, log, createdAt, startedAt, finishedAt, wasInterrupted
-        case suspendedForDisk, history, routineID, routeID, routineName, pendingConflicts, conflictResolution, pendingPlacements
+        case suspendedForDisk, moveGroup, history, routineID, routeID, routineName, pendingConflicts, conflictResolution, pendingPlacements
         case placementResolution
     }
 
@@ -404,6 +412,7 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         finishedAt = try? container.decodeIfPresent(Date.self, forKey: .finishedAt)
         wasInterrupted = (try? container.decodeIfPresent(Bool.self, forKey: .wasInterrupted)) ?? false
         suspendedForDisk = (try? container.decodeIfPresent(Bool.self, forKey: .suspendedForDisk)) ?? false
+        moveGroup = (try? container.decodeIfPresent(UUID.self, forKey: .moveGroup)) ?? nil
         history = (try? container.decodeIfPresent([JobRun].self, forKey: .history)) ?? []
         routineID = (try? container.decodeIfPresent(UUID.self, forKey: .routineID)) ?? nil
         routeID = (try? container.decodeIfPresent(UUID.self, forKey: .routeID)) ?? nil

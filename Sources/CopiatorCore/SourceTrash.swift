@@ -147,6 +147,73 @@ public enum SourceTrash {
         return outcome
     }
 
+    /// Çok rotalı rutinde bekleyen taşıma: kaynak dosya, bu rotadaki karşılığı ve kaynağın kökü (boşalan klasörler köke
+    /// kadar Çöp'e gider); çözülmüş mutlak yollar.
+    public struct PendingMove: Codable, Equatable, Sendable {
+        public var source: String
+        public var target: String
+        public var root: String
+
+        public init(source: String, target: String, root: String) {
+            self.source = source
+            self.target = target
+            self.root = root
+        }
+    }
+
+    /// Bekleyen taşıma kaydı; sınırı aşarsa nil (o zaman hiçbir kaynak taşınmaz: yarım taşıma yanıltıcı olurdu).
+    public static func pendingMoves(_ pairs: [Pair], root: URL) -> [PendingMove]? {
+        guard pairs.count <= RunUndo.maxRecordedItems else { return nil }
+        let base = SandboxProfile.resolved(root).path
+        return pairs.map { PendingMove(source: SandboxProfile.resolved($0.source).path, target: SandboxProfile.resolved($0.target).path, root: base) }
+    }
+
+    /// Çok rotalı rutinin "Taşı" adımı: her kaynak dosya, onu seçen BÜTÜN rotaların hedefindeki karşılığıyla (boyut ve
+    /// SHA-256) birebir aynıysa Çöp'e gider; bir karşılık eksik ya da farklıysa (atlanmış, değişmiş, diski çıkarılmış) kaynak
+    /// yerinde kalır. Doğrulama taşıma anında yeniden yapılır. Boşalan alt klasörler köke kadar Çöp'e gider; kök kalır.
+    public static func moveAcrossRoutes(_ moves: [PendingMove], trash: (URL) -> URL? = systemTrashLocating,
+                                        isCancelled: () -> Bool = { false }) -> Outcome {
+        var outcome = Outcome()
+        var targets: [String: [String]] = [:]
+        var roots: [String: String] = [:]
+        var order: [String] = []
+        for move in moves {
+            if targets[move.source] == nil { order.append(move.source) }
+            targets[move.source, default: []].append(move.target)
+            // Kaynağı birden çok rota seçtiyse en kısa kök (en dıştaki klasör) kullanılır.
+            if roots[move.source].map({ move.root.count < $0.count }) ?? true { roots[move.source] = move.root }
+        }
+        var touched: [String: Set<String>] = [:]
+        for path in order {
+            if isCancelled() { break }
+            let source = URL(fileURLWithPath: path)
+            var info = stat()
+            guard lstat(path, &info) == 0, info.st_mode & S_IFMT == S_IFREG, let digest = DestinationIndex.digest(of: path),
+                  let copies = targets[path], copies.allSatisfy({ target in
+                      var copy = stat()
+                      return lstat(target, &copy) == 0 && copy.st_mode & S_IFMT == S_IFREG && copy.st_size == info.st_size
+                          && DestinationIndex.digest(of: target) == digest
+                  }) else {
+                outcome.kept += 1
+                continue
+            }
+            if let location = trash(source) {
+                outcome.moved += 1
+                outcome.bytes = outcome.bytes.saturatingAdding(Int64(info.st_size))
+                touched[roots[path] ?? "", default: []].insert(source.deletingLastPathComponent().standardizedFileURL.path)
+                outcome.record(original: source, location: location, target: URL(fileURLWithPath: copies[0]))
+            } else {
+                outcome.failed.append(path)
+            }
+        }
+        for (root, folders) in touched where !root.isEmpty {
+            let removed = removeEmptyFolders(folders, root: URL(fileURLWithPath: root, isDirectory: true), trash: trash)
+            outcome.folders += removed.count
+            for (original, location) in removed.located { outcome.record(original: original, location: location, target: nil) }
+        }
+        return outcome
+    }
+
     /// Temizleme aracı: kaynakta olup hedefte (herhangi bir yerde, herhangi bir adla) aynı içerikte kopyası bulunan
     /// dosyalar (gizli dosyalar hariç).
     public static func archivedFiles(in source: URL, destination: URL, isCancelled: () -> Bool = { false }) throws -> [URL] {
