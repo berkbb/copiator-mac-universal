@@ -32,6 +32,7 @@ public final class RsyncOutputCollector: @unchecked Sendable {
     private var created: [String] = []
     private var createdTruncated = false
     private var otherChanges = 0
+    private var report = RunReport()
 
     /// Değişiklik satırları en çok bu aralıkla toplu bildirilir; tamponda en çok `maxBufferedChanges` satır tutulur
     /// (iş günlüğü zaten son `TransferJob.maxLogEntries` satırı saklar).
@@ -91,6 +92,7 @@ public final class RsyncOutputCollector: @unchecked Sendable {
                 case .attributes:
                     break
                 }
+                report.add(change)
                 if logChanges {
                     pendingChanges.append(OpenSafety.visibleName(line))
                     if pendingChanges.count > Self.maxBufferedChanges { pendingChanges.removeFirst(pendingChanges.count - Self.maxBufferedChanges) }
@@ -130,6 +132,9 @@ public final class RsyncOutputCollector: @unchecked Sendable {
     public var undoRecord: RunUndo.Record {
         lock.withLock { RunUndo.Record(created: created, truncated: createdTruncated, otherChanges: otherChanges) }
     }
+
+    /// Çalıştırma raporunun değişiklik listesi (bkz. `RunReport`).
+    public var runReport: RunReport { lock.withLock { report } }
 
     /// İş sonu istatistikleri (`--info=stats2`), rsync'in yazdığı sırayla.
     public var statistics: [String] { lock.withLock { stats } }

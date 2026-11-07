@@ -1483,6 +1483,42 @@ final class AppModel {
                           action: { [weak self] in self?.undoLastRun(id) }, isDestructive: true)
     }
 
+    // MARK: - Çalıştırma raporu (bkz. RunReport)
+
+    /// Son çalıştırmanın raporu var (rapor tutan bir sürümle çalıştı).
+    func canSaveRunReport(_ job: TransferJob) -> Bool { job.history.last?.result.report != nil }
+
+    /// Son çalıştırmanın rapor metni: başlık, yollar, tarih ve sonuç, değişen dosyalar, Çöp'e taşınan kaynaklar ve o
+    /// çalıştırma sırasında yazılan uyarılar ve hatalar.
+    func runReportText(_ id: TransferJob.ID) -> String? {
+        guard let job = job(id), let run = job.history.last, run.result.report != nil else { return nil }
+        let problems = job.log.filter {
+            $0.level != .info && $0.date >= run.startedAt.addingTimeInterval(-1) && $0.date <= run.finishedAt.addingTimeInterval(1)
+        }.map(settings.log)
+        return RunReport.text(title: runReportTitle(job), job: job, run: run, result: settings.result(run.result), problems: problems,
+                              text: { settings.t($0, arguments: $1) }, date: { settings.date($0) })
+    }
+
+    /// Raporun başlığı ve önerilen dosya adı için işin adı (rutinin adı ve kaynağın adı).
+    func runReportTitle(_ job: TransferJob) -> String {
+        let name = job.source.lastPathComponent
+        return job.routineName.map { "\($0) · \(name)" } ?? name
+    }
+
+    /// Raporu verilen yere yazar; yazılamazsa hata gösterir.
+    @discardableResult
+    func saveRunReport(_ id: TransferJob.ID, to url: URL) -> Bool {
+        guard let text = runReportText(id) else { return false }
+        do {
+            try Data(text.utf8).write(to: url, options: .atomic)
+            showToast(t(.toastReportSaved), systemImage: "doc.text")
+            return true
+        } catch {
+            alert = AlertItem(title: t(.errorTitle), message: t(.reportSaveFailed, error.localizedDescription))
+            return false
+        }
+    }
+
     /// Son çalıştırmayı geri alır: anlık görüntüyü ya da eklenen öğeleri Çöp Sepeti'ne taşır, günlüğe yazar ve
     /// çalıştırmayı geri alındı olarak işaretler (bir daha geri alınamaz). Hiçbir şey kalıcı olarak silinmez.
     func undoLastRun(_ id: TransferJob.ID) {

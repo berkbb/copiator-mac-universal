@@ -130,6 +130,8 @@ public enum JobQueue {
         ))
         // Geri alma kaydı yalnızca son çalıştırmada kalır (eklenen öğelerin listesi kaydı büyütmesin).
         for index in job.history.indices.dropLast() where job.history[index].result.undo != nil { job.history[index].result.undo = nil }
+        // Rapor da (dosya listesi) yalnızca son çalıştırmada kalır.
+        for index in job.history.indices.dropLast() where job.history[index].result.report != nil { job.history[index].result.report = nil }
         job.result = result
         job.wasInterrupted = false
         switch result.kind {

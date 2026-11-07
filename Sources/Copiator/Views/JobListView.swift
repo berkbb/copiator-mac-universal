@@ -178,6 +178,11 @@ struct JobListView: View {
         if model.undoPlan(for: job) != nil {
             Button(settings.t(.menuUndoLastRun), systemImage: "arrow.uturn.backward") { model.requestUndoLastRun(job.id) }
         }
+        if model.canSaveRunReport(job) {
+            Button(settings.t(.menuSaveRunReport), systemImage: "doc.text") {
+                RunReportPanel.save(model: model, settings: settings, id: job.id)
+            }
+        }
         Divider()
         Button(settings.t(.menuVerify), systemImage: "checkmark.shield") { model.requestVerify(job.id) }
             .disabled(!JobQueue.canVerify(job) || model.operation != nil)

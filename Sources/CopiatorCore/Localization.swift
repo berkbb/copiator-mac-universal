@@ -295,6 +295,10 @@ public enum LKey: String, CaseIterable, Sendable {
     case logUndoneCreated, toastUndone, undoMovedMessage, logUndoneMoved
     // Windows ve Office artıkları
     case optionExcludeWindows, optionExcludeWindowsNote
+    // Çalıştırma raporu
+    case menuSaveRunReport, reportFileName, reportSaveFailed, toastReportSaved, reportTitle, reportSource, reportDestination
+    case reportStarted, reportFinished, reportResult, reportAdded, reportUpdated, reportDeleted, reportNoChanges, reportTruncated
+    case reportTrashed, reportProblems
     // Time Machine dışlaması
     case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk

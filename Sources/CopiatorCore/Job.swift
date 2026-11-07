@@ -213,6 +213,8 @@ public struct JobResult: Codable, Equatable, Sendable {
     public var differenceCount: Int?
     /// Anlık görüntüsüz başarılı çalıştırmanın geri alma kaydı (yalnızca son çalıştırmada tutulur; bkz. `RunUndo`).
     public var undo: RunUndo.Record?
+    /// Çalıştırma raporu (yalnızca son çalıştırmada tutulur; bkz. `RunReport`).
+    public var report: RunReport?
 
     public init(
         kind: JobResultKind, exitCode: Int32? = nil, noteCount: Int = 0, detail: String = "",
@@ -229,7 +231,7 @@ public struct JobResult: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case kind, exitCode, noteCount, detail, requiredBytes, availableBytes, snapshot, differenceCount, undo
+        case kind, exitCode, noteCount, detail, requiredBytes, availableBytes, snapshot, differenceCount, undo, report
     }
 
     public init(from decoder: Decoder) throws {
@@ -242,6 +244,7 @@ public struct JobResult: Codable, Equatable, Sendable {
         availableBytes = try? container.decodeIfPresent(Int64.self, forKey: .availableBytes)
         snapshot = (try? container.decodeIfPresent(String.self, forKey: .snapshot)) ?? nil
         undo = (try? container.decodeIfPresent(RunUndo.Record.self, forKey: .undo)) ?? nil
+        report = (try? container.decodeIfPresent(RunReport.self, forKey: .report)) ?? nil
         differenceCount = (try? container.decodeIfPresent(Int.self, forKey: .differenceCount)) ?? nil
     }
 }

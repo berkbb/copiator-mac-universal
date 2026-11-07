@@ -268,6 +268,18 @@ public struct RsyncEngine: TransferEngine {
 
         if let preparation { finishSnapshot(preparation, root: snapshotRoot, options: job.options, result: &result, onEvent: onEvent) }
         // Son çalıştırmayı geri almak için eklenen öğeler (anlık görüntüde gerekmez: anlık görüntünün kendisi geri alınır).
+        // Çalıştırma raporu: değişen dosyalar, kurallı işte kaynaktaki yolları ve Çöp'e taşınan kaynaklar.
+        if advanced.batchMode != .onlyWrite {
+            var report = collector.runReport
+            if let selection { report.attachSources(paths: selection.paths, targets: selection.targets) }
+            if let trashed {
+                let root = SandboxProfile.resolved(Self.isDirectory(original.source) ? original.source : original.source.deletingLastPathComponent())
+                report.trashedSources = trashed.located.filter { $0.target != nil }.map { moved in
+                    moved.original.hasPrefix(root.path + "/") ? String(moved.original.dropFirst(root.path.count + 1)) : moved.original
+                }
+            }
+            result.report = report
+        }
         if !original.options.snapshots.enabled, result.kind.isSuccess, advanced.batchMode != .onlyWrite {
             result.undo = collector.undoRecord
             // Çöp'e taşınan kaynakların yerleri: geri alma önce bunları geri koyar (bkz. `RunUndo.restoreSources`).
