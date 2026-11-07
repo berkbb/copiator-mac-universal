@@ -65,7 +65,8 @@ public enum SyncPlanner {
             ? Set(SandboxProfile.forTransfer(sources: [root], destination: other, home: context.home).protectedPaths(inside: root))
             : []
         let paths = try await RuleScanner.scan(root, rules: job.options.rules ?? RuleGroup(), skippedPaths: skippedPaths,
-                                               skippedNames: skippedNames, isCancelled: isCancelled).paths
+                                               skippedNames: skippedNames, skipsWindowsLeftovers: job.options.excludeWindowsLeftovers,
+                                               isCancelled: isCancelled).paths
         var items: [String: Item] = [:]
         for path in paths {
             let url = root.appendingPathComponent(path)

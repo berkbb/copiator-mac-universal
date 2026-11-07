@@ -429,11 +429,13 @@ public enum RuleScanner {
     /// - Parameters:
     ///   - skippedPaths: Hiç girilmeyecek göreli yollar (kum havuzunun okutmadığı kişisel klasörler).
     ///   - skippedNames: Hiçbir düzeyde girilmeyecek adlar (macOS sistem klasörleri).
+    ///   - skipsWindowsLeftovers: Windows ve Office artıkları da atlanır (bkz. `RsyncCommand.isWindowsLeftover`).
     ///   - now: Göreli tarihlerin ("son 7 gün") başlangıcı.
     ///   - destination: "Hedefte kopyası var" ölçütü için hedef (yalnızca o ölçüt kullanılıyorsa taranır).
     ///   - onlyItems: Verilirse yalnızca kökteki bu öğeler (ve klasörse içleri) değerlendirilir (Finder'da seçilenler).
     public static func scan(
-        _ root: URL, rules: RuleGroup, skippedPaths: Set<String> = [], skippedNames: Set<String> = [], now: Date = Date(),
+        _ root: URL, rules: RuleGroup, skippedPaths: Set<String> = [], skippedNames: Set<String> = [],
+        skipsWindowsLeftovers: Bool = false, now: Date = Date(),
         destination: URL? = nil, onlyItems: Set<String>? = nil, isCancelled: () -> Bool = { false }
     ) async throws -> Result {
         // İçerik koşulları taramadan önce Spotlight'a bir kez sorulur.
@@ -460,7 +462,7 @@ public enum RuleScanner {
                 if isDirectory { enumerator.skipDescendants() }
                 continue
             }
-            if skippedPaths.contains(relative) || skippedNames.contains(name) {
+            if skippedPaths.contains(relative) || skippedNames.contains(name) || (skipsWindowsLeftovers && RsyncCommand.isWindowsLeftover(name)) {
                 if isDirectory { enumerator.skipDescendants() }
                 continue
             }

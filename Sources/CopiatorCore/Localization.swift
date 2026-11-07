@@ -293,6 +293,8 @@ public enum LKey: String, CaseIterable, Sendable {
     // Son çalıştırmayı geri alma
     case menuUndoLastRun, undoConfirmTitle, undoSnapshotMessage, undoCreatedMessage, undoButton, undoFailed, logUndoneSnapshot
     case logUndoneCreated, toastUndone, undoMovedMessage, logUndoneMoved
+    // Windows ve Office artıkları
+    case optionExcludeWindows, optionExcludeWindowsNote
     // Time Machine dışlaması
     case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk

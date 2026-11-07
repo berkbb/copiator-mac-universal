@@ -113,6 +113,8 @@
 "optionXattrsNote" = "Finder etiketleri, yorumlar ve indirme bilgisi. Kapalıyken de internetten inen dosyaların karantina işareti korunur.";
 "optionExcludeSystem" = "macOS sistem klasörlerini dışarıda bırak";
 "optionExcludeSystemNote" = ".Spotlight-V100, .Trashes, .fseventsd, .TemporaryItems ve benzerleri.";
+"optionExcludeWindows" = "Windows ve Office artıklarını dışarıda bırak";
+"optionExcludeWindowsNote" = "Thumbs.db, desktop.ini, ~$ ile başlayan Office kilit dosyaları, $RECYCLE.BIN ve System Volume Information.";
 "optionDelete" = "Kaynakta olmayanları hedeften sil (eşitle)";
 "optionDeleteWarning" = "Hedefteki fazla dosyalar kalıcı olarak silinir; Çöp Sepeti'ne gitmez. Kaynak hiçbir zaman değiştirilmez.";
 "deleteConfirmTitle" = "Hedefteki fazla dosyalar silinsin mi?";

@@ -16,6 +16,26 @@ public enum RsyncCommand {
         ".PKInstallSandboxManager", ".PKInstallSandboxManager-SystemSoftware", ".MobileBackups",
     ]
 
+    /// Windows ve Office'in bıraktığı, yedeğe girmemesi gereken öğeler: küçük resim önbelleği (Thumbs.db), klasör görünüm
+    /// ayarı (desktop.ini), Office'in açık belge kilitleri (~$rapor.docx), Geri Dönüşüm Kutusu ve sistem geri yükleme
+    /// klasörü. Windows bu adları farklı harf büyüklükleriyle yazar: kalıplar harf duyarsızdır.
+    public static let windowsLeftoverNames = ["thumbs.db", "desktop.ini", "$recycle.bin", "system volume information"]
+    public static let windowsLeftoverPatterns = windowsLeftoverNames.map(caseInsensitivePattern) + ["~$*"]
+
+    /// Ad bir Windows ya da Office artığı mı (bkz. `windowsLeftoverPatterns`)?
+    public static func isWindowsLeftover(_ name: String) -> Bool {
+        name.hasPrefix("~$") || windowsLeftoverNames.contains(name.lowercased())
+    }
+
+    /// Harf duyarsız rsync kalıbı: her harf iki biçimiyle bir sınıfa yazılır ("db" → "[Dd][Bb]"). Ad yalnızca harf, rakam,
+    /// nokta, boşluk ve "$" içerir; rsync'in özel karakterleri ("*", "?", "[", "\\") yoktur.
+    static func caseInsensitivePattern(_ name: String) -> String {
+        name.map { character in
+            let upper = character.uppercased(), lower = character.lowercased()
+            return upper == lower ? String(character) : "[\(upper)\(lower)]"
+        }.joined()
+    }
+
     /// Asla üretilmeyen, kaynağı değiştiren ya da silen seçenekler (testler ve `assertSafe` denetler).
     public static let forbiddenArguments = ["--remove-source-files", "--remove-sent-files"]
 
@@ -287,6 +307,7 @@ public enum RsyncCommand {
             patterns.append(escapePattern(sourceRootPrefix(job, environment) + path))
         }
         if job.options.excludeSystemFolders { patterns += systemExclusions }
+        if job.options.excludeWindowsLeftovers { patterns += windowsLeftoverPatterns }
         // Arşiv bütünlüğü listesi hedefin kökünde durur: kaynakta yoktur, ama `--delete` onu silmemeli ve doğrulama fazla
         // saymamalı (dışlanan dosya silinmeye karşı korunur; köke bağlı kalıp başka yerdeki aynı adlı dosyaya dokunmaz).
         patterns.append("/" + ArchiveIntegrity.manifestName)

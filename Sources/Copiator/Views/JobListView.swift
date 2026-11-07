@@ -459,6 +459,7 @@ struct JobDetailView: View {
         if options.preservePermissions { parts.append(settings.t(.optionPreservePermissions)) }
         if options.preserveExtendedAttributes { parts.append(settings.t(.optionXattrs)) }
         if options.excludeSystemFolders { parts.append(settings.t(.optionExcludeSystem)) }
+        if options.excludeWindowsLeftovers { parts.append(settings.t(.optionExcludeWindows)) }
         if options.deleteExtraneous { parts.append(settings.t(.optionDelete)) }
         if options.trashSourceAfterCopy { parts.append(settings.t(.optionTrashSource)) }
         if options.snapshots.enabled { parts.append(settings.t(.optionSnapshots)) }

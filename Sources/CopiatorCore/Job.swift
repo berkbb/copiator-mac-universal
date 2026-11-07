@@ -41,6 +41,9 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     public var deleteExtraneous: Bool
     /// .Spotlight-V100, .Trashes, .fseventsd gibi macOS sistem klasörlerini dışarıda bırak.
     public var excludeSystemFolders: Bool
+    /// Thumbs.db, desktop.ini, Office kilit dosyaları (~$…), $RECYCLE.BIN ve System Volume Information gibi Windows ve
+    /// Office artıklarını dışarıda bırak (bkz. `RsyncCommand.windowsLeftoverPatterns`).
+    public var excludeWindowsLeftovers: Bool
     /// rsync'in kum havuzunda kullanılabilen öteki seçenekleri (süzgeçler, önceki yedek, ilerleme ayrıntısı…).
     public var advanced: AdvancedOptions
     /// Otomatik anlık görüntüler: her çalıştırma hedefte tarihli yeni bir klasöre yazar (bkz. `SnapshotStore`).
@@ -76,7 +79,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false,
         rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask, suggestsRememberingConflictChoice: Bool = false,
         placement: RoutePlacement? = nil, selectedItems: [String]? = nil, trashSourceAfterCopy: Bool = false, ejectWhenDone: Bool = false,
-        excludeFromTimeMachine: Bool = false
+        excludeFromTimeMachine: Bool = false, excludeWindowsLeftovers: Bool = true
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -95,12 +98,13 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.trashSourceAfterCopy = trashSourceAfterCopy
         self.ejectWhenDone = ejectWhenDone
         self.excludeFromTimeMachine = excludeFromTimeMachine
+        self.excludeWindowsLeftovers = excludeWindowsLeftovers
     }
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
         case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy, suggestsRememberingConflictChoice, placement
-        case selectedItems, trashSourceAfterCopy, ejectWhenDone, excludeFromTimeMachine
+        case selectedItems, trashSourceAfterCopy, ejectWhenDone, excludeFromTimeMachine, excludeWindowsLeftovers
     }
 
     public init(from decoder: Decoder) throws {
@@ -112,6 +116,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
             ?? defaults.preserveExtendedAttributes
         deleteExtraneous = (try? container.decodeIfPresent(Bool.self, forKey: .deleteExtraneous)) ?? defaults.deleteExtraneous
         excludeSystemFolders = (try? container.decodeIfPresent(Bool.self, forKey: .excludeSystemFolders)) ?? defaults.excludeSystemFolders
+        excludeWindowsLeftovers = (try? container.decodeIfPresent(Bool.self, forKey: .excludeWindowsLeftovers)) ?? defaults.excludeWindowsLeftovers
         advanced = (try? container.decodeIfPresent(AdvancedOptions.self, forKey: .advanced)) ?? defaults.advanced
         snapshots = (try? container.decodeIfPresent(SnapshotOptions.self, forKey: .snapshots)) ?? defaults.snapshots
         verifyAfterCopy = (try? container.decodeIfPresent(VerifyAfterCopy.self, forKey: .verifyAfterCopy)) ?? defaults.verifyAfterCopy

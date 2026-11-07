@@ -113,6 +113,8 @@
 "optionXattrsNote" = "Etichete Finder, comentarii și informații de descărcare. Chiar și dezactivat, marcajul de carantină al fișierelor descărcate se păstrează.";
 "optionExcludeSystem" = "Exclude dosarele de sistem macOS";
 "optionExcludeSystemNote" = ".Spotlight-V100, .Trashes, .fseventsd, .TemporaryItems și altele similare.";
+"optionExcludeWindows" = "Exclude resturile lăsate de Windows și Office";
+"optionExcludeWindowsNote" = "Thumbs.db, desktop.ini, fișierele de blocare Office care încep cu ~$, $RECYCLE.BIN și System Volume Information.";
 "optionDelete" = "Șterge din destinație elementele care nu există în sursă (sincronizare)";
 "optionDeleteWarning" = "Fișierele în plus din destinație sunt șterse definitiv; nu ajung în Coș. Sursa nu este modificată niciodată.";
 "deleteConfirmTitle" = "Ștergeți fișierele în plus din destinație?";

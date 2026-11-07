@@ -55,6 +55,7 @@ public enum SourceTrash {
         for job: TransferJob, selection: (source: URL, paths: [String], targets: [String])?, skippedNames: Set<String>,
         skippedPaths: Set<String>, isCancelled: () -> Bool = { false }
     ) -> [Pair] {
+        let skipsLeftovers = job.options.excludeWindowsLeftovers
         if let selection {
             var pairs: [Pair] = []
             for (path, target) in zip(selection.paths, selection.targets) {
@@ -72,19 +73,23 @@ public enum SourceTrash {
         let sourceIsDirectory = RsyncEngine.isDirectory(job.source)
         let target = job.target(sourceIsDirectory: sourceIsDirectory)
         guard sourceIsDirectory else { return [Pair(source: job.source, target: target)] }
-        return files(under: job.source, skippedNames: skippedNames, skippedPaths: skippedPaths, isCancelled: isCancelled)
+        return files(under: job.source, skippedNames: skippedNames, skippedPaths: skippedPaths, skipsWindowsLeftovers: skipsLeftovers,
+                     isCancelled: isCancelled)
             .map { Pair(source: job.source.appendingPathComponent($0), target: target.appendingPathComponent($0)) }
     }
 
     /// Klasörün altındaki düzenli dosyalar (göreli yollar); bağlantılar izlenmez.
-    static func files(under root: URL, skippedNames: Set<String>, skippedPaths: Set<String>, isCancelled: () -> Bool) -> [String] {
+    static func files(
+        under root: URL, skippedNames: Set<String>, skippedPaths: Set<String>, skipsWindowsLeftovers: Bool = false, isCancelled: () -> Bool
+    ) -> [String] {
         guard let enumerator = FileManager.default.enumerator(atPath: root.path) else { return [] }
         var paths: [String] = []
         while let relative = enumerator.nextObject() as? String {
             if isCancelled() { break }
             let attributes = enumerator.fileAttributes
             let type = attributes?[.type] as? FileAttributeType
-            if skippedPaths.contains(relative) || skippedNames.contains((relative as NSString).lastPathComponent) {
+            let name = (relative as NSString).lastPathComponent
+            if skippedPaths.contains(relative) || skippedNames.contains(name) || (skipsWindowsLeftovers && RsyncCommand.isWindowsLeftover(name)) {
                 if type == .typeDirectory { enumerator.skipDescendants() }
                 continue
             }

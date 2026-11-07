@@ -5,7 +5,8 @@ import Testing
 
 private func job(_ options: AdvancedOptions, delete: Bool = false, mode: CopyMode = .folder) -> TransferJob {
     TransferJob(source: URL(fileURLWithPath: "/Users/x/Proje"), destination: URL(fileURLWithPath: "/Volumes/Yedek"),
-                options: CopyOptions(copyMode: mode, deleteExtraneous: delete, excludeSystemFolders: false, advanced: options))
+                options: CopyOptions(copyMode: mode, deleteExtraneous: delete, excludeSystemFolders: false, advanced: options,
+                                     excludeWindowsLeftovers: false))
 }
 
 private func env(_ fs: FileSystemKind = .apfs, engine: EngineInfo = fullEngine, protected: [String] = []) -> RsyncCommand.Environment {

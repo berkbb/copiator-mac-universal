@@ -113,6 +113,8 @@
 "optionXattrsNote" = "Finder tags, comments and download info. Even when off, the quarantine flag of downloaded files is kept.";
 "optionExcludeSystem" = "Leave out macOS system folders";
 "optionExcludeSystemNote" = ".Spotlight-V100, .Trashes, .fseventsd, .TemporaryItems and similar.";
+"optionExcludeWindows" = "Leave out Windows and Office leftovers";
+"optionExcludeWindowsNote" = "Thumbs.db, desktop.ini, Office lock files starting with ~$, $RECYCLE.BIN and System Volume Information.";
 "optionDelete" = "Delete items from the destination that are not in the source (sync)";
 "optionDeleteWarning" = "Extra files at the destination are deleted permanently; they do not go to the Trash. The source is never modified.";
 "deleteConfirmTitle" = "Delete extra files at the destination?";

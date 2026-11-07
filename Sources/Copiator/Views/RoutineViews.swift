@@ -456,6 +456,8 @@ struct RoutineEditorSheet: View {
                     Toggle(settings.t(.optionPreservePermissions), isOn: $routine.options.preservePermissions)
                     Toggle(settings.t(.optionXattrs), isOn: $routine.options.preserveExtendedAttributes)
                     Toggle(settings.t(.optionExcludeSystem), isOn: $routine.options.excludeSystemFolders)
+                    Toggle(settings.t(.optionExcludeWindows), isOn: $routine.options.excludeWindowsLeftovers)
+                        .help(settings.t(.optionExcludeWindowsNote))
                     ConflictPolicyPicker(selection: $routine.options.conflictPolicy, kind: routine.jobKind)
                     if routine.kind == .copy {
                         VStack(alignment: .leading, spacing: 4) {

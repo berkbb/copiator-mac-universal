@@ -248,6 +248,7 @@ public enum RuleSelection {
         let skippedNames = job.options.excludeSystemFolders ? Set(RsyncCommand.systemExclusions) : []
         let selected = job.options.selectedItems.map(Set.init)
         let result = try await RuleScanner.scan(job.source, rules: rules, skippedPaths: skippedPaths, skippedNames: skippedNames,
+                                                skipsWindowsLeftovers: job.options.excludeWindowsLeftovers,
                                                 destination: job.destination, onlyItems: selected, isCancelled: isCancelled)
         let source = job.source
         let folder = scratch.appendingPathComponent("Copiator-rules-\(UUID().uuidString)", isDirectory: true)
