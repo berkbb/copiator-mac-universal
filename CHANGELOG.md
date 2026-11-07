@@ -5,6 +5,21 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+### Added
+
+- **Search the Archive…** (job context menu): finds files at the destination by name and, when asked, by the text inside PDF and text files (from the Spotlight index when the volume has one, which also covers Office documents, otherwise by reading the files) and by the date taken and camera model of photos. Case, diacritics and Turkish I/ı/İ/i are ignored; hidden items, links and the inside of packages are skipped; files are only read. A result can be shown in Finder, opened (kinds that can run code are shown in Finder instead), saved as a copy elsewhere or moved to the Trash after a confirmation.
+- **Save Run Report…** (job context menu): a text file with the last run's paths, times and result, the files it added, updated and deleted at the destination, the old name and place of each renamed or placed file, the source files moved to the Trash, and that run's warnings and errors. The list is kept for the last run only (up to 5,000 items, and the report says when it stops).
+- **New name per file** in the "Suggest a folder for each file and ask me" sheet: a name field (the template's result as placeholder; the extension is always kept and the name is made safe like any template result), and **Suggest Names**, which derives a name from the files already in the chosen folder (rules first; the AI model only when AI suggestions are on and the rules find nothing). Nothing is used until Apply.
+- **Location (GPS)** advanced rule criterion for photos and videos: whether GPS coordinates are present (ImageIO GPS dictionary, QuickTime ISO 6709 location). Place names are not looked up, since that would need the network.
+- **Save Folder Tree…** in Destination Overview: the destination's folders and files as a Markdown tree (alphabetical, folders end with "/"; hidden items, macOS system folders, Windows and Office leftovers and the inside of packages are left out; up to 50,000 lines).
+- **Leave out Windows and Office leftovers** (per job and routine, on by default, also for existing jobs): `Thumbs.db`, `desktop.ini`, Office lock files starting with `~$`, `$RECYCLE.BIN` and `System Volume Information`, in any letter case, are excluded from rsync and from rule scans, sync and "Move to the Trash".
+- Files and folders dropped on the Dock icon open the New Job sheet with the first item as the source, like dropping on the window. Copiator declares the types only to accept drops (`LSHandlerRank` None) and never becomes an app that opens files.
+
+### Fixed
+
+- **Undoing a run that moved its sources to the Trash** used to move the destination copies to the Trash as well, leaving both sides in the Trash. The run now records where each source went in the Trash; undo first puts the sources back (only from a Trash folder into the job's source, only where the old place is free) and keeps the copy of any source that cannot be put back. Runs recorded by 1.1.0 with "Move to the Trash" on are not offered for undo.
+- The undo line in the job log showed meaningless large numbers instead of the item counts; log strings now take their values as text, and a test keeps every log string that way.
+
 ### Changed
 
 - A2UI v1.0 recorded as current and the Mistral standard updated to the Agents SDK and Managed Agents in `.agents/rules` (index: `.agents/rules/about_rules.md`).
