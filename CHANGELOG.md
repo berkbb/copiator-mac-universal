@@ -5,18 +5,6 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
-### Fixed
-
-- **"Move to the Trash" in a routine with several routes** moved the source as soon as the first route had copied it, so the other routes (and a route waiting for its disk) had nothing left to copy. Now every job of one routine run (and of one "Send to a Copiator Routine") belongs to one group: each route only records what it copied, and the sources go to the Trash once every job of the group has finished successfully and each source is identical to its copy at every destination that selected it (checked again at that moment). While a route waits for its disk, fails or waits for a decision, no source moves. Undo works on each route: it puts the sources back, and once they are back the other routes' copies can be undone too.
-
-### Changed
-
-- **A disk that is not connected is no longer an error.** Jobs, routines and imported routines whose source or destination is on a disk that is not connected (`/Volumes/…` with nothing mounted there) can be added, edited and saved; the editor says the disk is not connected. Such a job waits in the queue as "Waiting for disk" even without "Start when the destination disk is connected" and runs when the disk is connected, so in a routine with several destinations the routes to connected disks run and the others wait. A folder that is missing on the Mac or on a connected disk is still a problem.
-
-### Added
-
-- **Create Folder** when a job's or route's destination folder does not exist on the Mac or on a connected disk (New Job sheet, routine editor and routine import). Folders are never created on a disk that is not connected, since an empty folder under `/Volumes` would stand in for the disk.
-
 ## [1.2.0] — 2026-11-07
 
 ### Added
@@ -30,17 +18,20 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 - **Save Folder Tree…** in Destination Overview: the destination's folders and files as a Markdown tree (alphabetical, folders end with "/"; hidden items, macOS system folders, Windows and Office leftovers and the inside of packages are left out; up to 50,000 lines).
 - **Leave out Windows and Office leftovers** (per job and routine, on by default, also for existing jobs): `Thumbs.db`, `desktop.ini`, Office lock files starting with `~$`, `$RECYCLE.BIN` and `System Volume Information`, in any letter case, are excluded from rsync and from rule scans, sync and "Move to the Trash".
 - Files and folders dropped on the Dock icon open the New Job sheet with the first item as the source, like dropping on the window. Copiator declares the types only to accept drops (`LSHandlerRank` None) and never becomes an app that opens files.
+- **Create Folder** when a job's or route's destination folder does not exist on the Mac or on a connected disk (New Job sheet, routine editor and routine import). Folders are never created on a disk that is not connected, since an empty folder under `/Volumes` would stand in for the disk.
 
 ### Changed
 
 - **Dates are asked instead of guessed:** when a route takes its date from the file name, the contents or the date taken and no date is found (for example a scanned invoice), the date modified is no longer used silently. The job waits for a decision before copying and the decision sheet asks for that file's date, pre-filled with the date modified. "Automatic" keeps its documented last step (the date modified) and does not ask.
 - The "needs decision" result and notification of placed routes now say that a folder, a name or a date must be chosen.
+- **A disk that is not connected is no longer an error.** Jobs, routines and imported routines whose source or destination is on a disk that is not connected (`/Volumes/…` with nothing mounted there) can be added, edited and saved; the editor says the disk is not connected. Such a job waits in the queue as "Waiting for disk" even without "Start when the destination disk is connected" and runs when the disk is connected, so in a routine with several destinations the routes to connected disks run and the others wait. A folder that is missing on the Mac or on a connected disk is still a problem.
 
 ### Fixed
 
 - **Undoing a run that moved its sources to the Trash** used to move the destination copies to the Trash as well, leaving both sides in the Trash. The run now records where each source went in the Trash; undo first puts the sources back (only from a Trash folder into the job's source, only where the old place is free) and keeps the copy of any source that cannot be put back. Runs recorded by 1.1.0 with "Move to the Trash" on are not offered for undo.
 - A command's timeout (and the forced stop two seconds after a stop request) could fire seconds late, or not at all, while macOS's shared dispatch pool was busy: a 0.3-second timer ran after 8.8 seconds in a measurement. Timers now run on Copiator's own serial queue and the wait for a finished process's last output runs on its own thread. Found when a release test run failed under load.
 - The undo line in the job log showed meaningless large numbers instead of the item counts; log strings now take their values as text, and a test keeps every log string that way.
+- **"Move to the Trash" in a routine with several routes** moved the source as soon as the first route had copied it, so the other routes (and a route waiting for its disk) had nothing left to copy. Now every job of one routine run (and of one "Send to a Copiator Routine") belongs to one group: each route only records what it copied, and the sources go to the Trash once every job of the group has finished successfully and each source is identical to its copy at every destination that selected it (checked again at that moment). While a route waits for its disk, fails or waits for a decision, no source moves. Undo works on each route: it puts the sources back, and once they are back the other routes' copies can be undone too.
 
 ### Changed
 
