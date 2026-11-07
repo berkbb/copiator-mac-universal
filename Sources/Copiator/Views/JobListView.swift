@@ -190,6 +190,7 @@ struct JobListView: View {
         Button(settings.t(.menuShowSource), systemImage: "folder") { model.revealSource(job.id) }
         Button(settings.t(.menuShowDestination), systemImage: "externaldrive") { model.revealDestination(job.id) }
         Button(settings.t(.menuDestinationSummary), systemImage: "chart.bar.doc.horizontal") { model.showDestinationSummary(job.destination) }
+        Button(settings.t(.menuArchiveSearch), systemImage: "magnifyingglass") { model.showArchiveSearch(job.destination) }
         if job.options.snapshots.enabled {
             Button(settings.t(.menuSnapshots), systemImage: "clock.arrow.circlepath") { model.showSnapshots(job.id) }
         }

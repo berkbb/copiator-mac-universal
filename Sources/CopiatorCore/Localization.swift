@@ -301,6 +301,12 @@ public enum LKey: String, CaseIterable, Sendable {
     case reportTrashed, reportProblems
     // Karar sayfasında dosya başına ad
     case placementSuggestNames, placementNewName, placementNameNote, placementNamesSuggested, placementNoNameSuggestion
+    // Arşivde arama
+    case menuArchiveSearch, archiveSearchTitle, archiveSearchPrompt, archiveSearchContents, archiveSearchContentsNote
+    case archiveSearchHint, archiveSearchSearching, archiveSearchNone, archiveSearchCount, archiveSearchLimited
+    case archiveSearchMatchName, archiveSearchMatchContent, archiveSearchMatchPhoto, archiveSearchReveal, archiveSearchOpen
+    case archiveSearchSaveCopy, archiveSearchTrash, archiveSearchTrashTitle, archiveSearchTrashMessage, archiveSearchTrashButton
+    case archiveSearchOpenRefused, archiveSearchActionFailed, toastArchiveTrashed, toastArchiveCopied
     // Time Machine dışlaması
     case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk

@@ -155,6 +155,12 @@ struct DestinationSummaryRequest: Identifiable {
     var destination: URL
 }
 
+/// Arşivde arama sayfası (bkz. ArchiveSearchViews.swift).
+struct ArchiveSearchRequest: Identifiable {
+    let id = UUID()
+    var destination: URL
+}
+
 /// Temizleme aracı: kaynakta olup hedefte aynı içerikte kopyası bulunan dosyaları Çöp Sepeti'ne taşır.
 struct CleanupRequest: Identifiable {
     let id = UUID()
@@ -243,6 +249,7 @@ final class AppModel {
     var routinePicker: RoutinePickerRequest?
     /// Hedef özeti sayfası.
     var summaryRequest: DestinationSummaryRequest?
+    var archiveSearch: ArchiveSearchRequest?
     /// Arşivlenmiş kaynakları temizleme sayfası.
     var cleanupRequest: CleanupRequest?
     var snapshotBrowser: SnapshotBrowserRequest?
@@ -259,6 +266,9 @@ final class AppModel {
     @ObservationIgnored var sourceTrashItem: @Sendable (URL) -> URL? = { SourceTrash.systemTrashLocating($0) }
     /// Öğeyi Çöp'teki yerinden eski yerine taşır (taşıyan çalıştırmayı geri alma; testler kendi işlevlerini verir).
     @ObservationIgnored var putBackItem: (URL, URL) -> Bool = { RunUndo.putBack($0, to: $1) }
+    /// Dosyayı varsayılan uygulamasıyla açar ve Finder'da gösterir (arşivde arama; testler kendi işlevlerini verir).
+    @ObservationIgnored var openFile: (URL) -> Void = { NSWorkspace.shared.open($0) }
+    @ObservationIgnored var revealFile: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
     /// "Bitince hedef diski çıkar": hedefin çıkarılabilir birimi ve aynı diskteki birimler (testler sahte bir birim verir).
     @ObservationIgnored var ejectTarget: (URL) -> (volume: URL, disks: [URL])? = { url in
         DiskEject.volume(of: url).map { ($0, DiskEject.siblingVolumes(of: $0)) }
@@ -972,6 +982,55 @@ final class AppModel {
 
     func showDestinationSummary(_ destination: URL) {
         summaryRequest = DestinationSummaryRequest(destination: destination)
+    }
+
+    // MARK: - Arşivde arama (bkz. ArchiveSearch)
+
+    func showArchiveSearch(_ destination: URL) {
+        archiveSearch = ArchiveSearchRequest(destination: destination)
+    }
+
+    /// Arşivdeki öğeyi Finder'da gösterir.
+    func revealArchived(_ url: URL) {
+        revealFile(url)
+    }
+
+    /// Arşivdeki dosyayı varsayılan uygulamasıyla açar. Açılınca kod çalıştırabilen türler açılmaz: Finder'da gösterilir
+    /// ve nedeni söylenir.
+    func openArchived(_ url: URL) {
+        if let kind = OpenSafety.executableKind(of: url) {
+            alert = AlertItem(title: t(.warningTitle), message: t(.archiveSearchOpenRefused, OpenSafety.visibleName(url.lastPathComponent), kind))
+            revealArchived(url)
+            return
+        }
+        openFile(url)
+    }
+
+    /// Arşivdeki öğenin bir kopyasını seçilen yere yazar (arşiv yalnızca okunur).
+    @discardableResult
+    func copyArchived(_ url: URL, to target: URL) -> Bool {
+        do {
+            try FileManager.default.copyItem(at: url, to: target)
+            showToast(t(.toastArchiveCopied), systemImage: "square.and.arrow.down")
+            return true
+        } catch {
+            alert = AlertItem(title: t(.errorTitle), message: t(.archiveSearchActionFailed, error.localizedDescription))
+            return false
+        }
+    }
+
+    /// Onaydan sonra arşivdeki öğeyi Çöp Sepeti'ne taşır (kalıcı silme yok); bitince `done` çağrılır.
+    func requestTrashArchived(_ url: URL, done: @escaping () -> Void = {}) {
+        alert = AlertItem(title: t(.archiveSearchTrashTitle), message: t(.archiveSearchTrashMessage, OpenSafety.visibleName(url.lastPathComponent)),
+                          actionTitle: t(.archiveSearchTrashButton), action: { [weak self] in
+            guard let self else { return }
+            if trashItem(url) {
+                showToast(t(.toastArchiveTrashed), systemImage: "trash")
+            } else {
+                alert = AlertItem(title: t(.errorTitle), message: t(.archiveSearchActionFailed, OpenSafety.visibleName(url.path)))
+            }
+            done()
+        }, isDestructive: true)
     }
 
     /// Rutinleri (`ids` nil ise hepsini) dışa aktarma verisi.

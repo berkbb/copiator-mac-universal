@@ -69,6 +69,7 @@ struct ContentView: View {
         .sheet(item: $model.conflictPrompt) { ConflictSheet(prompt: $0) }
         .sheet(item: $model.routinePicker) { RoutinePickerSheet(request: $0) }
         .sheet(item: $model.summaryRequest) { DestinationSummarySheet(request: $0) }
+        .sheet(item: $model.archiveSearch) { ArchiveSearchSheet(request: $0) }
         .sheet(item: $model.cleanupRequest) { CleanupSheet(request: $0) }
         .sheet(item: $model.snapshotBrowser) { SnapshotBrowserSheet(request: $0) }
         .sheet(item: $model.integrityRequest) { IntegritySheet(request: $0) }

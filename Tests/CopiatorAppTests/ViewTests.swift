@@ -269,6 +269,24 @@ struct ViewRenderTests {
             .environment(fixture.settings), size: NSSize(width: 560, height: 560), name: "summary-unencrypted")
     }
 
+    /// Arşivde arama: üç eşleşme türü (ad, içerik, fotoğraf bilgisi), sınır notu ve boş sonuç.
+    @Test func archiveSearchSheetRenders() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        var results = ArchiveSearch.Results(hits: [
+            ArchiveSearch.Hit(relativePath: "Tapu/Isparta tapu.pdf", match: .name, snippet: "", size: 120_000, modified: nil),
+            ArchiveSearch.Hit(relativePath: "Faturalar/2026/El_10_26.pdf", match: .content, snippet: "…ENERJİSA elektrik faturası…",
+                              size: 48_000, modified: nil),
+            ArchiveSearch.Hit(relativePath: "Foto/IMG_0001.jpg", match: .photo, snippet: "2026-08-15 14:03 · iPhone", size: 2_400_000, modified: nil),
+        ], limited: true, scanned: 1_204)
+        let request = ArchiveSearchRequest(destination: fixture.url("Hedef"))
+        render(ArchiveSearchSheet(request: request, query: "fatura", results: results).environment(fixture.model).environment(fixture.settings),
+               size: NSSize(width: 680, height: 560), name: "archive-search")
+        results.hits = []
+        render(ArchiveSearchSheet(request: request, query: "yok", results: results).environment(fixture.model).environment(fixture.settings),
+               size: NSSize(width: 680, height: 560), name: "archive-search-empty")
+    }
+
     @Test func diagnosticSheetRenders() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
