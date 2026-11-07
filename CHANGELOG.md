@@ -5,6 +5,10 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+### Fixed
+
+- **Send to Routine** (Finder service, dropping on a routine, Shortcuts) no longer refuses the items when a route's destination is on a disk that is not connected. As with **Run**, the routes to connected destinations copy the items and the route to the missing disk waits in the queue as "Waiting for disk". A folder that is missing on the Mac or on a connected disk still stops the send before any job is added.
+
 ## [1.2.0] — 2026-11-07
 
 ### Added
