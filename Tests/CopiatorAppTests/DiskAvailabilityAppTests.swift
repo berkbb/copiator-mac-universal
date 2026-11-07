@@ -47,6 +47,39 @@ struct DiskAvailabilityAppTests {
         #expect(!FileManager.default.fileExists(atPath: away.deletingLastPathComponent().deletingLastPathComponent().path))
     }
 
+    /// Rutine gönderilen öğeler ("Copiator Rutinine Gönder"): takılı diskteki rota kopyalar, takılı olmayan diskteki rota
+    /// reddedilmez, diskini bekler. Mac'te olmayan hedef klasör ise sorun kalır; hiç iş eklenmez.
+    @Test func sentItemsWaitForAnUnpluggedDisk() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        await model.refreshEngine()
+        let routine = Routine(name: "Gönderilen", routes: [RoutineRoute(source: fixture.url("Kaynak"), destination: fixture.url("Hedef")),
+                                                            RoutineRoute(source: fixture.url("Kaynak"), destination: away)],
+                              options: CopyOptions(conflictPolicy: .skip))
+        #expect(model.saveRoutine(routine) == nil)
+        #expect(model.runRoutine(routine.id, on: [fixture.url("Kaynak/not.txt")]) == nil, "takılı olmayan disk göndermeyi engellemez")
+        await model.waitUntilIdle()
+        let sent = model.jobs(for: routine.id)
+        #expect(sent.count == 2 && sent.allSatisfy { $0.options.selectedItems == ["not.txt"] && !$0.options.runWhenConnected })
+        #expect(sent.first { $0.destination == fixture.url("Hedef") }?.status == .finished)
+        #expect(fixture.read("Hedef/not.txt") == "merhaba\n")
+        let waiting = try #require(sent.first { $0.destination == away })
+        #expect(waiting.status == .waiting && model.isWaitingForDisk(waiting) && waiting.result == nil, "hata vermez, bekler")
+
+        // Bu Mac'te olmayan hedef klasör: gönderme reddedilir, hiçbir rota için iş eklenmez.
+        let archive = fixture.url("Arsiv")
+        try FileManager.default.createDirectory(at: archive, withIntermediateDirectories: true)
+        let local = Routine(name: "Klasörü silinen", routes: [RoutineRoute(source: fixture.url("Kaynak"), destination: fixture.url("Hedef")),
+                                                               RoutineRoute(source: fixture.url("Kaynak"), destination: archive)],
+                            options: CopyOptions(conflictPolicy: .skip))
+        #expect(model.saveRoutine(local) == nil)
+        try FileManager.default.removeItem(at: archive)
+        #expect(model.runRoutine(local.id, on: [fixture.url("Kaynak/not.txt")]) != nil)
+        #expect(model.jobs(for: local.id).isEmpty)
+        model.alert = nil
+    }
+
     /// "Taşı" seçili iki hedefli rutin: kaynak ancak iki rota da kopyalayınca Çöp'e gider (iki hedefte de kopya var); geri
     /// alma iki rotada da çalışır. Bir rotanın diski takılı değilse kaynak yerinde kalır.
     @Test func moveWaitsForEveryRoute() async throws {

@@ -1237,7 +1237,8 @@ final class AppModel {
 
     /// Rutini seçilen öğelerle çalıştırır: her rota, rotanın kaynak klasörü yerine öğelerin bulunduğu klasörde yalnızca bu
     /// öğelere kurallarını ve yerleşimini uygular. Her (klasör, rota) için kuyruğa tek seferlik bir iş girer; rutinin
-    /// kendi işleri değişmez. - Returns: Sorun varsa açıklaması.
+    /// kendi işleri değişmez. Hedefi takılı olmayan bir diskte olan rotanın işi de "Çalıştır"daki gibi kuyruğa girer ve diskini
+    /// bekler; öteki rotalar çalışır. - Returns: Sorun varsa açıklaması.
     @discardableResult
     func runRoutine(_ id: Routine.ID, on items: [URL]) -> String? {
         guard let routine = routine(id) else { return t(.intentRoutineNotFound) }
@@ -1258,7 +1259,8 @@ final class AppModel {
         for route in routine.routes {
             guard let destination = route.destination else { continue }
             for (folder, members) in groups {
-                if let problem = JobValidation.check(source: folder, destination: destination, copyMode: .contents) {
+                // Takılı olmayan diskteki hedef hata değildir (iş diskini bekler); Mac'te ya da takılı diskte olmayan klasör sorundur.
+                if let problem = JobValidation.check(source: folder, destination: destination, copyMode: .contents, allowUnmounted: true) {
                     return fail(settings.result(JobResult(kind: RsyncEngine.resultKind(for: problem))))
                 }
                 var options = routine.jobOptions(for: route)
