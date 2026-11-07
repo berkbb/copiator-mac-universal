@@ -260,6 +260,7 @@ public enum RuleSelection {
             // "Klasörü sor": klasörü bilinmeyen dosya varsa iş karar bekler (önizlemede ilk öneri kullanılır).
             var paths = result.paths
             var folders: [String: String]?
+            var names: [String: String] = [:]
             if placement.askFolder {
                 let plan: PlacementQuestions.Plan
                 do {
@@ -275,10 +276,11 @@ public enum RuleSelection {
                 }
                 paths = plan.paths
                 folders = plan.folders
+                names = plan.names
             }
             let staged = try await PlacementStaging.build(paths: paths, source: source, placement: placement,
                                                           in: folder.appendingPathComponent("yerlesim", isDirectory: true),
-                                                          destination: job.destination, folders: folders, isCancelled: isCancelled)
+                                                          destination: job.destination, folders: folders, names: names, isCancelled: isCancelled)
             job.source = staged.root
             job.options.placement = nil
             job.options.advanced.filesFromFile = nil

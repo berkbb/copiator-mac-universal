@@ -132,6 +132,11 @@
 "reportTruncated" = "The list stops at %@ items; the rest is not in the report.";
 "reportTrashed" = "Source files moved to the Trash (%@):";
 "reportProblems" = "Warnings and errors (%@):";
+"placementSuggestNames" = "Suggest Names";
+"placementNewName" = "New name";
+"placementNameNote" = "If the new name is empty, the file is named by the route's name template; the extension is always kept.";
+"placementNamesSuggested" = "Names were suggested from the files in the chosen folders; nothing is used until you click Apply.";
+"placementNoNameSuggestion" = "No naming pattern could be found in the chosen folders.";
 "optionDelete" = "Delete items from the destination that are not in the source (sync)";
 "optionDeleteWarning" = "Extra files at the destination are deleted permanently; they do not go to the Trash. The source is never modified.";
 "deleteConfirmTitle" = "Delete extra files at the destination?";

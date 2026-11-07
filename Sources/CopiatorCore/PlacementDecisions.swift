@@ -29,22 +29,28 @@ public struct PlacementReport: Codable, Equatable, Sendable {
     }
 }
 
-/// Kullanıcının yerleştirme kararları: dosya → hedefteki klasör (göreli; "" hedefin kökü) ya da atla. İş bitince silinir.
+/// Kullanıcının yerleştirme kararları: dosya → hedefteki klasör (göreli; "" hedefin kökü) ya da atla, isterse yeni adı.
+/// İş bitince silinir.
 public struct PlacementResolution: Codable, Equatable, Sendable {
     public var folders: [String: String]
     public var skipped: Set<String>
+    /// Dosya → kullanıcının onayladığı yeni ad (uzantısız; uzantı her zaman korunur). Ad şablonunun ve düzeltmelerin
+    /// yerine geçer; `RoutePlacement.component` ile güvenli bir ada dönüşür.
+    public var names: [String: String]
 
-    public init(folders: [String: String] = [:], skipped: Set<String> = []) {
+    public init(folders: [String: String] = [:], skipped: Set<String> = [], names: [String: String] = [:]) {
         self.folders = folders
         self.skipped = skipped
+        self.names = names
     }
 
-    private enum CodingKeys: String, CodingKey { case folders, skipped }
+    private enum CodingKeys: String, CodingKey { case folders, skipped, names }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         folders = (try? c.decodeIfPresent([String: String].self, forKey: .folders)) ?? [:]
         skipped = (try? c.decodeIfPresent(Set<String>.self, forKey: .skipped)) ?? []
+        names = (try? c.decodeIfPresent([String: String].self, forKey: .names)) ?? [:]
     }
 
     /// Seçilen ya da yazılan klasör hedefin içinde kalan güvenli bir göreli yola dönüşür ("../x/./y" → "x/y").
@@ -81,6 +87,8 @@ public enum PlacementQuestions {
         public var paths: [String]
         /// Yol → hedefteki klasör.
         public var folders: [String: String]
+        /// Yol → kullanıcının onayladığı yeni ad (uzantısız).
+        public var names: [String: String] = [:]
         /// Klasörü seçilmemiş dosyalar (yoksa nil).
         public var report: PlacementReport?
     }
@@ -104,6 +112,7 @@ public enum PlacementQuestions {
             if let folder = resolution.folders[path] ?? learned(path, placement: placement, destination: destination) {
                 plan.paths.append(path)
                 plan.folders[path] = PlacementResolution.clean(folder)
+                if let name = resolution.names[path], !RoutePlacement.component(name).isEmpty { plan.names[path] = name }
             } else {
                 undecided.append(path)
             }
@@ -137,5 +146,33 @@ public enum PlacementQuestions {
         guard clean.isEmpty || (lstat(destination.appendingPathComponent(clean).path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR)
         else { return nil }
         return clean
+    }
+}
+
+/// Karar sayfasında dosya başına ad önerisi: seçilen klasördeki dosyaların adlarından önce kurala bağlı bir ad şablonu
+/// çıkarılır (`TemplateInference`), çözülemezse ve model verildiyse model sorulur (`Suggestions.nameTemplate`; şablon
+/// örnekleri yeniden üretmelidir); şablon dosyanın tarihiyle uygulanır. Yalnızca öneridir: kullanıcı "Uygula"ya basmadan
+/// hiçbir ad kullanılmaz ve ad yine `RoutePlacement.component` ile güvenli bir ada dönüşür.
+public enum PlacementNaming {
+    /// - Parameters:
+    ///   - path: Kaynağa göre göreli yol.
+    ///   - folder: Dosyanın gideceği klasör (hedefte; örnek adlar buradan okunur).
+    ///   - date: Dosyanın tarihi (şablonun tarih belirteçleri için).
+    /// - Returns: Uzantısız yeni ad; şablon çıkmazsa ya da ad değişmiyorsa `noSuggestion`.
+    public static func suggest(
+        for path: String, in folder: URL, date: DateComponents?, model: (any SuggestionModel)?
+    ) async -> SuggestionResult<String> {
+        let examples = Suggestions.exampleNames(in: folder)
+        let name = (path as NSString).lastPathComponent
+        let base = (name as NSString).deletingPathExtension
+        switch await Suggestions.nameTemplate(for: name, examples: examples, model: model) {
+        case .value(let template):
+            let language = Suggestions.nameLanguage(template, examples: examples) ?? "tr"
+            let target = RoutePlacement(nameTemplate: template, language: language).target(for: name, date: date)
+            let suggested = RoutePlacement.component(((target as NSString).lastPathComponent as NSString).deletingPathExtension)
+            return suggested.isEmpty || suggested == base ? .noSuggestion : .value(suggested)
+        case .noSuggestion: return .noSuggestion
+        case .unavailable: return .unavailable
+        }
     }
 }

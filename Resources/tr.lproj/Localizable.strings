@@ -132,6 +132,11 @@
 "reportTruncated" = "Liste %@ öğede kesildi; gerisi rapora girmedi.";
 "reportTrashed" = "Çöp Sepeti'ne taşınan kaynak dosyalar (%@):";
 "reportProblems" = "Uyarılar ve hatalar (%@):";
+"placementSuggestNames" = "Ad Öner";
+"placementNewName" = "Yeni ad";
+"placementNameNote" = "Yeni ad boşsa dosya rotanın ad şablonuyla adlandırılır; uzantı her zaman korunur.";
+"placementNamesSuggested" = "Adlar, seçilen klasörlerdeki dosyaların adlarına bakılarak önerildi; Uygula'ya basılmadan kullanılmaz.";
+"placementNoNameSuggestion" = "Seçilen klasörlerdeki adlardan bir ad kalıbı çıkarılamadı.";
 "optionDelete" = "Kaynakta olmayanları hedeften sil (eşitle)";
 "optionDeleteWarning" = "Hedefteki fazla dosyalar kalıcı olarak silinir; Çöp Sepeti'ne gitmez. Kaynak hiçbir zaman değiştirilmez.";
 "deleteConfirmTitle" = "Hedefteki fazla dosyalar silinsin mi?";

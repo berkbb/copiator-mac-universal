@@ -4,8 +4,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// "Klasörü sor" kararı: her dosya için hedefte önerilen klasörler (en uygunu seçili), hedefin kökü, yeni klasör ya da
-/// atla; "Hatırla" seçimi rotanın öğrenilmiş klasörü yapar. "Uygula"ya basılmadan hiçbir şey kopyalanmaz; yapay zekâ
-/// yalnızca önerilerin sırasını değiştirir.
+/// atla; "Hatırla" seçimi rotanın öğrenilmiş klasörü yapar. Her dosyaya isteğe bağlı yeni bir ad yazılabilir; "Ad Öner"
+/// seçilen klasördeki adlara bakarak öneri yazar. "Uygula"ya basılmadan hiçbir şey kopyalanmaz; yapay zekâ yalnızca
+/// önerir.
 struct PlacementDecisionView: View {
     let job: TransferJob
     let report: PlacementReport
@@ -26,6 +27,10 @@ struct PlacementDecisionView: View {
     @State private var rankedByAI = false
     /// Yapay zekâ hiçbir dosya için öneri veremediyse nedeni.
     @State private var aiNote: LKey?
+    /// Yol → yazılan ya da önerilen yeni ad (uzantısız; boşsa rotanın ad şablonu).
+    @State private var names: [String: String] = [:]
+    @State private var naming = false
+    @State private var namingNote: LKey?
 
     private static let skip = "\u{0}skip"
     private static let new = "\u{0}new"
@@ -66,6 +71,16 @@ struct PlacementDecisionView: View {
                 AILanguageWarning()
             }
 
+            HStack {
+                Button(settings.t(.placementSuggestNames), systemImage: "wand.and.stars") { suggestNames() }
+                    .disabled(naming)
+                    .accessibilityIdentifier("copiator.placement.suggestNames")
+                if naming { ProgressView().controlSize(.small) }
+                if let namingNote {
+                    Text(settings.t(namingNote)).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+
             List(report.items, id: \.path) { item in
                 row(item)
             }
@@ -77,6 +92,7 @@ struct PlacementDecisionView: View {
                 }
                 Text(settings.t(.placementSheetNote))
                 Text(settings.t(.placementRememberNote))
+                Text(settings.t(.placementNameNote))
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -136,6 +152,12 @@ struct PlacementDecisionView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.body.monospaced())
             }
+            if let folder {
+                TextField(settings.t(.placementNewName), text: nameBinding(for: item),
+                          prompt: Text(OpenSafety.visibleName(defaultName(item, folder: folder))))
+                    .textFieldStyle(.roundedBorder)
+                    .help(settings.t(.placementNameNote))
+            }
             if item.suggestions.isEmpty {
                 Text(settings.t(.placementNoSuggestion)).font(.caption).foregroundStyle(.orange)
             }
@@ -164,13 +186,49 @@ struct PlacementDecisionView: View {
         }
     }
 
-    /// Dosyanın seçilen klasördeki hedef yolu (şablon, düzeltmeler ve hedef belirteçleriyle).
-    private func target(_ item: PlacementReport.Item, folder: String) -> String {
+    /// Dosyanın seçilen klasördeki hedef yolu (şablon, düzeltmeler, hedef belirteçleri ve yazılan yeni adla).
+    private func target(_ item: PlacementReport.Item, folder: String, useName: Bool = true) -> String {
         let placement = job.options.placement ?? RoutePlacement(askFolder: true)
+        let name = useName ? names[item.path].flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } : nil
+        return placement.target(for: item.path, date: date(for: item), destination: job.destination.path, folder: folder, name: name)
+    }
+
+    /// Yeni ad yazılmazsa dosyanın alacağı ad (uzantısız; ad alanının yer tutucusu).
+    private func defaultName(_ item: PlacementReport.Item, folder: String) -> String {
+        ((target(item, folder: folder, useName: false) as NSString).lastPathComponent as NSString).deletingPathExtension
+    }
+
+    /// Dosyanın tarihi (rotanın tarih kaynağından); bulunamazsa addaki tarih ya da bugün.
+    private func date(for item: PlacementReport.Item) -> DateComponents {
         let name = ((item.path as NSString).lastPathComponent as NSString).deletingPathExtension
-        let date = dates[item.path] ?? TextDate.find(in: name)
-            ?? Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: Date())
-        return placement.target(for: item.path, date: date, destination: job.destination.path, folder: folder)
+        return dates[item.path] ?? TextDate.find(in: name) ?? Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: Date())
+    }
+
+    private func nameBinding(for item: PlacementReport.Item) -> Binding<String> {
+        Binding(get: { names[item.path] ?? "" }, set: { names[item.path] = $0 })
+    }
+
+    /// Adı boş olan ve klasörü seçilmiş her dosyaya, o klasördeki adlara bakarak bir ad önerir (önce kurallar; yapay zekâ
+    /// açıksa kurallar çözemediğinde model). Önerilen ad yalnızca alana yazılır; "Uygula"ya basılmadan kullanılmaz.
+    private func suggestNames() {
+        let suggestionModel = model.canSuggestWithAI ? model.suggestionModel : nil
+        let destination = job.destination
+        let items = report.items.compactMap { item in folder(for: item).map { (item, $0) } }
+        naming = true
+        namingNote = nil
+        Task {
+            var found = false
+            for (item, folder) in items where (names[item.path] ?? "").isEmpty {
+                let result = await PlacementNaming.suggest(for: item.path, in: destination.appendingPathComponent(folder),
+                                                           date: date(for: item), model: suggestionModel)
+                if let value = result.value, (names[item.path] ?? "").isEmpty {
+                    names[item.path] = value
+                    found = true
+                }
+            }
+            naming = false
+            namingNote = found ? .placementNamesSuggested : .placementNoNameSuggestion
+        }
     }
 
     private var isComplete: Bool {
@@ -252,6 +310,9 @@ struct PlacementDecisionView: View {
                 continue
             }
             resolution.folders[item.path] = folder
+            if let name = names[item.path]?.trimmingCharacters(in: .whitespaces), !RoutePlacement.component(name).isEmpty {
+                resolution.names[item.path] = name
+            }
             if remember.contains(item.path) { remembered[item.path] = folder }
         }
         model.resolvePlacements(job.id, resolution: resolution, remember: remembered)

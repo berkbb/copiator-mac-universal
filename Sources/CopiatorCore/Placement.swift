@@ -110,7 +110,10 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
     ///   - destination: Rotanın hedefinin yolu (`{targetFolder}` ve `{targetNumber}` için).
     ///   - folder: "Klasörü sor"da seçilen, hedefe göre göreli klasör; dosya (klasör yapısı korunmuyorsa) doğrudan oraya,
     ///     alt klasör şablonu varsa onun altına düşer.
-    public func target(for relativePath: String, date: DateComponents?, destination: String = "", folder: String? = nil) -> String {
+    ///   - name: Kullanıcının onayladığı yeni ad (uzantısız); şablonun ve düzeltmelerin yerine geçer, uzantı korunur.
+    public func target(
+        for relativePath: String, date: DateComponents?, destination: String = "", folder: String? = nil, name chosenName: String? = nil
+    ) -> String {
         let components = relativePath.split(separator: "/").map(String.init)
         let name = components.last ?? relativePath
         let folders = Array(components.dropLast())
@@ -135,7 +138,9 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         var newName = name
         let hasTemplate = !nameTemplate.trimmingCharacters(in: .whitespaces).isEmpty
         let fixes = nameFixes.filter { !$0.pattern.isEmpty }
-        if hasTemplate || !fixes.isEmpty {
+        if let chosen = chosenName.map(Self.component), !chosen.isEmpty {
+            newName = ext.isEmpty ? chosen : chosen + "." + ext
+        } else if hasTemplate || !fixes.isEmpty {
             var newBase = base
             if hasTemplate {
                 newBase = Self.component(Self.renderName(nameTemplate, values, base: base))
@@ -169,7 +174,7 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
     /// Ad ya da klasör adı olarak güvenli metin: "/" ve ":" tireye döner, denetim karakterleri silinir, baştaki boşluk ve
     /// noktalar değer değişmeyene kadar atılır (". .." gibi bir değer ".." bırakıp hedefin dışına çıkmasın; gizli dosya
     /// olmaz), en çok 240 bayt.
-    static func component(_ text: String) -> String {
+    public static func component(_ text: String) -> String {
         var value = text.precomposedStringWithCanonicalMapping
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: "-")
@@ -440,9 +445,10 @@ public enum PlacementStaging {
     ///   - folder: Hazırlık ağacının kurulacağı, var olmayan klasör (işin özel geçici klasörünün içinde).
     ///   - destination: Rotanın hedefi (`{targetFolder}` ve `{targetNumber}` için).
     ///   - folders: "Klasörü sor"da her yol için seçilen klasör (bkz. `PlacementQuestions`).
+    ///   - names: Kullanıcının onayladığı yeni adlar (uzantısız).
     public static func build(
         paths: [String], source: URL, placement: RoutePlacement, in folder: URL, destination: URL? = nil,
-        folders: [String: String]? = nil, isCancelled: () -> Bool = { false }
+        folders: [String: String]? = nil, names: [String: String] = [:], isCancelled: () -> Bool = { false }
     ) async throws -> Result {
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -460,7 +466,7 @@ public enum PlacementStaging {
                 continue
             }
             let date = placement.usesDate ? await PlacementDate.resolve(url, relativePath: path, source: placement.dateSource) : nil
-            var target = placement.target(for: path, date: date, destination: destination?.path ?? "", folder: folders?[path])
+            var target = placement.target(for: path, date: date, destination: destination?.path ?? "", folder: folders?[path], name: names[path])
             // Aynı hedefe düşen iki dosya: sonraki Finder gibi numaralanır ("ad 2.pdf").
             if taken.contains(target.lowercased()) {
                 let directory = (target as NSString).deletingLastPathComponent

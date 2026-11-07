@@ -1229,6 +1229,8 @@ final class AppModel {
             var merged = $0.placementResolution ?? PlacementResolution()
             merged.folders.merge(resolution.folders.mapValues(PlacementResolution.clean)) { _, new in new }
             merged.skipped.formUnion(resolution.skipped)
+            // Yeni adlar yalnızca bu dosyalar için geçerlidir ("Hatırla" adı öğrenmez); güvenli bir ada dönüşmeyen ad atılır.
+            merged.names.merge(resolution.names.filter { !RoutePlacement.component($0.value).isEmpty }) { _, new in new }
             $0.placementResolution = merged
             $0.pendingPlacements = nil
             $0.options.placement?.learnedFolders.merge(learned) { _, new in new }

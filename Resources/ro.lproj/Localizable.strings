@@ -132,6 +132,11 @@
 "reportTruncated" = "Lista se oprește la %@ elemente; restul nu apare în raport.";
 "reportTrashed" = "Fișiere sursă mutate în Coș (%@):";
 "reportProblems" = "Avertismente și erori (%@):";
+"placementSuggestNames" = "Sugerează nume";
+"placementNewName" = "Nume nou";
+"placementNameNote" = "Dacă numele nou este gol, fișierul primește numele din șablonul rutei; extensia se păstrează mereu.";
+"placementNamesSuggested" = "Numele au fost sugerate după fișierele din dosarele alese; nimic nu se folosește până nu apăsați Aplică.";
+"placementNoNameSuggestion" = "Nu s-a găsit niciun tipar de nume în dosarele alese.";
 "optionDelete" = "Șterge din destinație elementele care nu există în sursă (sincronizare)";
 "optionDeleteWarning" = "Fișierele în plus din destinație sunt șterse definitiv; nu ajung în Coș. Sursa nu este modificată niciodată.";
 "deleteConfirmTitle" = "Ștergeți fișierele în plus din destinație?";

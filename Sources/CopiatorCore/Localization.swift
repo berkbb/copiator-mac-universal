@@ -299,6 +299,8 @@ public enum LKey: String, CaseIterable, Sendable {
     case menuSaveRunReport, reportFileName, reportSaveFailed, toastReportSaved, reportTitle, reportSource, reportDestination
     case reportStarted, reportFinished, reportResult, reportAdded, reportUpdated, reportDeleted, reportNoChanges, reportTruncated
     case reportTrashed, reportProblems
+    // Karar sayfasında dosya başına ad
+    case placementSuggestNames, placementNewName, placementNameNote, placementNamesSuggested, placementNoNameSuggestion
     // Time Machine dışlaması
     case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk
