@@ -759,7 +759,7 @@
 "placementDateModified" = "Date modified";
 "placementDateCreated" = "Date created";
 "placementExample" = "Example: %@";
-"placementNote" = "The extension is always kept. Automatic date: the date taken, otherwise the date in the file name, otherwise in the contents (PDF and text), otherwise the date modified; a missing day becomes 01. Files that land on the same target are numbered, and a file with the same name at the destination is asked about as usual. Text before or after {name} in the name template is not added again when the name already has it. The example uses the path in the Try field.";
+"placementNote" = "The extension is always kept. Automatic date: the date taken, otherwise the date in the file name, otherwise in the contents (PDF and text), otherwise the date modified; a missing day becomes 01. Files that land on the same target are numbered, and a file with the same name at the destination is asked about as usual. Text before or after {name} in the name template is not added again when the name already has it. The example uses the path in the Try field. When the date in the file name, in the contents or the date taken is chosen and no date is found, the date modified is not used: the job waits for a decision before copying and asks for the date.";
 "placementSampleFile" = "Bills/Electricity October 2026.pdf";
 "placementSameName" = "same name";
 "problemPlacementToken" = "Unknown token: %@";
@@ -782,7 +782,7 @@
 "placementFixesSummary" = "fixes: %ld";
 "logAwaitingPlacement" = "%@ files need a folder at the destination; waiting for your decision.";
 "logPlacementsDecided" = "Folders were chosen; the job was queued again.";
-"notifyPlacementBody" = "“%1$@”: %2$ld files need a folder or a name at the destination.";
+"notifyPlacementBody" = "“%1$@”: %2$ld files need a folder, a name or a date at the destination.";
 "placementAskFolder" = "Suggest a folder for each file and ask me";
 "placementAskFolderNote" = "Folders at the destination are suggested from each file's name and contents; no file is copied until you approve. Remembered choices are used without asking for files with similar names. The subfolder template applies inside the chosen folder, and {targetNumber} also reads the number in the chosen folder's name.";
 "placementLearned" = "Remembered folders: %ld";
@@ -801,7 +801,7 @@
 "placementMore" = "… and %ld more files (asked on the next run)";
 "placementAskSummary" = "folder asked";
 "placementRankAll" = "Ask the AI";
-"resultAwaitingPlacement" = "Waiting for a decision: %ld files need a folder or a name at the destination";
+"resultAwaitingPlacement" = "Waiting for a decision: %ld files need a folder, a name or a date at the destination";
 "ruleAttrInDestination" = "Copy with the same contents at the destination";
 "ruleOpExists" = "exists";
 "ruleOpNotExists" = "does not exist";
@@ -828,7 +828,8 @@
 "placementFieldNoMatch" = "%@: no match";
 "placementFieldsSummary" = "%ld content fields";
 "placementMissingFields" = "Not found in the text: %@. Type the new name or skip the file.";
-"placementNameSheetTitle" = "The name of %ld files could not be taken from their contents";
+"placementNameSheetTitle" = "%ld files need a name or a date";
+"placementDateMissing" = "%@ not found; choose the date:";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copy %ld items with a routine";

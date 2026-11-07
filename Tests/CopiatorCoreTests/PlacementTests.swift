@@ -277,11 +277,20 @@ struct LivePlacementTests {
         var options = routine.jobOptions(for: routine.routes[0])
         options.verifyAfterCopy = .quick
         var job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"), options: options)
+        // Paketin içeriğinde tarih yok: "İçerikteki tarih" seçiliyken değiştirilme tarihine geçilmez, hiçbir şey kopyalanmadan
+        // tarih sorulur.
+        let waiting = await run(&job, context)
+        #expect(waiting.kind == .awaitingDecision && waiting.detail == JobResult.placementsDetail, "\(waiting)")
+        #expect(job.pendingPlacements?.items.map(\.path) == ["Araclar/Enerjisa.app"] && job.pendingPlacements?.items.first?.missingDate != nil)
+        #expect(listing(workspace.url("Hedef")).isEmpty)
+        let today = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: Date())
+        job.placementResolution = PlacementResolution(dates: ["Araclar/Enerjisa.app": PlacementDate.string(today)])
+        job.pendingPlacements = nil
         let result = await run(&job, context)
         #expect(result.kind == .succeeded, "\(result) \(job.log.suffix(6).map { $0.raw ?? $0.key ?? "" })")
 
         let copied = listing(workspace.url("Hedef"))
-        // Aynı hedefe düşen iki Ekim faturası numaralanır; paket adını korur (içerik tarihi yok → değiştirilme tarihi).
+        // Aynı hedefe düşen iki Ekim faturası numaralanır; paket seçilen tarihle (bugün) adlanır.
         let packageFolder = try #require(copied.keys.first { $0.hasSuffix("/123456789_El_\(String(format: "%02d", Calendar.current.component(.month, from: Date())))_\(Calendar.current.component(.year, from: Date()) % 100).app/Contents/Versions/A/ikili") })
         #expect(copied["2026/10-Ekim/123456789_El_10_26.pdf"]?.isEmpty == false)
         #expect(copied["2026/10-Ekim/123456789_El_10_26 2.pdf"]?.isEmpty == false)

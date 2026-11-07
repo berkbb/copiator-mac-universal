@@ -73,6 +73,10 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         PlacementToken.tokens(in: folderTemplate + nameTemplate).contains { $0?.isDate == true }
     }
 
+    /// Klasör ya da ad şablonu tarih istiyor (yeni ad yazılan dosyada ad şablonu kullanılmaz).
+    public var folderUsesDate: Bool { PlacementToken.tokens(in: folderTemplate).contains { $0?.isDate == true } }
+    public var nameUsesDate: Bool { PlacementToken.tokens(in: nameTemplate).contains { $0?.isDate == true } }
+
     /// Ad şablonunun kullandığı içerik alanlarının adları (`{c:abone}` → "abone"), sırasıyla ve tekrarsız; yalnızca
     /// tanımlı alanlar.
     public var referencedFields: [String] {
@@ -489,6 +493,10 @@ public enum PlacementDateSource: String, Codable, CaseIterable, Identifiable, Se
     case created
 
     public var id: String { rawValue }
+
+    /// Açıkça seçilen kaynak (dosya adı, içerik, çekim tarihi): tarih bulunamazsa değiştirilme tarihine geçilmez, dosyanın
+    /// tarihi kopyalamadan önce sorulur. Otomatik kaynak son adımda değiştirilme tarihini kullanır; dosya tarihleri hep vardır.
+    public var asksWhenMissing: Bool { [.fileName, .contents, .captureDate].contains(self) }
 }
 
 /// Şablon belirteçleri: `{name}` dosyanın uzantısız adı, `{folder}` bulunduğu klasörün adı, `{year}` 2026, `{yy}` 26,
@@ -590,10 +598,11 @@ public enum PlacementStaging {
     ///   - folders: "Klasörü sor"da her yol için seçilen klasör (bkz. `PlacementQuestions`).
     ///   - names: Kullanıcının onayladığı yeni adlar (uzantısız).
     ///   - contents: İçerik alanlarının dosyalardaki değerleri (yol → alan adı → değer).
+    ///   - dates: Önceden bulunan ya da kullanıcının seçtiği tarihler (yoksa tarih kaynağından okunur).
     public static func build(
         paths: [String], source: URL, placement: RoutePlacement, in folder: URL, destination: URL? = nil,
         folders: [String: String]? = nil, names: [String: String] = [:], contents: [String: [String: String]] = [:],
-        isCancelled: () -> Bool = { false }
+        dates: [String: DateComponents] = [:], isCancelled: () -> Bool = { false }
     ) async throws -> Result {
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -610,7 +619,10 @@ public enum PlacementStaging {
                 if kind == S_IFLNK { result.skippedLinks += 1 }
                 continue
             }
-            let date = placement.usesDate ? await PlacementDate.resolve(url, relativePath: path, source: placement.dateSource) : nil
+            var date: DateComponents?
+            if placement.usesDate {
+                if let known = dates[path] { date = known } else { date = await PlacementDate.resolve(url, relativePath: path, source: placement.dateSource) }
+            }
             var target = placement.target(for: path, date: date, destination: destination?.path ?? "", folder: folders?[path], name: names[path],
                                           content: contents[path] ?? [:])
             // Aynı hedefe düşen iki dosya: sonraki Finder gibi numaralanır ("ad 2.pdf").
@@ -723,15 +735,21 @@ public enum PlacementStaging {
 
 /// Dosyanın şablon tarihini bulur (bkz. `PlacementDateSource`).
 public enum PlacementDate {
+    private static let calendar = Calendar(identifier: .gregorian)
+
+    /// Dosyanın tarihi; açıkça seçilen kaynak tarih bulamazsa değiştirilme tarihi (önizleme ve eski davranış).
     public static func resolve(_ url: URL, relativePath: String, source: PlacementDateSource) async -> DateComponents {
-        let calendar = Calendar(identifier: .gregorian)
+        await find(url, relativePath: relativePath, source: source) ?? modified(of: url)
+    }
+
+    /// Kaynağın bulduğu tarih: açıkça seçilen kaynak (dosya adı, içerik, çekim tarihi) bulamazsa nil; otomatik kaynak ve
+    /// dosya tarihleri her zaman bir tarih verir.
+    public static func find(_ url: URL, relativePath: String, source: PlacementDateSource) async -> DateComponents? {
         func components(_ date: Date?) -> DateComponents? {
             date.map { calendar.dateComponents([.year, .month, .day], from: $0) }
         }
         let name = (relativePath as NSString).lastPathComponent
         let type = UTType(filenameExtension: url.pathExtension)
-        let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .creationDateKey])
-        let modified = components(values?.contentModificationDate) ?? calendar.dateComponents([.year, .month, .day], from: Date())
         func capture() async -> DateComponents? {
             guard let type, type.conforms(to: .image) || type.conforms(to: .audiovisualContent) else { return nil }
             return components(await MediaInfo.load(url, type: type)?.captureDate)
@@ -742,13 +760,31 @@ public enum PlacementDate {
             if let date = await capture() { return date }
             if let date = TextDate.find(in: (name as NSString).deletingPathExtension) { return date }
             if let date = contents() { return date }
-            return modified
-        case .fileName: return TextDate.find(in: (name as NSString).deletingPathExtension) ?? modified
-        case .contents: return contents() ?? modified
-        case .captureDate: return await capture() ?? modified
-        case .modified: return modified
-        case .created: return components(values?.creationDate) ?? modified
+            return modified(of: url)
+        case .fileName: return TextDate.find(in: (name as NSString).deletingPathExtension)
+        case .contents: return contents()
+        case .captureDate: return await capture()
+        case .modified: return modified(of: url)
+        case .created: return components((try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate) ?? modified(of: url)
         }
+    }
+
+    /// Değiştirilme tarihi (okunamazsa bugün).
+    public static func modified(of url: URL) -> DateComponents {
+        let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date()
+        return calendar.dateComponents([.year, .month, .day], from: date)
+    }
+
+    /// Kararda saklanan biçim: "2026-10-01".
+    public static func string(_ date: DateComponents) -> String {
+        String(format: "%04d-%02d-%02d", date.year ?? 0, date.month ?? 1, date.day ?? 1)
+    }
+
+    /// "2026-10-01" → yıl, ay, gün; geçersiz ya da 1900–2999 dışındaysa nil.
+    public static func components(_ text: String) -> DateComponents? {
+        let parts = text.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3, (1900...2999).contains(parts[0]), (1...12).contains(parts[1]), (1...31).contains(parts[2]) else { return nil }
+        return DateComponents(year: parts[0], month: parts[1], day: parts[2])
     }
 }
 

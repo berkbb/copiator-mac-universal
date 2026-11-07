@@ -759,7 +759,7 @@
 "placementDateModified" = "Data modificării";
 "placementDateCreated" = "Data creării";
 "placementExample" = "Exemplu: %@";
-"placementNote" = "Extensia se păstrează întotdeauna. Data automată: data fotografierii, altfel data din numele fișierului, altfel din conținut (PDF și text), altfel data modificării; o zi lipsă devine 01. Fișierele care ajung la aceeași țintă sunt numerotate, iar un fișier cu același nume la destinație este întrebat ca de obicei. Textul dinaintea sau de după {name} din șablonul de nume nu se mai adaugă dacă numele îl conține deja. Exemplul folosește calea din câmpul Încearcă.";
+"placementNote" = "Extensia se păstrează întotdeauna. Data automată: data fotografierii, altfel data din numele fișierului, altfel din conținut (PDF și text), altfel data modificării; o zi lipsă devine 01. Fișierele care ajung la aceeași țintă sunt numerotate, iar un fișier cu același nume la destinație este întrebat ca de obicei. Textul dinaintea sau de după {name} din șablonul de nume nu se mai adaugă dacă numele îl conține deja. Exemplul folosește calea din câmpul Încearcă. Când este aleasă data din numele fișierului, din conținut sau data fotografierii și nu se găsește nicio dată, nu se folosește data modificării: lucrarea așteaptă o decizie înainte de copiere și cere data.";
 "placementSampleFile" = "Facturi/Electricitate octombrie 2026.pdf";
 "placementSameName" = "același nume";
 "problemPlacementToken" = "Element necunoscut: %@";
@@ -782,7 +782,7 @@
 "placementFixesSummary" = "corecții: %ld";
 "logAwaitingPlacement" = "Pentru %@ fișiere trebuie ales un dosar la destinație; se așteaptă decizia dvs.";
 "logPlacementsDecided" = "Dosarele au fost alese; lucrarea a fost pusă din nou în coadă.";
-"notifyPlacementBody" = "„%1$@”: pentru %2$ld fișiere trebuie ales un dosar sau un nume la destinație.";
+"notifyPlacementBody" = "„%1$@”: pentru %2$ld fișiere trebuie ales un dosar, un nume sau o dată la destinație.";
 "placementAskFolder" = "Sugerează un dosar pentru fiecare fișier și întreabă-mă";
 "placementAskFolderNote" = "Dosarele de la destinație sunt sugerate după numele și conținutul fiecărui fișier; niciun fișier nu este copiat fără aprobarea dvs. Alegerile reținute se folosesc fără întrebare pentru fișierele cu nume asemănătoare. Șablonul de subdosar se aplică în dosarul ales, iar {targetNumber} citește și numărul din numele dosarului ales.";
 "placementLearned" = "Dosare reținute: %ld";
@@ -801,7 +801,7 @@
 "placementMore" = "… și încă %ld fișiere (întrebate la următoarea rulare)";
 "placementAskSummary" = "dosar întrebat";
 "placementRankAll" = "Întreabă AI";
-"resultAwaitingPlacement" = "Se așteaptă o decizie: pentru %ld fișiere trebuie ales un dosar sau un nume la destinație";
+"resultAwaitingPlacement" = "Se așteaptă o decizie: pentru %ld fișiere trebuie ales un dosar, un nume sau o dată la destinație";
 "ruleAttrInDestination" = "Copie cu același conținut la destinație";
 "ruleOpExists" = "există";
 "ruleOpNotExists" = "nu există";
@@ -828,7 +828,8 @@
 "placementFieldNoMatch" = "%@: nicio potrivire";
 "placementFieldsSummary" = "%ld câmpuri de conținut";
 "placementMissingFields" = "Negăsit în text: %@. Scrieți numele nou sau săriți fișierul.";
-"placementNameSheetTitle" = "Numele a %ld fișiere nu a putut fi luat din conținutul lor";
+"placementNameSheetTitle" = "Pentru %ld fișiere este nevoie de un nume sau de o dată";
+"placementDateMissing" = "%@ negăsită; alegeți data:";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copiază %ld elemente cu o rutină";

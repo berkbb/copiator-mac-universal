@@ -19,18 +19,21 @@ public struct PlacementReport: Codable, Equatable, Sendable {
         public var missingFields: [String]
         /// Bulunan içerik alanlarının değerleri (adın önizlemesi için).
         public var contentValues: [String: String]
+        /// Seçilen tarih kaynağı bu dosyada tarih bulamadı: tarih sorulur; önerilen değer değiştirilme tarihidir ("2026-10-01").
+        public var missingDate: String?
 
         public init(path: String, suggestions: [String], needsFolder: Bool = true, folder: String? = nil, missingFields: [String] = [],
-                    contentValues: [String: String] = [:]) {
+                    contentValues: [String: String] = [:], missingDate: String? = nil) {
             self.path = path
             self.suggestions = suggestions
             self.needsFolder = needsFolder
             self.folder = folder
             self.missingFields = missingFields
             self.contentValues = contentValues
+            self.missingDate = missingDate
         }
 
-        private enum CodingKeys: String, CodingKey { case path, suggestions, needsFolder, folder, missingFields, contentValues }
+        private enum CodingKeys: String, CodingKey { case path, suggestions, needsFolder, folder, missingFields, contentValues, missingDate }
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -40,6 +43,7 @@ public struct PlacementReport: Codable, Equatable, Sendable {
             folder = (try? c.decodeIfPresent(String.self, forKey: .folder)) ?? nil
             missingFields = (try? c.decodeIfPresent([String].self, forKey: .missingFields)) ?? []
             contentValues = (try? c.decodeIfPresent([String: String].self, forKey: .contentValues)) ?? [:]
+            missingDate = (try? c.decodeIfPresent(String.self, forKey: .missingDate)) ?? nil
         }
     }
 
@@ -63,20 +67,24 @@ public struct PlacementResolution: Codable, Equatable, Sendable {
     /// Dosya → kullanıcının onayladığı yeni ad (uzantısız; uzantı her zaman korunur). Ad şablonunun ve düzeltmelerin
     /// yerine geçer; `RoutePlacement.component` ile güvenli bir ada dönüşür.
     public var names: [String: String]
+    /// Dosya → kullanıcının seçtiği tarih ("2026-10-01"; bkz. `PlacementDate.components`).
+    public var dates: [String: String]
 
-    public init(folders: [String: String] = [:], skipped: Set<String> = [], names: [String: String] = [:]) {
+    public init(folders: [String: String] = [:], skipped: Set<String> = [], names: [String: String] = [:], dates: [String: String] = [:]) {
         self.folders = folders
         self.skipped = skipped
         self.names = names
+        self.dates = dates
     }
 
-    private enum CodingKeys: String, CodingKey { case folders, skipped, names }
+    private enum CodingKeys: String, CodingKey { case folders, skipped, names, dates }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         folders = (try? c.decodeIfPresent([String: String].self, forKey: .folders)) ?? [:]
         skipped = (try? c.decodeIfPresent(Set<String>.self, forKey: .skipped)) ?? []
         names = (try? c.decodeIfPresent([String: String].self, forKey: .names)) ?? [:]
+        dates = (try? c.decodeIfPresent([String: String].self, forKey: .dates)) ?? [:]
     }
 
     /// Seçilen ya da yazılan klasör hedefin içinde kalan güvenli bir göreli yola dönüşür ("../x/./y" → "x/y").
@@ -115,6 +123,8 @@ public enum PlacementQuestions {
         public var folders: [String: String]
         /// Yol → kullanıcının onayladığı yeni ad (uzantısız).
         public var names: [String: String] = [:]
+        /// Yol → kullanıcının seçtiği tarih.
+        public var dates: [String: DateComponents] = [:]
         /// Klasörü seçilmemiş dosyalar (yoksa nil).
         public var report: PlacementReport?
     }
@@ -126,29 +136,37 @@ public enum PlacementQuestions {
 
     /// - Parameters:
     ///   - contents: İçerik alanlarının dosyalardaki değerleri (yol → alan adı → değer; bkz. `ContentField.values`).
+    ///   - undated: Seçilen tarih kaynağının tarih bulamadığı dosyalar ve önerilen tarihleri (değiştirilme tarihi).
     ///   - decide: false ise (önizleme) kararsız dosyalar ilk öneriye (yoksa hedefin köküne) konur, bulunamayan değerler
     ///     boş yazılır, iş beklemez.
     public static func plan(
         paths: [String], source: URL, destination: URL, placement: RoutePlacement, resolution: PlacementResolution?,
-        contents: [String: [String: String]] = [:], decide: Bool = true, isCancelled: () -> Bool = { false }
+        contents: [String: [String: String]] = [:], undated: [String: String] = [:], decide: Bool = true,
+        isCancelled: () -> Bool = { false }
     ) throws -> Plan {
         let resolution = resolution ?? PlacementResolution()
         let required = placement.referencedFields
         var plan = Plan(paths: [], folders: [:], report: nil)
-        // Kararsız dosya: klasörü bilinmiyor ("Klasörü sor") ya da içerikten istenen bir değer bulunamadı ve ad yazılmadı.
-        var undecided: [(path: String, folder: String?, missing: [String])] = []
+        // Kararsız dosya: klasörü bilinmiyor ("Klasörü sor"), içerikten istenen bir değer bulunamadı ve ad yazılmadı ya da
+        // seçilen kaynak tarih bulamadı ve tarih seçilmedi.
+        var undecided: [(path: String, folder: String?, missing: [String], date: String?)] = []
         for path in paths {
             if isCancelled() || Task.isCancelled { throw CancellationError() }
             if resolution.skipped.contains(path) { continue }
             let folder = placement.askFolder ? (resolution.folders[path] ?? learned(path, placement: placement, destination: destination)) : ""
             let name = resolution.names[path].flatMap { RoutePlacement.component($0).isEmpty ? nil : $0 }
             let missing = required.filter { (contents[path]?[$0] ?? "").isEmpty }
-            if let folder, missing.isEmpty || name != nil {
+            let chosenDate = resolution.dates[path].flatMap(PlacementDate.components)
+            // Yeni ad yazılan dosyada ad şablonu kullanılmaz: tarih yalnızca klasör şablonu istiyorsa gerekir.
+            let needsDate = placement.folderUsesDate || (name == nil && placement.nameUsesDate)
+            let missingDate = chosenDate == nil && needsDate ? undated[path] : nil
+            if let folder, missing.isEmpty || name != nil, missingDate == nil {
                 plan.paths.append(path)
                 if placement.askFolder { plan.folders[path] = PlacementResolution.clean(folder) }
                 if let name { plan.names[path] = name }
+                if let chosenDate { plan.dates[path] = chosenDate }
             } else {
-                undecided.append((path, folder.map(PlacementResolution.clean), name == nil ? missing : []))
+                undecided.append((path, folder.map(PlacementResolution.clean), name == nil ? missing : [], missingDate))
             }
         }
         guard !undecided.isEmpty else { return plan }
@@ -166,7 +184,7 @@ public enum PlacementQuestions {
             }
             items.append(PlacementReport.Item(path: entry.path, suggestions: suggestions, needsFolder: entry.folder == nil,
                                               folder: placement.askFolder ? entry.folder : nil, missingFields: entry.missing,
-                                              contentValues: contents[entry.path] ?? [:]))
+                                              contentValues: contents[entry.path] ?? [:], missingDate: entry.date))
         }
         guard decide else {
             for item in items {

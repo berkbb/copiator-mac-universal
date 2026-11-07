@@ -23,6 +23,8 @@ struct PlacementDecisionView: View {
     @State private var ordered: [String: [String]] = [:]
     @State private var proposed: [String: String] = [:]
     @State private var dates: [String: DateComponents] = [:]
+    /// Tarihi bulunamayan dosyalar için seçilen tarih (değiştirilme tarihiyle önceden doldurulur).
+    @State private var chosenDates: [String: Date] = [:]
     @State private var ranking = false
     @State private var rankedByAI = false
     /// Yapay zekâ hiçbir dosya için öneri veremediyse nedeni.
@@ -143,6 +145,16 @@ struct PlacementDecisionView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.body.monospaced())
             }
+            if let suggested = item.missingDate {
+                HStack(spacing: 8) {
+                    Text(settings.t(.placementDateMissing, settings.title(job.options.placement?.dateSource ?? .automatic)))
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    DatePicker(settings.t(.placementDateSource), selection: dateBinding(for: item, suggested: suggested), displayedComponents: .date)
+                        .labelsHidden()
+                        .environment(\.locale, settings.locale)
+                }
+            }
             if !item.missingFields.isEmpty {
                 Text(settings.t(.placementMissingFields, item.missingFields.map { "{c:\($0)}" }.joined(separator: ", ")))
                     .font(.caption)
@@ -230,8 +242,20 @@ struct PlacementDecisionView: View {
 
     /// Dosyanın tarihi (rotanın tarih kaynağından); bulunamazsa addaki tarih ya da bugün.
     private func date(for item: PlacementReport.Item) -> DateComponents {
+        if let suggested = item.missingDate { return Self.calendar.dateComponents([.year, .month, .day], from: chosenDate(item, suggested: suggested)) }
         let name = ((item.path as NSString).lastPathComponent as NSString).deletingPathExtension
         return dates[item.path] ?? TextDate.find(in: name) ?? Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: Date())
+    }
+
+    private static let calendar = Calendar(identifier: .gregorian)
+
+    /// Tarihi bulunamayan dosyanın seçilen tarihi; seçilmediyse önerilen (değiştirilme) tarihi.
+    private func chosenDate(_ item: PlacementReport.Item, suggested: String) -> Date {
+        chosenDates[item.path] ?? PlacementDate.components(suggested).flatMap(Self.calendar.date(from:)) ?? Date()
+    }
+
+    private func dateBinding(for item: PlacementReport.Item, suggested: String) -> Binding<Date> {
+        Binding(get: { chosenDate(item, suggested: suggested) }, set: { chosenDates[item.path] = $0 })
     }
 
     private func nameBinding(for item: PlacementReport.Item) -> Binding<String> {
@@ -295,7 +319,8 @@ struct PlacementDecisionView: View {
     /// Tarih belirteçleri için dosyaların tarihi (rotanın tarih kaynağından); bulunamazsa addaki tarih ya da bugün.
     private func loadDates() async {
         guard let placement = job.options.placement, placement.usesDate else { return }
-        for item in report.items {
+        // Tarihi bulunamayan dosyanın tarihi sayfada seçilir (değiştirilme tarihine sessizce geçilmez).
+        for item in report.items where item.missingDate == nil {
             let url = job.source.appendingPathComponent(item.path)
             dates[item.path] = await PlacementDate.resolve(url, relativePath: item.path, source: placement.dateSource)
         }
@@ -348,6 +373,10 @@ struct PlacementDecisionView: View {
             if let chosen = item.needsFolder ? folder : item.folder { resolution.folders[item.path] = chosen }
             if let name = names[item.path]?.trimmingCharacters(in: .whitespaces), !RoutePlacement.component(name).isEmpty {
                 resolution.names[item.path] = name
+            }
+            if let suggested = item.missingDate {
+                resolution.dates[item.path] = PlacementDate.string(Self.calendar.dateComponents([.year, .month, .day],
+                                                                                                from: chosenDate(item, suggested: suggested)))
             }
             if item.needsFolder, remember.contains(item.path) { remembered[item.path] = folder }
         }

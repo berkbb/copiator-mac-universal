@@ -316,7 +316,7 @@ public enum LKey: String, CaseIterable, Sendable {
     case problemContentFieldName, problemContentFieldPattern, problemContentTokenInFolder, placementFields, placementFieldAdd
     case placementFieldRemove, placementFieldNamePrompt, placementFieldPatternPrompt, placementFieldNote, placementFieldSample
     case placementFieldSamplePrompt, placementFieldValue, placementFieldNoMatch, placementFieldsSummary, placementMissingFields
-    case placementNameSheetTitle
+    case placementNameSheetTitle, placementDateMissing
     // Time Machine dışlaması
     case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk

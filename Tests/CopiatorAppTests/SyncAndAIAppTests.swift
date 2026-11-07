@@ -121,7 +121,7 @@ struct SyncAndAIAppTests {
         #expect(job.isAwaitingDecision && job.pendingPlacements?.items.first?.suggestions.first == "Elektrik (123456789)")
         #expect(model.conflictPrompt?.id == job.id && fixture.read("Hedef/Elektrik (123456789)/123456789_enerjisa ekim.txt") == nil)
         let settings = fixture.settings
-        #expect(settings.result(try #require(job.result)) == "Karar bekleniyor: 1 dosyanın hedefteki klasörü ya da adı seçilmeli")
+        #expect(settings.result(try #require(job.result)) == "Karar bekleniyor: 1 dosyanın hedefteki klasörü, adı ya da tarihi seçilmeli")
         #expect(fixture.notifications.last?.1 == settings.t(.notifyPlacementBody, "Faturalar", 1))
         render(AnyView(ConflictSheet(prompt: ConflictPrompt(id: job.id)).environment(model).environment(fixture.settings)),
                NSSize(width: 720, height: 540), "placement-decision")
@@ -173,6 +173,33 @@ struct SyncAndAIAppTests {
         #expect(model.job(job.id)?.status == .finished, "\(model.job(job.id)?.log.suffix(5) ?? [])")
         #expect(fixture.read("Hedef/128820964_El.txt") == "ENERJİSA\nAbone No: 128820964\n")
         #expect(fixture.read("Hedef/128820964_El_Kasim.txt") == "okunamayan tarama")
+    }
+
+    /// İçerikteki tarih seçili rota kuyruktan: tarihi bulunamayan dosya için hiçbir şey kopyalanmadan tarih sorulur (karar
+    /// sayfası çizilir); seçilen tarihle adlanır.
+    @Test func missingDateIsAskedBeforeCopying() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        await model.refreshEngine()
+        fixture.settings.language = .tr
+        try fixture.write("Faturalar/taranmis.txt", "tarih yok")
+        let placement = RoutePlacement(nameTemplate: "El_{month}_{yy}", dateSource: .contents)
+        let routine = Routine(name: "Faturalar", routes: [RoutineRoute(source: fixture.url("Faturalar"), destination: fixture.url("Hedef"),
+                                                                       placement: placement)],
+                              options: CopyOptions(conflictPolicy: .skip))
+        #expect(model.saveRoutine(routine) == nil)
+        #expect(model.runRoutine(routine.id) == nil)
+        await model.waitUntilIdle()
+        let job = try #require(model.jobs(for: routine.id).first)
+        #expect(job.isAwaitingDecision && job.pendingPlacements?.items.first?.missingDate != nil)
+        #expect(((try? FileManager.default.contentsOfDirectory(atPath: fixture.url("Hedef").path)) ?? []).isEmpty, "önce hiçbir şey kopyalanmaz")
+        render(AnyView(ConflictSheet(prompt: ConflictPrompt(id: job.id)).environment(model).environment(fixture.settings)),
+               NSSize(width: 720, height: 380), "placement-missing-date")
+        model.resolvePlacements(job.id, resolution: PlacementResolution(dates: ["taranmis.txt": "2026-09-15"]), remember: [:])
+        await model.waitUntilIdle()
+        #expect(model.job(job.id)?.status == .finished, "\(model.job(job.id)?.log.suffix(5) ?? [])")
+        #expect(fixture.read("Hedef/El_09_26.txt") == "tarih yok")
     }
 
     /// Yerel sunucu sağlayıcısı: sunucu yanıt vermezse öneri yok; listedeki model seçilince öneriler açılır ve kaynak adı

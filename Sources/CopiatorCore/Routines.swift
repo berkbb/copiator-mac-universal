@@ -263,6 +263,24 @@ public enum RuleSelection {
             var folders: [String: String]?
             var names: [String: String] = [:]
             var contents: [String: [String: String]] = [:]
+            // Açıkça seçilen tarih kaynağı tarih bulamazsa (taranmış belge, adında tarih olmayan dosya) tarih sorulur;
+            // bulunan tarihler hazırlıkta yeniden okunmaz.
+            var found: [String: DateComponents] = [:]
+            var undated: [String: String] = [:]
+            if placement.usesDate, placement.dateSource.asksWhenMissing {
+                for path in paths {
+                    if isCancelled() || Task.isCancelled {
+                        try? FileManager.default.removeItem(at: folder)
+                        throw CancellationError()
+                    }
+                    let url = source.appendingPathComponent(path)
+                    if let date = await PlacementDate.find(url, relativePath: path, source: placement.dateSource) {
+                        found[path] = date
+                    } else {
+                        undated[path] = PlacementDate.string(PlacementDate.modified(of: url))
+                    }
+                }
+            }
             if placement.usesContent {
                 let fields = placement.contentFields, required = placement.referencedFields
                 for path in paths {
@@ -273,12 +291,13 @@ public enum RuleSelection {
                     contents[path] = ContentField.values(of: source.appendingPathComponent(path), fields: fields, only: required)
                 }
             }
-            if placement.askFolder || placement.usesContent {
+            var chosenDates: [String: DateComponents] = [:]
+            if placement.askFolder || placement.usesContent || !undated.isEmpty {
                 let plan: PlacementQuestions.Plan
                 do {
                     plan = try PlacementQuestions.plan(paths: paths, source: source, destination: job.destination, placement: placement,
-                                                       resolution: job.placementResolution, contents: contents, decide: askFolders,
-                                                       isCancelled: isCancelled)
+                                                       resolution: job.placementResolution, contents: contents, undated: undated,
+                                                       decide: askFolders, isCancelled: isCancelled)
                 } catch {
                     try? FileManager.default.removeItem(at: folder)
                     throw error
@@ -290,11 +309,12 @@ public enum RuleSelection {
                 paths = plan.paths
                 folders = placement.askFolder ? plan.folders : nil
                 names = plan.names
+                chosenDates = plan.dates
             }
             let staged = try await PlacementStaging.build(paths: paths, source: source, placement: placement,
                                                           in: folder.appendingPathComponent("yerlesim", isDirectory: true),
                                                           destination: job.destination, folders: folders, names: names, contents: contents,
-                                                          isCancelled: isCancelled)
+                                                          dates: found.merging(chosenDates) { _, chosen in chosen }, isCancelled: isCancelled)
             job.source = staged.root
             job.options.placement = nil
             job.options.advanced.filesFromFile = nil

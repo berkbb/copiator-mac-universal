@@ -759,7 +759,7 @@
 "placementDateModified" = "Değiştirilme tarihi";
 "placementDateCreated" = "Oluşturulma tarihi";
 "placementExample" = "Örnek: %@";
-"placementNote" = "Uzantı her zaman korunur. Otomatik tarih: çekim tarihi, yoksa dosya adındaki, yoksa içerikteki (PDF ve metin), o da yoksa değiştirilme tarihi; gün bulunamazsa 01. Aynı hedefe düşen dosyalar numaralanır, hedefte aynı adlı dosya varsa her zamanki gibi sorulur. Ad şablonunda {name} belirtecinin önündeki ya da ardındaki metin adda zaten varsa yeniden eklenmez. Örnek, Dene alanındaki yola göre hesaplanır.";
+"placementNote" = "Uzantı her zaman korunur. Otomatik tarih: çekim tarihi, yoksa dosya adındaki, yoksa içerikteki (PDF ve metin), o da yoksa değiştirilme tarihi; gün bulunamazsa 01. Aynı hedefe düşen dosyalar numaralanır, hedefte aynı adlı dosya varsa her zamanki gibi sorulur. Ad şablonunda {name} belirtecinin önündeki ya da ardındaki metin adda zaten varsa yeniden eklenmez. Örnek, Dene alanındaki yola göre hesaplanır. Dosya adındaki, içerikteki ya da çekim tarihi seçiliyken tarih bulunamazsa değiştirilme tarihine geçilmez: iş kopyalamadan önce karar bekler ve tarih sorulur.";
 "placementSampleFile" = "Faturalar/Elektrik Ekim 2026.pdf";
 "placementSameName" = "aynı ad";
 "problemPlacementToken" = "Bilinmeyen belirteç: %@";
@@ -782,7 +782,7 @@
 "placementFixesSummary" = "düzeltme: %ld";
 "logAwaitingPlacement" = "%@ dosyanın hedefteki klasörü seçilmeli; karar bekleniyor.";
 "logPlacementsDecided" = "Klasörler seçildi; iş yeniden sıraya alındı.";
-"notifyPlacementBody" = "“%1$@”: %2$ld dosyanın hedefteki klasörü ya da adı seçilmeli.";
+"notifyPlacementBody" = "“%1$@”: %2$ld dosyanın hedefteki klasörü, adı ya da tarihi seçilmeli.";
 "placementAskFolder" = "Her dosyaya klasör öner ve onayıma sun";
 "placementAskFolderNote" = "Hedefteki klasörler dosyanın adına ve içeriğine göre önerilir; siz onaylamadan hiçbir dosya kopyalanmaz. Hatırlanan seçimler benzer adlı dosyalarda sorulmadan kullanılır. Alt klasör şablonu seçilen klasörün altında uygulanır; {targetNumber} seçilen klasörün adındaki numarayı da okur.";
 "placementLearned" = "Hatırlanan klasörler: %ld";
@@ -801,7 +801,7 @@
 "placementMore" = "… ve %ld dosya daha (sonraki çalıştırmada sorulur)";
 "placementAskSummary" = "klasör sorulur";
 "placementRankAll" = "Yapay Zekâya Sor";
-"resultAwaitingPlacement" = "Karar bekleniyor: %ld dosyanın hedefteki klasörü ya da adı seçilmeli";
+"resultAwaitingPlacement" = "Karar bekleniyor: %ld dosyanın hedefteki klasörü, adı ya da tarihi seçilmeli";
 "ruleAttrInDestination" = "Hedefte aynı içerikli kopya";
 "ruleOpExists" = "var";
 "ruleOpNotExists" = "yok";
@@ -828,7 +828,8 @@
 "placementFieldNoMatch" = "%@: eşleşme yok";
 "placementFieldsSummary" = "%ld içerik alanı";
 "placementMissingFields" = "Metinde bulunamadı: %@. Yeni adı yazın ya da dosyayı atlayın.";
-"placementNameSheetTitle" = "%ld dosyanın adı içerikten çıkarılamadı";
+"placementNameSheetTitle" = "%ld dosya için ad ya da tarih gerekiyor";
+"placementDateMissing" = "%@ bulunamadı; tarihi seçin:";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "%ld öğeyi bir rutinle kopyala";
