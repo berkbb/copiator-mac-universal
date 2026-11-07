@@ -782,7 +782,7 @@
 "placementFixesSummary" = "fixes: %ld";
 "logAwaitingPlacement" = "%@ files need a folder at the destination; waiting for your decision.";
 "logPlacementsDecided" = "Folders were chosen; the job was queued again.";
-"notifyPlacementBody" = "“%1$@”: %2$ld files need a folder at the destination.";
+"notifyPlacementBody" = "“%1$@”: %2$ld files need a folder or a name at the destination.";
 "placementAskFolder" = "Suggest a folder for each file and ask me";
 "placementAskFolderNote" = "Folders at the destination are suggested from each file's name and contents; no file is copied until you approve. Remembered choices are used without asking for files with similar names. The subfolder template applies inside the chosen folder, and {targetNumber} also reads the number in the chosen folder's name.";
 "placementLearned" = "Remembered folders: %ld";
@@ -801,7 +801,7 @@
 "placementMore" = "… and %ld more files (asked on the next run)";
 "placementAskSummary" = "folder asked";
 "placementRankAll" = "Ask the AI";
-"resultAwaitingPlacement" = "Waiting for a decision: %ld files need a folder at the destination";
+"resultAwaitingPlacement" = "Waiting for a decision: %ld files need a folder or a name at the destination";
 "ruleAttrInDestination" = "Copy with the same contents at the destination";
 "ruleOpExists" = "exists";
 "ruleOpNotExists" = "does not exist";
@@ -813,6 +813,22 @@
 "folderTreeFileName" = "%@ folder tree.md";
 "toastFolderTreeSaved" = "Folder tree saved";
 "folderTreeFailed" = "The folder tree could not be saved: %@";
+"problemContentFieldName" = "A content field name can only use English letters, digits and underscores and must differ from the other fields: “%@”";
+"problemContentFieldPattern" = "The content field's regular expression is invalid or has no capture group: “%@”";
+"problemContentTokenInFolder" = "Content tokens can only be used in the name template: %@";
+"placementFields" = "Values from the contents";
+"placementFieldAdd" = "Add Field";
+"placementFieldRemove" = "Remove Field";
+"placementFieldNamePrompt" = "account";
+"placementFieldPatternPrompt" = "Account No:\\s*(\\d+)";
+"placementFieldNote" = "Used as {c:name} in the name template: the first group of the regular expression's first match in the file's text (PDF and text files) is written. The expression is applied as written; put (?i) in front to ignore letter case. When no value is found, the job waits for a decision before copying and asks for that file's name. Scanned documents have no text, so no value is found in them.";
+"placementFieldSample" = "Test text";
+"placementFieldSamplePrompt" = "Paste a line from a document";
+"placementFieldValue" = "%1$@ = %2$@";
+"placementFieldNoMatch" = "%@: no match";
+"placementFieldsSummary" = "%ld content fields";
+"placementMissingFields" = "Not found in the text: %@. Type the new name or skip the file.";
+"placementNameSheetTitle" = "The name of %ld files could not be taken from their contents";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copy %ld items with a routine";

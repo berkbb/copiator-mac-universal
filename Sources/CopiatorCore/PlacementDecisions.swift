@@ -3,17 +3,43 @@ import Darwin
 import Foundation
 import UniformTypeIdentifiers
 
-/// "Klasörü sor" rotasında hedef klasörü henüz seçilmemiş dosyalar: iş bunlar için karar bekler ("karar bekliyor").
+/// Yerleştirilen rotada karar bekleyen dosyalar: "Klasörü sor"da hedef klasörü henüz seçilmemiş olanlar ve ad şablonunun
+/// içerikten istediği bir değeri (`{c:…}`) metninde bulunmayanlar. İş bunlar için karar bekler ("karar bekliyor").
 public struct PlacementReport: Codable, Equatable, Sendable {
     public struct Item: Codable, Equatable, Sendable {
         /// Kaynağa göre göreli yol.
         public var path: String
         /// Önerilen klasörler (hedefe göre göreli, en uygunu başta); boşsa hedefte uygun klasör bulunamadı.
         public var suggestions: [String]
+        /// Klasör seçilmeli ("Klasörü sor" ve klasör henüz bilinmiyor); değilse yalnızca ad sorulur.
+        public var needsFolder: Bool
+        /// Klasörü önceden bilinen dosyada o klasör (öğrenilmiş ya da seçilmiş; hedefe göre göreli).
+        public var folder: String?
+        /// Metinde bulunamayan içerik alanları: bu dosyaya yeni ad yazılmalı ya da dosya atlanmalı.
+        public var missingFields: [String]
+        /// Bulunan içerik alanlarının değerleri (adın önizlemesi için).
+        public var contentValues: [String: String]
 
-        public init(path: String, suggestions: [String]) {
+        public init(path: String, suggestions: [String], needsFolder: Bool = true, folder: String? = nil, missingFields: [String] = [],
+                    contentValues: [String: String] = [:]) {
             self.path = path
             self.suggestions = suggestions
+            self.needsFolder = needsFolder
+            self.folder = folder
+            self.missingFields = missingFields
+            self.contentValues = contentValues
+        }
+
+        private enum CodingKeys: String, CodingKey { case path, suggestions, needsFolder, folder, missingFields, contentValues }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            path = try c.decode(String.self, forKey: .path)
+            suggestions = (try? c.decodeIfPresent([String].self, forKey: .suggestions)) ?? []
+            needsFolder = (try? c.decodeIfPresent(Bool.self, forKey: .needsFolder)) ?? true
+            folder = (try? c.decodeIfPresent(String.self, forKey: .folder)) ?? nil
+            missingFields = (try? c.decodeIfPresent([String].self, forKey: .missingFields)) ?? []
+            contentValues = (try? c.decodeIfPresent([String: String].self, forKey: .contentValues)) ?? [:]
         }
     }
 
@@ -98,39 +124,54 @@ public enum PlacementQuestions {
         public var report: PlacementReport
     }
 
-    /// - Parameter decide: false ise (önizleme) kararsız dosyalar ilk öneriye (yoksa hedefin köküne) konur, iş beklemez.
+    /// - Parameters:
+    ///   - contents: İçerik alanlarının dosyalardaki değerleri (yol → alan adı → değer; bkz. `ContentField.values`).
+    ///   - decide: false ise (önizleme) kararsız dosyalar ilk öneriye (yoksa hedefin köküne) konur, bulunamayan değerler
+    ///     boş yazılır, iş beklemez.
     public static func plan(
         paths: [String], source: URL, destination: URL, placement: RoutePlacement, resolution: PlacementResolution?,
-        decide: Bool = true, isCancelled: () -> Bool = { false }
+        contents: [String: [String: String]] = [:], decide: Bool = true, isCancelled: () -> Bool = { false }
     ) throws -> Plan {
         let resolution = resolution ?? PlacementResolution()
+        let required = placement.referencedFields
         var plan = Plan(paths: [], folders: [:], report: nil)
-        var undecided: [String] = []
+        // Kararsız dosya: klasörü bilinmiyor ("Klasörü sor") ya da içerikten istenen bir değer bulunamadı ve ad yazılmadı.
+        var undecided: [(path: String, folder: String?, missing: [String])] = []
         for path in paths {
             if isCancelled() || Task.isCancelled { throw CancellationError() }
             if resolution.skipped.contains(path) { continue }
-            if let folder = resolution.folders[path] ?? learned(path, placement: placement, destination: destination) {
+            let folder = placement.askFolder ? (resolution.folders[path] ?? learned(path, placement: placement, destination: destination)) : ""
+            let name = resolution.names[path].flatMap { RoutePlacement.component($0).isEmpty ? nil : $0 }
+            let missing = required.filter { (contents[path]?[$0] ?? "").isEmpty }
+            if let folder, missing.isEmpty || name != nil {
                 plan.paths.append(path)
-                plan.folders[path] = PlacementResolution.clean(folder)
-                if let name = resolution.names[path], !RoutePlacement.component(name).isEmpty { plan.names[path] = name }
+                if placement.askFolder { plan.folders[path] = PlacementResolution.clean(folder) }
+                if let name { plan.names[path] = name }
             } else {
-                undecided.append(path)
+                undecided.append((path, folder.map(PlacementResolution.clean), name == nil ? missing : []))
             }
         }
         guard !undecided.isEmpty else { return plan }
-        let candidates = FolderSuggester.folders(in: destination, isCancelled: isCancelled)
+        let needsCandidates = undecided.contains { $0.folder == nil }
+        let candidates = needsCandidates ? FolderSuggester.folders(in: destination, isCancelled: isCancelled) : []
         var items: [PlacementReport.Item] = []
-        for path in decide ? Array(undecided.prefix(PlacementReport.maxItems)) : undecided {
+        for entry in decide ? Array(undecided.prefix(PlacementReport.maxItems)) : undecided {
             if isCancelled() || Task.isCancelled { throw CancellationError() }
-            let url = source.appendingPathComponent(path)
-            let content = ContentReader.canRead(UTType(filenameExtension: url.pathExtension)) ? ContentReader.text(of: url) : nil
-            let suggestions = FolderSuggester.suggestions(for: path, folders: candidates, content: content, limit: Suggestions.maxCandidates)
-            items.append(PlacementReport.Item(path: path, suggestions: suggestions.map(\.path)))
+            var suggestions: [String] = []
+            if entry.folder == nil {
+                let url = source.appendingPathComponent(entry.path)
+                let content = ContentReader.canRead(UTType(filenameExtension: url.pathExtension)) ? ContentReader.text(of: url) : nil
+                suggestions = FolderSuggester.suggestions(for: entry.path, folders: candidates, content: content, limit: Suggestions.maxCandidates)
+                    .map(\.path)
+            }
+            items.append(PlacementReport.Item(path: entry.path, suggestions: suggestions, needsFolder: entry.folder == nil,
+                                              folder: placement.askFolder ? entry.folder : nil, missingFields: entry.missing,
+                                              contentValues: contents[entry.path] ?? [:]))
         }
         guard decide else {
             for item in items {
                 plan.paths.append(item.path)
-                plan.folders[item.path] = item.suggestions.first ?? ""
+                if placement.askFolder { plan.folders[item.path] = item.folder ?? item.suggestions.first ?? "" }
             }
             return plan
         }

@@ -257,15 +257,28 @@ public enum RuleSelection {
         job.options.deleteExtraneous = false
         // Yerleştirme: hedefteki düzen hazırlık ağacında kurulur, iş onu kopyalar (liste gerekmez).
         if let placement = job.options.placement, placement.isActive {
-            // "Klasörü sor": klasörü bilinmeyen dosya varsa iş karar bekler (önizlemede ilk öneri kullanılır).
+            // "Klasörü sor": klasörü bilinmeyen dosya varsa iş karar bekler (önizlemede ilk öneri kullanılır). Ad şablonu
+            // içerikten bir değer istiyorsa dosyaların metni okunur; değeri bulunamayan dosya için ad sorulur.
             var paths = result.paths
             var folders: [String: String]?
             var names: [String: String] = [:]
-            if placement.askFolder {
+            var contents: [String: [String: String]] = [:]
+            if placement.usesContent {
+                let fields = placement.contentFields, required = placement.referencedFields
+                for path in paths {
+                    if isCancelled() || Task.isCancelled {
+                        try? FileManager.default.removeItem(at: folder)
+                        throw CancellationError()
+                    }
+                    contents[path] = ContentField.values(of: source.appendingPathComponent(path), fields: fields, only: required)
+                }
+            }
+            if placement.askFolder || placement.usesContent {
                 let plan: PlacementQuestions.Plan
                 do {
                     plan = try PlacementQuestions.plan(paths: paths, source: source, destination: job.destination, placement: placement,
-                                                       resolution: job.placementResolution, decide: askFolders, isCancelled: isCancelled)
+                                                       resolution: job.placementResolution, contents: contents, decide: askFolders,
+                                                       isCancelled: isCancelled)
                 } catch {
                     try? FileManager.default.removeItem(at: folder)
                     throw error
@@ -275,12 +288,13 @@ public enum RuleSelection {
                     throw PlacementQuestions.DecisionNeeded(report: report)
                 }
                 paths = plan.paths
-                folders = plan.folders
+                folders = placement.askFolder ? plan.folders : nil
                 names = plan.names
             }
             let staged = try await PlacementStaging.build(paths: paths, source: source, placement: placement,
                                                           in: folder.appendingPathComponent("yerlesim", isDirectory: true),
-                                                          destination: job.destination, folders: folders, names: names, isCancelled: isCancelled)
+                                                          destination: job.destination, folders: folders, names: names, contents: contents,
+                                                          isCancelled: isCancelled)
             job.source = staged.root
             job.options.placement = nil
             job.options.advanced.filesFromFile = nil

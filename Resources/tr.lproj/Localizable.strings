@@ -782,7 +782,7 @@
 "placementFixesSummary" = "düzeltme: %ld";
 "logAwaitingPlacement" = "%@ dosyanın hedefteki klasörü seçilmeli; karar bekleniyor.";
 "logPlacementsDecided" = "Klasörler seçildi; iş yeniden sıraya alındı.";
-"notifyPlacementBody" = "“%1$@”: %2$ld dosyanın hedefteki klasörü seçilmeli.";
+"notifyPlacementBody" = "“%1$@”: %2$ld dosyanın hedefteki klasörü ya da adı seçilmeli.";
 "placementAskFolder" = "Her dosyaya klasör öner ve onayıma sun";
 "placementAskFolderNote" = "Hedefteki klasörler dosyanın adına ve içeriğine göre önerilir; siz onaylamadan hiçbir dosya kopyalanmaz. Hatırlanan seçimler benzer adlı dosyalarda sorulmadan kullanılır. Alt klasör şablonu seçilen klasörün altında uygulanır; {targetNumber} seçilen klasörün adındaki numarayı da okur.";
 "placementLearned" = "Hatırlanan klasörler: %ld";
@@ -801,7 +801,7 @@
 "placementMore" = "… ve %ld dosya daha (sonraki çalıştırmada sorulur)";
 "placementAskSummary" = "klasör sorulur";
 "placementRankAll" = "Yapay Zekâya Sor";
-"resultAwaitingPlacement" = "Karar bekleniyor: %ld dosyanın hedefteki klasörü seçilmeli";
+"resultAwaitingPlacement" = "Karar bekleniyor: %ld dosyanın hedefteki klasörü ya da adı seçilmeli";
 "ruleAttrInDestination" = "Hedefte aynı içerikli kopya";
 "ruleOpExists" = "var";
 "ruleOpNotExists" = "yok";
@@ -813,6 +813,22 @@
 "folderTreeFileName" = "%@ klasör ağacı.md";
 "toastFolderTreeSaved" = "Klasör ağacı kaydedildi";
 "folderTreeFailed" = "Klasör ağacı kaydedilemedi: %@";
+"problemContentFieldName" = "İçerik alanının adı yalnızca İngilizce harf, rakam ve alt çizgi içerebilir ve başka bir alanla aynı olamaz: “%@”";
+"problemContentFieldPattern" = "İçerik alanının düzenli ifadesi geçersiz ya da yakalama grubu yok: “%@”";
+"problemContentTokenInFolder" = "İçerik belirteci yalnızca ad şablonunda kullanılabilir: %@";
+"placementFields" = "İçerikten alınan değerler";
+"placementFieldAdd" = "Alan Ekle";
+"placementFieldRemove" = "Alanı Kaldır";
+"placementFieldNamePrompt" = "abone";
+"placementFieldPatternPrompt" = "Abone No:\\s*(\\d+)";
+"placementFieldNote" = "Ad şablonunda {c:ad} olarak kullanılır: dosyanın metninde (PDF ve metin dosyaları) düzenli ifadenin ilk eşleşmesinin ilk grubu yazılır. İfade yazıldığı gibi uygulanır; büyük/küçük harf ayrımı olmasın diye başına (?i) yazın. Değer bulunamazsa iş kopyalamadan önce karar bekler ve o dosyanın adı sorulur. Taranmış belgelerde metin olmadığı için değer bulunmaz.";
+"placementFieldSample" = "Deneme metni";
+"placementFieldSamplePrompt" = "Belgeden bir satır yapıştırın";
+"placementFieldValue" = "%1$@ = %2$@";
+"placementFieldNoMatch" = "%@: eşleşme yok";
+"placementFieldsSummary" = "%ld içerik alanı";
+"placementMissingFields" = "Metinde bulunamadı: %@. Yeni adı yazın ya da dosyayı atlayın.";
+"placementNameSheetTitle" = "%ld dosyanın adı içerikten çıkarılamadı";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "%ld öğeyi bir rutinle kopyala";

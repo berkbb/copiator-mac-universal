@@ -782,7 +782,7 @@
 "placementFixesSummary" = "corecții: %ld";
 "logAwaitingPlacement" = "Pentru %@ fișiere trebuie ales un dosar la destinație; se așteaptă decizia dvs.";
 "logPlacementsDecided" = "Dosarele au fost alese; lucrarea a fost pusă din nou în coadă.";
-"notifyPlacementBody" = "„%1$@”: pentru %2$ld fișiere trebuie ales un dosar la destinație.";
+"notifyPlacementBody" = "„%1$@”: pentru %2$ld fișiere trebuie ales un dosar sau un nume la destinație.";
 "placementAskFolder" = "Sugerează un dosar pentru fiecare fișier și întreabă-mă";
 "placementAskFolderNote" = "Dosarele de la destinație sunt sugerate după numele și conținutul fiecărui fișier; niciun fișier nu este copiat fără aprobarea dvs. Alegerile reținute se folosesc fără întrebare pentru fișierele cu nume asemănătoare. Șablonul de subdosar se aplică în dosarul ales, iar {targetNumber} citește și numărul din numele dosarului ales.";
 "placementLearned" = "Dosare reținute: %ld";
@@ -801,7 +801,7 @@
 "placementMore" = "… și încă %ld fișiere (întrebate la următoarea rulare)";
 "placementAskSummary" = "dosar întrebat";
 "placementRankAll" = "Întreabă AI";
-"resultAwaitingPlacement" = "Se așteaptă o decizie: pentru %ld fișiere trebuie ales un dosar la destinație";
+"resultAwaitingPlacement" = "Se așteaptă o decizie: pentru %ld fișiere trebuie ales un dosar sau un nume la destinație";
 "ruleAttrInDestination" = "Copie cu același conținut la destinație";
 "ruleOpExists" = "există";
 "ruleOpNotExists" = "nu există";
@@ -813,6 +813,22 @@
 "folderTreeFileName" = "Arborele de dosare %@.md";
 "toastFolderTreeSaved" = "Arborele de dosare a fost salvat";
 "folderTreeFailed" = "Arborele de dosare nu a putut fi salvat: %@";
+"problemContentFieldName" = "Numele unui câmp de conținut poate folosi doar litere englezești, cifre și liniuțe de subliniere și trebuie să difere de celelalte câmpuri: „%@”";
+"problemContentFieldPattern" = "Expresia regulată a câmpului de conținut este invalidă sau nu are grup de captură: „%@”";
+"problemContentTokenInFolder" = "Indicatorii de conținut pot fi folosiți doar în șablonul de nume: %@";
+"placementFields" = "Valori din conținut";
+"placementFieldAdd" = "Adaugă câmp";
+"placementFieldRemove" = "Elimină câmpul";
+"placementFieldNamePrompt" = "abonat";
+"placementFieldPatternPrompt" = "Nr. abonat:\\s*(\\d+)";
+"placementFieldNote" = "Se folosește ca {c:nume} în șablonul de nume: se scrie primul grup al primei potriviri a expresiei regulate în textul fișierului (fișiere PDF și text). Expresia se aplică așa cum este scrisă; puneți (?i) în față pentru a ignora majusculele. Dacă nu se găsește nicio valoare, lucrarea așteaptă o decizie înainte de copiere și cere numele acelui fișier. Documentele scanate nu au text, deci în ele nu se găsește nicio valoare.";
+"placementFieldSample" = "Text de probă";
+"placementFieldSamplePrompt" = "Lipiți un rând dintr-un document";
+"placementFieldValue" = "%1$@ = %2$@";
+"placementFieldNoMatch" = "%@: nicio potrivire";
+"placementFieldsSummary" = "%ld câmpuri de conținut";
+"placementMissingFields" = "Negăsit în text: %@. Scrieți numele nou sau săriți fișierul.";
+"placementNameSheetTitle" = "Numele a %ld fișiere nu a putut fi luat din conținutul lor";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copiază %ld elemente cu o rutină";

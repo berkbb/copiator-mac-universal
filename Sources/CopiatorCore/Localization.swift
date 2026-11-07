@@ -312,6 +312,11 @@ public enum LKey: String, CaseIterable, Sendable {
     // Klasör ağacı
     case menuSaveFolderTree, folderTreeTitle, folderTreeRoot, folderTreeTruncated, folderTreeFileName, toastFolderTreeSaved
     case folderTreeFailed
+    // İçerikten alınan değerler (ad şablonunda {c:ad})
+    case problemContentFieldName, problemContentFieldPattern, problemContentTokenInFolder, placementFields, placementFieldAdd
+    case placementFieldRemove, placementFieldNamePrompt, placementFieldPatternPrompt, placementFieldNote, placementFieldSample
+    case placementFieldSamplePrompt, placementFieldValue, placementFieldNoMatch, placementFieldsSummary, placementMissingFields
+    case placementNameSheetTitle
     // Time Machine dışlaması
     case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk

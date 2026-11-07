@@ -121,7 +121,7 @@ struct SyncAndAIAppTests {
         #expect(job.isAwaitingDecision && job.pendingPlacements?.items.first?.suggestions.first == "Elektrik (123456789)")
         #expect(model.conflictPrompt?.id == job.id && fixture.read("Hedef/Elektrik (123456789)/123456789_enerjisa ekim.txt") == nil)
         let settings = fixture.settings
-        #expect(settings.result(try #require(job.result)) == "Karar bekleniyor: 1 dosyanın hedefteki klasörü seçilmeli")
+        #expect(settings.result(try #require(job.result)) == "Karar bekleniyor: 1 dosyanın hedefteki klasörü ya da adı seçilmeli")
         #expect(fixture.notifications.last?.1 == settings.t(.notifyPlacementBody, "Faturalar", 1))
         render(AnyView(ConflictSheet(prompt: ConflictPrompt(id: job.id)).environment(model).environment(fixture.settings)),
                NSSize(width: 720, height: 540), "placement-decision")
@@ -139,6 +139,40 @@ struct SyncAndAIAppTests {
         await model.waitUntilIdle()
         #expect(model.jobs(for: routine.id).allSatisfy { $0.status == .finished }, "\(model.jobs(for: routine.id).map { $0.log.suffix(4) })")
         #expect(fixture.read("Hedef/Elektrik (123456789)/123456789_Enerjisa Kasım.txt") == "kasım")
+    }
+
+    /// İçerikten alınan değer kuyruktan: metninde değer olan dosya o değerle adlanır; olmayan için hiçbir şey kopyalanmadan
+    /// karar beklenir ve yalnızca ad sorulur; yazılan adla kopyalanır. Düzenleyicideki alanlar ve karar sayfası çizilir.
+    @Test func contentFieldRoutineNamesFromTextAndAsksForMissingValues() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        await model.refreshEngine()
+        fixture.settings.language = .tr
+        try fixture.write("Faturalar/enerjisa ekim.txt", "ENERJİSA\nAbone No: 128820964\n")
+        try fixture.write("Faturalar/taranmis kasim.txt", "okunamayan tarama")
+        let placement = RoutePlacement(nameTemplate: "{c:abone}_El", contentFields: [ContentField(name: "abone", pattern: #"Abone No:\s*(\d+)"#)])
+        let routine = Routine(name: "Faturalar", routes: [RoutineRoute(source: fixture.url("Faturalar"), destination: fixture.url("Hedef"),
+                                                                       placement: placement)],
+                              options: CopyOptions(conflictPolicy: .skip))
+        #expect(model.saveRoutine(routine) == nil)
+        #expect(model.runRoutine(routine.id) == nil)
+        await model.waitUntilIdle()
+        let job = try #require(model.jobs(for: routine.id).first)
+        let item = try #require(job.pendingPlacements?.items.first)
+        #expect(job.isAwaitingDecision && job.pendingPlacements?.items.count == 1 && item.path == "taranmis kasim.txt")
+        #expect(!item.needsFolder && item.missingFields == ["abone"] && fixture.read("Hedef/128820964_El.txt") == nil, "önce hiçbir şey kopyalanmaz")
+        render(AnyView(ConflictSheet(prompt: ConflictPrompt(id: job.id)).environment(model).environment(fixture.settings)),
+               NSSize(width: 720, height: 420), "placement-missing-value")
+        render(AnyView(ScrollView { PlacementEditor(placement: .constant(placement), sample: "Faturalar/enerjisa ekim.txt",
+                                                    destination: fixture.url("Hedef")).padding() }
+                .environment(model).environment(fixture.settings)), NSSize(width: 640, height: 720), "placement-content-fields")
+
+        model.resolvePlacements(job.id, resolution: PlacementResolution(names: ["taranmis kasim.txt": "128820964_El_Kasim"]), remember: [:])
+        await model.waitUntilIdle()
+        #expect(model.job(job.id)?.status == .finished, "\(model.job(job.id)?.log.suffix(5) ?? [])")
+        #expect(fixture.read("Hedef/128820964_El.txt") == "ENERJİSA\nAbone No: 128820964\n")
+        #expect(fixture.read("Hedef/128820964_El_Kasim.txt") == "okunamayan tarama")
     }
 
     /// Yerel sunucu sağlayıcısı: sunucu yanıt vermezse öneri yok; listedeki model seçilince öneriler açılır ve kaynak adı

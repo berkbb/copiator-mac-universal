@@ -25,10 +25,12 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
     public var askFolder: Bool
     /// "Bunu hatırla" ile öğrenilen klasörler: `PlacementMemory.key` → hedefe göre göreli klasör.
     public var learnedFolders: [String: String]
+    /// Dosyanın metninden yakalanan değerler; ad şablonunda `{c:ad}` olarak kullanılır (bkz. `ContentField`).
+    public var contentFields: [ContentField]
 
     public init(folderTemplate: String = "", keepStructure: Bool = false, nameTemplate: String = "",
                 dateSource: PlacementDateSource = .automatic, language: String = "tr", nameFixes: [NameFix] = [],
-                askFolder: Bool = false, learnedFolders: [String: String] = [:]) {
+                askFolder: Bool = false, learnedFolders: [String: String] = [:], contentFields: [ContentField] = []) {
         self.folderTemplate = folderTemplate
         self.keepStructure = keepStructure
         self.nameTemplate = nameTemplate
@@ -37,10 +39,11 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         self.nameFixes = nameFixes
         self.askFolder = askFolder
         self.learnedFolders = learnedFolders
+        self.contentFields = contentFields
     }
 
     private enum CodingKeys: String, CodingKey {
-        case folderTemplate, keepStructure, nameTemplate, dateSource, language, nameFixes, askFolder, learnedFolders
+        case folderTemplate, keepStructure, nameTemplate, dateSource, language, nameFixes, askFolder, learnedFolders, contentFields
     }
 
     public init(from decoder: Decoder) throws {
@@ -53,6 +56,7 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         nameFixes = (try? c.decodeIfPresent([NameFix].self, forKey: .nameFixes)) ?? []
         askFolder = (try? c.decodeIfPresent(Bool.self, forKey: .askFolder)) ?? false
         learnedFolders = (try? c.decodeIfPresent([String: String].self, forKey: .learnedFolders)) ?? [:]
+        contentFields = (try? c.decodeIfPresent([ContentField].self, forKey: .contentFields)) ?? []
     }
 
     /// Hazır alt klasör şablonları: yıl/ay adı, yıl/ay, yıl.
@@ -69,6 +73,19 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         PlacementToken.tokens(in: folderTemplate + nameTemplate).contains { $0?.isDate == true }
     }
 
+    /// Ad şablonunun kullandığı içerik alanlarının adları (`{c:abone}` → "abone"), sırasıyla ve tekrarsız; yalnızca
+    /// tanımlı alanlar.
+    public var referencedFields: [String] {
+        var names: [String] = []
+        for name in ContentField.names(in: nameTemplate) where !names.contains(name) && contentFields.contains(where: { $0.name == name }) {
+            names.append(name)
+        }
+        return names
+    }
+
+    /// Ad şablonu içerikten bir değer istiyor: dosyaların metni okunmalı, değeri bulunamayan dosya için ad sorulur.
+    public var usesContent: Bool { !referencedFields.isEmpty }
+
     public enum Problem: Equatable, Sendable {
         /// Bilinmeyen belirteç ("{yil}").
         case unknownToken(String)
@@ -81,13 +98,28 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         /// Ad düzeltmesinin yerine yazılacak metninde anlaşılmayan bölüm: ifadede olmayan grup ("$3") ya da bilinmeyen
         /// dönüşüm ("${1:foo}").
         case fixReplacement(String)
+        /// İçerik alanının adı geçersiz (harf, rakam ve alt çizgi dışında karakter, boş ya da başka bir alanla aynı).
+        case contentFieldName(String)
+        /// İçerik alanının düzenli ifadesi geçersiz ya da yakalama grubu yok.
+        case contentFieldPattern(String)
+        /// İçerik belirteci klasör şablonunda: yalnızca ad şablonunda kullanılabilir.
+        case contentTokenInFolder(String)
     }
 
     public func problems() -> [Problem] {
         var problems: [Problem] = []
-        for (raw, token) in PlacementToken.raw(in: folderTemplate + nameTemplate) where token == nil {
-            let problem = Problem.unknownToken(raw)
-            if !problems.contains(problem) { problems.append(problem) }
+        func add(_ problem: Problem) { if !problems.contains(problem) { problems.append(problem) } }
+        for (raw, token) in PlacementToken.raw(in: folderTemplate) where token == nil {
+            add(ContentField.name(ofToken: raw) != nil ? .contentTokenInFolder(raw) : .unknownToken(raw))
+        }
+        for (raw, token) in PlacementToken.raw(in: nameTemplate) where token == nil {
+            if let name = ContentField.name(ofToken: raw), contentFields.contains(where: { $0.name == name }) { continue }
+            add(.unknownToken(raw))
+        }
+        var seen = Set<String>()
+        for field in contentFields {
+            if !ContentField.isValidName(field.name) || !seen.insert(field.name).inserted { add(.contentFieldName(field.name)) }
+            if field.regex.map({ $0.numberOfCaptureGroups < 1 }) ?? true { add(.contentFieldPattern(field.pattern)) }
         }
         if nameTemplate.contains("/") { problems.append(.slashInName) }
         if folderTemplate.split(separator: "/").contains(where: { $0.trimmingCharacters(in: .whitespaces) == ".." }) {
@@ -111,8 +143,10 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
     ///   - folder: "Klasörü sor"da seçilen, hedefe göre göreli klasör; dosya (klasör yapısı korunmuyorsa) doğrudan oraya,
     ///     alt klasör şablonu varsa onun altına düşer.
     ///   - name: Kullanıcının onayladığı yeni ad (uzantısız); şablonun ve düzeltmelerin yerine geçer, uzantı korunur.
+    ///   - content: İçerik alanlarının bu dosyadaki değerleri (alan adı → değer); bulunmayan alan boş yazılır.
     public func target(
-        for relativePath: String, date: DateComponents?, destination: String = "", folder: String? = nil, name chosenName: String? = nil
+        for relativePath: String, date: DateComponents?, destination: String = "", folder: String? = nil, name chosenName: String? = nil,
+        content: [String: String] = [:]
     ) -> String {
         let components = relativePath.split(separator: "/").map(String.init)
         let name = components.last ?? relativePath
@@ -143,7 +177,8 @@ public struct RoutePlacement: Codable, Equatable, Sendable {
         } else if hasTemplate || !fixes.isEmpty {
             var newBase = base
             if hasTemplate {
-                newBase = Self.component(Self.renderName(nameTemplate, values, base: base))
+                let template = ContentField.substitute(nameTemplate, values: content)
+                newBase = Self.component(Self.renderName(template, values, base: base))
                 if newBase.isEmpty { newBase = base }
             }
             if !fixes.isEmpty {
@@ -336,6 +371,113 @@ public struct NameFix: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+/// İçerikten alınan değer: dosyanın metninde (PDF ve düz metin; `ContentReader`) düzenli ifadenin ilk eşleşmesinin ilk
+/// grubu, ad şablonunda `{c:ad}` olarak yazılır ("Abone No:\s*(\d+)" → "128820964"). İfade yazıldığı gibi uygulanır (harf
+/// duyarsızlık için `(?i)`) ve adım sınırlıdır (`RuleEvaluator.regexStepBudget`); değer tek satıra iner, güvenli bir ad
+/// parçasına dönüşür (`RoutePlacement.component`, "{" ve "}" atılır) ve kısaltılır. Taranmış belgelerde metin olmadığı için
+/// değer bulunmaz; o zaman dosya için ad sorulur (`PlacementQuestions`).
+public struct ContentField: Codable, Equatable, Sendable, Identifiable {
+    public var id: UUID
+    /// Belirteçteki ad: İngilizce harf, rakam ve alt çizgi ("abone").
+    public var name: String
+    public var pattern: String
+
+    /// Yazılan en uzun değer (karakter).
+    public static let maxValueLength = 80
+
+    public init(id: UUID = UUID(), name: String = "", pattern: String = "") {
+        self.id = id
+        self.name = name
+        self.pattern = pattern
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, pattern }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID()
+        name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? ""
+        pattern = (try? c.decodeIfPresent(String.self, forKey: .pattern)) ?? ""
+    }
+
+    /// Şablona yazılan belirteç ("{c:abone}").
+    public var token: String { "{c:\(name)}" }
+
+    var regex: NSRegularExpression? {
+        pattern.isEmpty ? nil : try? NSRegularExpression(pattern: pattern.precomposedStringWithCanonicalMapping)
+    }
+
+    public static func isValidName(_ name: String) -> Bool {
+        !name.isEmpty && name.count <= 32 && name.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }
+    }
+
+    /// Belirtecin alan adı ("{c:abone}" → "abone"); içerik belirteci değilse nil.
+    static func name(ofToken raw: String) -> String? {
+        guard raw.hasPrefix("{c:"), raw.hasSuffix("}") else { return nil }
+        return String(raw.dropFirst(3).dropLast())
+    }
+
+    /// Şablondaki içerik belirteçlerinin alan adları, geçiş sırasıyla.
+    static func names(in template: String) -> [String] {
+        PlacementToken.raw(in: template).compactMap { name(ofToken: $0.0) }
+    }
+
+    /// Şablondaki içerik belirteçlerini değerleriyle değiştirir; değeri olmayan belirteç boşalır, öteki belirteçlere
+    /// dokunulmaz.
+    static func substitute(_ template: String, values: [String: String]) -> String {
+        var result = ""
+        var rest = Substring(template)
+        for (raw, _) in PlacementToken.raw(in: template) {
+            guard let name = name(ofToken: raw), let range = rest.range(of: raw) else { continue }
+            result += rest[..<range.lowerBound] + clean(values[name] ?? "")
+            rest = rest[range.upperBound...]
+        }
+        return result + rest
+    }
+
+    /// Değer ad parçası olarak: tek satır, tek boşluk, güvenli bileşen, belirteç ayraçları yok, en çok `maxValueLength`.
+    static func clean(_ value: String) -> String {
+        let line = value.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).joined(separator: " ")
+            .replacingOccurrences(of: "{", with: "").replacingOccurrences(of: "}", with: "")
+        return RoutePlacement.component(String(RoutePlacement.component(line).prefix(maxValueLength)))
+    }
+
+    /// Metindeki değer: ilk eşleşmenin boş olmayan ilk grubu (temizlenmiş); eşleşme yoksa, ifade geçersizse ya da adım
+    /// sınırı aşılırsa nil.
+    public func value(in text: String) -> String? {
+        guard let regex, regex.numberOfCaptureGroups >= 1 else { return nil }
+        let text = text.precomposedStringWithCanonicalMapping
+        var ticks = 0
+        var found: String?
+        regex.enumerateMatches(in: text, options: [.reportProgress], range: NSRange(text.startIndex..., in: text)) { match, _, stop in
+            if let match {
+                if let range = Range(match.range(at: 1), in: text) {
+                    let value = Self.clean(String(text[range]))
+                    if !value.isEmpty {
+                        found = value
+                        stop.pointee = true
+                    }
+                }
+            } else {
+                ticks += 1
+                if ticks > RuleEvaluator.regexStepBudget { stop.pointee = true }
+            }
+        }
+        return found
+    }
+
+    /// Bir dosyanın alanlardaki değerleri (metin bir kez okunur); okunamayan dosyada ve eşleşmeyen alanda değer yoktur.
+    public static func values(of url: URL, fields: [ContentField], only names: [String]) -> [String: String] {
+        let wanted = fields.filter { names.contains($0.name) }
+        guard !wanted.isEmpty, let text = ContentReader.text(of: url) else { return [:] }
+        var values: [String: String] = [:]
+        for field in wanted where values[field.name] == nil {
+            if let value = field.value(in: text) { values[field.name] = value }
+        }
+        return values
+    }
+}
+
 /// Tarih belirteçlerinin kaynağı.
 public enum PlacementDateSource: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Çekim tarihi, yoksa dosya adındaki, yoksa içerikteki tarih, o da yoksa değiştirilme tarihi.
@@ -375,7 +517,8 @@ public enum PlacementToken: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    private static let pattern = try? NSRegularExpression(pattern: "\\{([A-Za-z]+)\\}")
+    /// "{year}" ya da içerik belirteci "{c:abone}".
+    private static let pattern = try? NSRegularExpression(pattern: "\\{([A-Za-z]+(?::[A-Za-z0-9_]*)?)\\}")
 
     /// Şablondaki belirteçler (bilinmeyenler nil).
     static func tokens(in template: String) -> [PlacementToken?] { raw(in: template).map(\.1) }
@@ -446,9 +589,11 @@ public enum PlacementStaging {
     ///   - destination: Rotanın hedefi (`{targetFolder}` ve `{targetNumber}` için).
     ///   - folders: "Klasörü sor"da her yol için seçilen klasör (bkz. `PlacementQuestions`).
     ///   - names: Kullanıcının onayladığı yeni adlar (uzantısız).
+    ///   - contents: İçerik alanlarının dosyalardaki değerleri (yol → alan adı → değer).
     public static func build(
         paths: [String], source: URL, placement: RoutePlacement, in folder: URL, destination: URL? = nil,
-        folders: [String: String]? = nil, names: [String: String] = [:], isCancelled: () -> Bool = { false }
+        folders: [String: String]? = nil, names: [String: String] = [:], contents: [String: [String: String]] = [:],
+        isCancelled: () -> Bool = { false }
     ) async throws -> Result {
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -466,7 +611,8 @@ public enum PlacementStaging {
                 continue
             }
             let date = placement.usesDate ? await PlacementDate.resolve(url, relativePath: path, source: placement.dateSource) : nil
-            var target = placement.target(for: path, date: date, destination: destination?.path ?? "", folder: folders?[path], name: names[path])
+            var target = placement.target(for: path, date: date, destination: destination?.path ?? "", folder: folders?[path], name: names[path],
+                                          content: contents[path] ?? [:])
             // Aynı hedefe düşen iki dosya: sonraki Finder gibi numaralanır ("ad 2.pdf").
             if taken.contains(target.lowercased()) {
                 let directory = (target as NSString).deletingLastPathComponent

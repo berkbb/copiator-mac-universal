@@ -34,6 +34,8 @@ struct PlacementDecisionView: View {
 
     private static let skip = "\u{0}skip"
     private static let new = "\u{0}new"
+    /// Klasörü bilinen (yalnızca adı sorulan) dosya kopyalanacak.
+    private static let keep = "\u{0}keep"
     /// Yapay zekânın sıraladığı en çok dosya (her dosya bir model çağrısı).
     private static let maxRanked = 20
 
@@ -45,7 +47,8 @@ struct PlacementDecisionView: View {
                     .foregroundStyle(.orange)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(settings.t(.placementSheetTitle, report.total)).font(.headline)
+                    Text(settings.t(report.items.contains(where: \.needsFolder) ? .placementSheetTitle : .placementNameSheetTitle, report.total))
+                        .font(.headline)
                     Text(settings.t(.conflictSubtitle, OpenSafety.visibleName(job.source.lastPathComponent), OpenSafety.visibleName(job.destination.path)))
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -91,7 +94,7 @@ struct PlacementDecisionView: View {
                     Text(settings.t(.placementMore, report.total - report.items.count))
                 }
                 Text(settings.t(.placementSheetNote))
-                Text(settings.t(.placementRememberNote))
+                if report.items.contains(where: \.needsFolder) { Text(settings.t(.placementRememberNote)) }
                 Text(settings.t(.placementNameNote))
             }
             .font(.footnote)
@@ -127,30 +130,23 @@ struct PlacementDecisionView: View {
                     .truncationMode(.middle)
                     .help(OpenSafety.visibleName(item.path))
                 Spacer()
-                Picker(OpenSafety.visibleName(item.path), selection: binding(for: item)) {
-                    if let folder = proposed[item.path], !suggestions(for: item).contains(folder) {
-                        Text(settings.t(.placementAINewFolder, OpenSafety.visibleName(folder))).tag(folder)
-                    }
-                    ForEach(suggestions(for: item), id: \.self) { path in
-                        Text(OpenSafety.visibleName(path)).tag(path)
-                    }
-                    if !suggestions(for: item).contains("") {
-                        Text(settings.t(.placementRoot)).tag("")
-                    }
-                    Divider()
-                    Text(settings.t(.placementNewFolder)).tag(Self.new)
-                    Text(settings.t(.placementSkip)).tag(Self.skip)
+                if item.needsFolder {
+                    folderPicker(item, folder: folder)
+                } else {
+                    Toggle(settings.t(.placementSkip), isOn: Binding(get: { choice == Self.skip },
+                                                                    set: { selection[item.path] = $0 ? Self.skip : Self.keep }))
+                        .toggleStyle(.checkbox)
                 }
-                .labelsHidden()
-                .frame(maxWidth: 300)
-                Toggle(settings.t(.placementRemember), isOn: rememberBinding(for: item))
-                    .toggleStyle(.checkbox)
-                    .disabled(folder == nil || PlacementMemory.key(for: item.path) == nil)
             }
             if choice == Self.new {
                 TextField(settings.t(.placementNewFolder), text: customBinding(for: item), prompt: Text(settings.t(.placementNewFolderPrompt)))
                     .textFieldStyle(.roundedBorder)
                     .font(.body.monospaced())
+            }
+            if !item.missingFields.isEmpty {
+                Text(settings.t(.placementMissingFields, item.missingFields.map { "{c:\($0)}" }.joined(separator: ", ")))
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
             if let folder {
                 TextField(settings.t(.placementNewName), text: nameBinding(for: item),
@@ -158,7 +154,7 @@ struct PlacementDecisionView: View {
                     .textFieldStyle(.roundedBorder)
                     .help(settings.t(.placementNameNote))
             }
-            if item.suggestions.isEmpty {
+            if item.needsFolder, item.suggestions.isEmpty {
                 Text(settings.t(.placementNoSuggestion)).font(.caption).foregroundStyle(.orange)
             }
             if let folder {
@@ -173,12 +169,37 @@ struct PlacementDecisionView: View {
         .padding(.vertical, 2)
     }
 
+    /// "Klasörü sor": önerilen klasörler, hedefin kökü, yeni klasör ya da atla; "Hatırla".
+    @ViewBuilder private func folderPicker(_ item: PlacementReport.Item, folder: String?) -> some View {
+        Picker(OpenSafety.visibleName(item.path), selection: binding(for: item)) {
+            if let folder = proposed[item.path], !suggestions(for: item).contains(folder) {
+                Text(settings.t(.placementAINewFolder, OpenSafety.visibleName(folder))).tag(folder)
+            }
+            ForEach(suggestions(for: item), id: \.self) { path in
+                Text(OpenSafety.visibleName(path)).tag(path)
+            }
+            if !suggestions(for: item).contains("") {
+                Text(settings.t(.placementRoot)).tag("")
+            }
+            Divider()
+            Text(settings.t(.placementNewFolder)).tag(Self.new)
+            Text(settings.t(.placementSkip)).tag(Self.skip)
+        }
+        .labelsHidden()
+        .frame(maxWidth: 300)
+        Toggle(settings.t(.placementRemember), isOn: rememberBinding(for: item))
+            .toggleStyle(.checkbox)
+            .disabled(folder == nil || PlacementMemory.key(for: item.path) == nil)
+    }
+
     private func suggestions(for item: PlacementReport.Item) -> [String] { ordered[item.path] ?? item.suggestions }
 
-    /// Seçimin klasörü; atla ya da boş "yeni klasör" için nil.
+    /// Seçimin klasörü; atla ya da boş "yeni klasör" için nil. Klasörü bilinen dosyada bilinen klasör (yoksa "": klasör
+    /// şablondan gelir).
     private func folder(for item: PlacementReport.Item) -> String? {
         switch selection[item.path] ?? Self.skip {
         case Self.skip: return nil
+        case Self.keep: return item.folder ?? ""
         case Self.new:
             let clean = PlacementResolution.clean(custom[item.path] ?? "")
             return clean.isEmpty ? nil : clean
@@ -190,7 +211,16 @@ struct PlacementDecisionView: View {
     private func target(_ item: PlacementReport.Item, folder: String, useName: Bool = true) -> String {
         let placement = job.options.placement ?? RoutePlacement(askFolder: true)
         let name = useName ? names[item.path].flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } : nil
-        return placement.target(for: item.path, date: date(for: item), destination: job.destination.path, folder: folder, name: name)
+        // Bulunamayan içerik değerleri yer tutucuyla gösterilir ("‹abone›").
+        var content = item.contentValues
+        for field in item.missingFields { content[field] = "‹\(field)›" }
+        return placement.target(for: item.path, date: date(for: item), destination: job.destination.path,
+                                folder: item.needsFolder ? folder : item.folder, name: name, content: content)
+    }
+
+    /// Yeni ad yazıldı (güvenli bir ada dönüşüyor).
+    private func hasName(_ item: PlacementReport.Item) -> Bool {
+        !RoutePlacement.component(names[item.path] ?? "").isEmpty
     }
 
     /// Yeni ad yazılmazsa dosyanın alacağı ad (uzantısız; ad alanının yer tutucusu).
@@ -213,7 +243,10 @@ struct PlacementDecisionView: View {
     private func suggestNames() {
         let suggestionModel = model.canSuggestWithAI ? model.suggestionModel : nil
         let destination = job.destination
-        let items = report.items.compactMap { item in folder(for: item).map { (item, $0) } }
+        // Örnek adlar dosyanın düşeceği klasörden okunur (alt klasör şablonu dahil).
+        let items = report.items.compactMap { item in
+            folder(for: item).map { (item, (target(item, folder: $0, useName: false) as NSString).deletingLastPathComponent) }
+        }
         naming = true
         namingNote = nil
         Task {
@@ -231,8 +264,11 @@ struct PlacementDecisionView: View {
         }
     }
 
+    /// Her dosya atlandı ya da klasörü belli ve (içerikten bir değeri bulunamadıysa) yeni adı yazıldı.
     private var isComplete: Bool {
-        report.items.allSatisfy { item in selection[item.path] == Self.skip || folder(for: item) != nil }
+        report.items.allSatisfy { item in
+            selection[item.path] == Self.skip || (folder(for: item) != nil && (item.missingFields.isEmpty || hasName(item)))
+        }
     }
 
     private func binding(for item: PlacementReport.Item) -> Binding<String> {
@@ -253,7 +289,7 @@ struct PlacementDecisionView: View {
     /// Her dosyanın ilk önerisi seçili gelir (öneri yoksa atla); kullanıcı onaylamadan uygulanmaz.
     private func preselect() {
         guard selection.isEmpty else { return }
-        for item in report.items { selection[item.path] = item.suggestions.first ?? Self.skip }
+        for item in report.items { selection[item.path] = item.needsFolder ? item.suggestions.first ?? Self.skip : Self.keep }
     }
 
     /// Tarih belirteçleri için dosyaların tarihi (rotanın tarih kaynağından); bulunamazsa addaki tarih ya da bugün.
@@ -271,7 +307,7 @@ struct PlacementDecisionView: View {
     private func rankWithAI() {
         let suggestionModel = model.suggestionModel
         let source = job.source
-        let items = Array(report.items.prefix(Self.maxRanked))
+        let items = Array(report.items.filter(\.needsFolder).prefix(Self.maxRanked))
         ranking = true
         aiNote = nil
         Task {
@@ -309,11 +345,11 @@ struct PlacementDecisionView: View {
                 resolution.skipped.insert(item.path)
                 continue
             }
-            resolution.folders[item.path] = folder
+            if let chosen = item.needsFolder ? folder : item.folder { resolution.folders[item.path] = chosen }
             if let name = names[item.path]?.trimmingCharacters(in: .whitespaces), !RoutePlacement.component(name).isEmpty {
                 resolution.names[item.path] = name
             }
-            if remember.contains(item.path) { remembered[item.path] = folder }
+            if item.needsFolder, remember.contains(item.path) { remembered[item.path] = folder }
         }
         model.resolvePlacements(job.id, resolution: resolution, remember: remembered)
         dismiss()

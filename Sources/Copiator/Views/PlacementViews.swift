@@ -35,6 +35,9 @@ extension AppSettings {
         case .parentFolder: t(.problemPlacementParent)
         case .invalidFix(let pattern): t(.problemPlacementFix, OpenSafety.visibleName(pattern))
         case .fixReplacement(let part): t(.problemPlacementFixReplacement, OpenSafety.visibleName(part))
+        case .contentFieldName(let name): t(.problemContentFieldName, OpenSafety.visibleName(name))
+        case .contentFieldPattern(let pattern): t(.problemContentFieldPattern, OpenSafety.visibleName(pattern))
+        case .contentTokenInFolder(let token): t(.problemContentTokenInFolder, OpenSafety.visibleName(token))
         }
     }
 
@@ -45,8 +48,10 @@ extension AppSettings {
         let name = placement.nameTemplate.trimmingCharacters(in: .whitespaces)
         let parts = [folder, name.isEmpty ? t(.placementSameName) : name].filter { !$0.isEmpty }
         let fixes = placement.nameFixes.filter { !$0.pattern.isEmpty }.count
+        let fields = placement.referencedFields.count
         return (placement.askFolder ? t(.placementAskSummary) + " / " : "") + parts.joined(separator: " / ")
-            + (fixes > 0 ? " • " + t(.placementFixesSummary, fixes) : "") + " • " + title(placement.dateSource)
+            + (fixes > 0 ? " • " + t(.placementFixesSummary, fixes) : "") + (fields > 0 ? " • " + t(.placementFieldsSummary, fields) : "")
+            + " • " + title(placement.dateSource)
     }
 }
 
@@ -64,6 +69,8 @@ struct PlacementEditor: View {
     @State private var nameExamples: [String] = []
     @State private var folderExamples: [String] = []
     @State private var keepLanguage = false
+    /// İçerik alanlarını denemek için yapıştırılan metin (kaydedilmez).
+    @State private var sampleText = ""
 
     var body: some View {
         DisclosureGroup(isExpanded: $expanded) {
@@ -102,7 +109,7 @@ struct PlacementEditor: View {
                             }
                         }
                         .fixedSize()
-                        tokenMenu { placement.folderTemplate += $0 }
+                        tokenMenu(content: false) { placement.folderTemplate += $0 }
                     }
                 }
                 Toggle(settings.t(.placementKeepStructure), isOn: $placement.keepStructure)
@@ -113,9 +120,10 @@ struct PlacementEditor: View {
                             .labelsHidden()
                             .font(.body.monospaced())
                             .accessibilityIdentifier("copiator.placement.name")
-                        tokenMenu { placement.nameTemplate += $0 }
+                        tokenMenu(content: true) { placement.nameTemplate += $0 }
                     }
                 }
+                fieldsEditor
                 // Şablonlar önce kurala bağlı çıkarılır (yapay zekâ kapalıyken de); yapay zekâ yalnızca kural çözemezse sorulur.
                 if let destination {
                     AITemplateSuggestionRow(title: .aiSuggestFolderTemplate, failure: .aiNoFolderTemplate,
@@ -242,13 +250,77 @@ struct PlacementEditor: View {
 
     private static let presetTitles: [LKey] = [.placementFixPresetCode, .placementFixPresetSpaces, .placementFixPresetUnderscores]
 
-    private func tokenMenu(insert: @escaping (String) -> Void) -> some View {
+    /// - Parameter content: İçerik alanlarının belirteçleri de sunulur (yalnızca ad şablonunda).
+    private func tokenMenu(content: Bool, insert: @escaping (String) -> Void) -> some View {
         Menu(settings.t(.placementInsertToken)) {
             ForEach(PlacementToken.allCases) { token in
                 Button(settings.title(token)) { insert(token.text) }
             }
+            let fields = content ? placement.contentFields.filter { ContentField.isValidName($0.name) } : []
+            if !fields.isEmpty {
+                Divider()
+                ForEach(fields) { field in
+                    Button(field.token) { insert(field.token) }
+                }
+            }
         }
         .fixedSize()
+    }
+
+    /// İçerikten alınan değerler: ad ve düzenli ifade satırları; yapıştırılan bir metinle denenir.
+    private var fieldsEditor: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(settings.t(.placementFields))
+                Spacer()
+                Button(settings.t(.placementFieldAdd), systemImage: "plus") {
+                    placement.contentFields.append(ContentField(name: nextFieldName()))
+                }
+                .accessibilityIdentifier("copiator.placement.addField")
+            }
+            ForEach($placement.contentFields) { $field in
+                let id = field.id
+                HStack {
+                    TextField(settings.t(.placementFields), text: $field.name, prompt: Text(settings.t(.placementFieldNamePrompt)))
+                        .labelsHidden()
+                        .font(.body.monospaced())
+                        .frame(maxWidth: 120)
+                    Image(systemName: "arrow.left").foregroundStyle(.secondary)
+                    TextField(settings.t(.placementFields), text: $field.pattern, prompt: Text(settings.t(.placementFieldPatternPrompt)))
+                        .labelsHidden()
+                        .font(.body.monospaced())
+                    Button(settings.t(.placementFieldRemove), systemImage: "minus.circle") { placement.contentFields.removeAll { $0.id == id } }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                }
+            }
+            if !placement.contentFields.isEmpty {
+                TextField(settings.t(.placementFieldSample), text: $sampleText, prompt: Text(settings.t(.placementFieldSamplePrompt)), axis: .vertical)
+                    .lineLimit(1...4)
+                    .font(.callout.monospaced())
+                if !sampleText.isEmpty {
+                    ForEach(placement.contentFields) { field in
+                        let value = field.value(in: sampleText)
+                        Text(value.map { settings.t(.placementFieldValue, OpenSafety.visibleName(field.name), OpenSafety.visibleName($0)) }
+                             ?? settings.t(.placementFieldNoMatch, OpenSafety.visibleName(field.name)))
+                            .font(.callout.monospaced())
+                            .foregroundStyle(value == nil ? Color.orange : Color.secondary)
+                    }
+                }
+                Text(settings.t(.placementFieldNote))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Yeni alanın adı: dilin örnek adı, varsa sonuna numara ("abone", "abone2").
+    private func nextFieldName() -> String {
+        let base = settings.t(.placementFieldNamePrompt)
+        let used = Set(placement.contentFields.map(\.name))
+        guard used.contains(base) else { return base }
+        return (2...).lazy.map { base + String($0) }.first { !used.contains($0) } ?? base
     }
 
     private func presetTitle(_ preset: String) -> String {
@@ -267,7 +339,12 @@ struct PlacementEditor: View {
         let date = TextDate.find(in: name) ?? Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: Date())
         var preview = placement
         if !placement.isActive { preview.language = settings.languageCode }
-        return preview.target(for: path, date: date, destination: destination?.path ?? "")
+        // İçerik alanları örnekte yer tutucuyla gösterilir ("‹abone›"); deneme metni varsa onun değeriyle.
+        var content: [String: String] = [:]
+        for field in placement.contentFields {
+            content[field.name] = (sampleText.isEmpty ? nil : field.value(in: sampleText)) ?? "‹\(field.name)›"
+        }
+        return preview.target(for: path, date: date, destination: destination?.path ?? "", content: content)
     }
 }
 
