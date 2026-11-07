@@ -830,6 +830,10 @@
 "placementMissingFields" = "Not found in the text: %@. Type the new name or skip the file.";
 "placementNameSheetTitle" = "%ld files need a name or a date";
 "placementDateMissing" = "%@ not found; choose the date:";
+"diskNotConnectedNote" = "“%@” is not connected; this runs when the disk is connected.";
+"createFolderButton" = "Create Folder";
+"createFoldersButton" = "Create %ld Missing Destination Folders";
+"createFolderFailed" = "The folder could not be created: %@";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copy %ld items with a routine";

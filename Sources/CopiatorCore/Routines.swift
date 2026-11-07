@@ -83,9 +83,11 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
         case options(AdvancedOptions.Problem)
     }
 
-    /// - Parameter checkPaths: Kaynak ve hedefin diskte olup olmadığı da denetlensin mi (kayıtta evet; diski takılı değilken
-    ///   "disk takılınca başla" seçili rutin yine kaydedilebilir).
-    public func problems(checkPaths: Bool = true) -> [Problem] {
+    /// - Parameters:
+    ///   - checkPaths: Kaynak ve hedefin diskte olup olmadığı da denetlensin mi (kayıtta evet; diski takılı değilken
+    ///     "disk takılınca başla" seçili rutin yine kaydedilebilir).
+    ///   - allowUnmounted: Diski takılı olmayan kaynak ya da hedef sorun sayılmaz (rota disk takılınca çalışır).
+    public func problems(checkPaths: Bool = true, allowUnmounted: Bool = false) -> [Problem] {
         var problems: [Problem] = []
         if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { problems.append(.emptyName) }
         if routes.isEmpty { problems.append(.noRoutes) }
@@ -101,9 +103,9 @@ public struct Routine: Codable, Equatable, Identifiable, Sendable {
             problems += route.rules.problems().map { .rules(route: index, $0) }
             problems += route.placement.problems().map { .placement(route: index, $0) }
             guard checkPaths else { continue }
-            if let problem = JobValidation.check(source: source, destination: destination, copyMode: .contents) {
+            if let problem = JobValidation.check(source: source, destination: destination, copyMode: .contents, allowUnmounted: allowUnmounted) {
                 problems.append(.path(route: index, problem))
-            } else if !RsyncEngine.isDirectory(source) {
+            } else if VolumeState.unmountedVolume(of: source) == nil, !RsyncEngine.isDirectory(source) {
                 problems.append(.sourceNotFolder(route: index))
             }
         }

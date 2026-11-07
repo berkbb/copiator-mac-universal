@@ -830,6 +830,10 @@
 "placementMissingFields" = "Metinde bulunamadı: %@. Yeni adı yazın ya da dosyayı atlayın.";
 "placementNameSheetTitle" = "%ld dosya için ad ya da tarih gerekiyor";
 "placementDateMissing" = "%@ bulunamadı; tarihi seçin:";
+"diskNotConnectedNote" = "“%@” takılı değil; bu disk takılınca çalışır.";
+"createFolderButton" = "Klasörü Oluştur";
+"createFoldersButton" = "Eksik %ld Hedef Klasörünü Oluştur";
+"createFolderFailed" = "Klasör oluşturulamadı: %@";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "%ld öğeyi bir rutinle kopyala";

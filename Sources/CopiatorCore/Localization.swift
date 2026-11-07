@@ -317,6 +317,8 @@ public enum LKey: String, CaseIterable, Sendable {
     case placementFieldRemove, placementFieldNamePrompt, placementFieldPatternPrompt, placementFieldNote, placementFieldSample
     case placementFieldSamplePrompt, placementFieldValue, placementFieldNoMatch, placementFieldsSummary, placementMissingFields
     case placementNameSheetTitle, placementDateMissing
+    // Takılı olmayan disk ve eksik hedef klasör
+    case diskNotConnectedNote, createFolderButton, createFoldersButton, createFolderFailed
     // Time Machine dışlaması
     case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk

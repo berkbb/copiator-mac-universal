@@ -60,9 +60,11 @@ public enum JobQueue {
         jobs.first { $0.status == .waiting && !isWaitingForDisk($0, pathsAvailable: pathsAvailable) }?.id
     }
 
-    /// "Disk takılınca başla" seçili iş, kaynağının ya da hedefinin diski takılı değilken hata vermez, bekler.
+    /// Kaynağının ya da hedefinin diski takılı olmayan iş hata vermez, bekler (çok rotalı bir rutinde takılı disklere giden
+    /// rotalar çalışır, ötekiler disk takılınca). "Disk takılınca başla" seçili iş, yolları başka bir nedenle de
+    /// erişilemezken bekler.
     public static func isWaitingForDisk(_ job: TransferJob, pathsAvailable: (TransferJob) -> Bool = { $0.pathsAvailable }) -> Bool {
-        job.status == .waiting && job.options.runWhenConnected && !pathsAvailable(job)
+        job.status == .waiting && !pathsAvailable(job) && (job.options.runWhenConnected || job.unmountedVolume != nil)
     }
 
     /// Uygulama açılırken: kapanış ya da çökme sırasında çalışan iş duraklatılmış ve "kesildi" olarak işaretlenir;

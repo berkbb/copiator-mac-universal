@@ -459,6 +459,9 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
 
     public func usesAsDestination(volume: URL) -> Bool { Self.path(destination, isOn: volume) }
 
+    /// Kaynağın ya da hedefin diski bağlı değil (diskin adı): iş hata vermez, disk takılana kadar bekler.
+    public var unmountedVolume: String? { VolumeState.unmountedVolume(of: source) ?? VolumeState.unmountedVolume(of: destination) }
+
     static func path(_ url: URL, isOn volume: URL) -> Bool {
         let base = RsyncCommand.absolutePath(volume)
         guard base != "/" else { return false }
@@ -477,13 +480,24 @@ public enum JobValidation {
         case overlapping
     }
 
+    /// - Parameter allowUnmounted: Kaynağın ya da hedefin diski bağlı değilse (`VolumeState`) varlık denetimi disk takılınca
+    ///   yapılır, iş (ya da rota) kaydedilebilir; çakışma yine yollardan denetlenir.
+    ///
     /// Kaynağın hedefteki karşılığı (`TransferJob.target`) kaynakla çakışmamalı: karşılık kaynağın içindeyse kopya kendi
     /// içine büyür; kaynak karşılığın içindeyse (ör. "içeriği" kipinde hedef = ev klasörü) `--delete` kaynağın
     /// kardeşlerini, hatta kaynağın kendisini silmeye kalkar. "Klasörün kendisi" kipinde kaynağın kendi üst klasörüne
     /// kopyalamak karşılığı kaynağın kendisi yapar. Kum havuzu kaynağa yazmayı zaten engeller; bu denetim işi baştan reddeder.
     public static func check(
-        source: URL, destination: URL, copyMode: CopyMode, fileManager: FileManager = .default
+        source: URL, destination: URL, copyMode: CopyMode, allowUnmounted: Bool = false, fileManager: FileManager = .default
     ) -> Problem? {
+        if allowUnmounted, VolumeState.unmountedVolume(of: source) != nil || VolumeState.unmountedVolume(of: destination) != nil {
+            // Disk takılı değil: yalnızca yollarla (kaynak klasör sayılır) çakışma denetlenir.
+            let base = RsyncCommand.absolutePath(source)
+            let target = copyMode == .folder ? RsyncCommand.absolutePath(destination.appendingPathComponent(source.lastPathComponent))
+                : RsyncCommand.absolutePath(destination)
+            func inside(_ path: String, _ base: String) -> Bool { path == base || base == "/" || path.hasPrefix(base + "/") }
+            return inside(target, base) || inside(base, target) ? .overlapping : nil
+        }
         var info = stat()
         guard lstat(source.path, &info) == 0 else { return .sourceMissing }
         var isDirectory: ObjCBool = false
@@ -497,3 +511,23 @@ public enum JobValidation {
         return inside(target, resolvedSource) || inside(resolvedSource, target) ? .overlapping : nil
     }
 }
+
+/// Harici ve ağ disklerinin bağlı olup olmadığı. "/Volumes/YEDEK/…" yolunun diski bağlı değilse (bağlama noktası yok ya da
+/// geride boş bir klasör kalmış) iş ve rota hata vermez: kaydedilir ve disk takılana kadar bekler. Disk bağlıyken eksik klasör
+/// ise gerçekten yoktur (ör. yanlış yazılmış ya da silinmiş).
+public enum VolumeState {
+    /// Yolun bağlı olmayan diskinin adı ("YEDEK"); yol bir diskte değilse ya da disk bağlıysa nil.
+    public static func unmountedVolume(of url: URL) -> String? {
+        let components = URL(fileURLWithPath: RsyncCommand.absolutePath(url)).pathComponents
+        guard components.count >= 3, components[0] == "/", components[1] == "Volumes", !components[2].isEmpty else { return nil }
+        // Bağlı bir diskin noktası (bağlantıysa gösterdiği yer: "Macintosh HD" → "/") kendi biriminin köküdür. Hiç olmayan ya
+        // da başka bir birimin içinde kalmış (boş klasör) nokta bağlı bir disk değildir. APFS'te "/" ile /Volumes'un aygıt
+        // numarası aynı olabildiği için birimin kendisine bakılır.
+        guard let real = realpath("/Volumes/" + components[2], nil) else { return components[2] }
+        let mountPoint = String(cString: real)
+        free(real)
+        let volume = (try? URL(fileURLWithPath: mountPoint).resourceValues(forKeys: [.volumeURLKey]))?.volume
+        return volume.map { RsyncCommand.absolutePath($0) == RsyncCommand.absolutePath(URL(fileURLWithPath: mountPoint)) } == true ? nil : components[2]
+    }
+}
+

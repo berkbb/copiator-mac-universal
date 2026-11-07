@@ -101,12 +101,23 @@ struct NewJobSheet: View {
                 }
 
                 let problems = options.problems(source: source)
-                if problem != nil || !problems.isEmpty {
+                let unmounted = [source, destination].compactMap { $0.flatMap(VolumeState.unmountedVolume(of:)) }.first
+                if problem != nil || !problems.isEmpty || unmounted != nil {
                     Section {
+                        if let unmounted {
+                            Label(settings.t(.diskNotConnectedNote, OpenSafety.visibleName(unmounted)), systemImage: "externaldrive.badge.questionmark")
+                                .foregroundStyle(.secondary)
+                                .font(.callout)
+                        }
                         if let problem {
                             Label(problem, systemImage: "exclamationmark.octagon.fill")
                                 .foregroundStyle(.red)
                                 .font(.callout)
+                        }
+                        if problem != nil, AppModel.isCreatableDestination(destination), let destination {
+                            Button(settings.t(.createFolderButton), systemImage: "folder.badge.plus") {
+                                if let failure = model.createDestinationFolder(destination) { problem = failure } else { problem = nil; commit() }
+                            }
                         }
                         ForEach(problems.indices, id: \.self) { index in
                             Label(settings.problem(problems[index]), systemImage: "exclamationmark.octagon.fill")

@@ -99,8 +99,8 @@ struct RoutineAppTests {
         #expect(fixture.relaunch().routines.map(\.name) == ["Ofis yedeği"])
     }
 
-    /// Bekleyen ya da çalışan işi olan rota yeniden sıraya alınmaz; diski takılı değilken "disk takılınca başla" seçili rutin
-    /// yine kaydedilir ve çalıştırılınca diskini bekler.
+    /// Bekleyen ya da çalışan işi olan rota yeniden sıraya alınmaz; diski takılı olmayan rutin ("disk takılınca başla"
+    /// seçili olsun ya da olmasın) kaydedilir ve çalıştırılınca diskini bekler.
     @Test func runningRoutesAreNotDuplicatedAndDisksCanBeMissing() async throws {
         let fixture = try makeFixture()
         defer { fixture.cleanUp() }
@@ -114,7 +114,7 @@ struct RoutineAppTests {
         #expect(model.jobs.count == 2 && model.jobs.allSatisfy { $0.status == .waiting })
 
         var away = Routine(name: "Harici", routes: [RoutineRoute(source: fixture.url("Ofis"), destination: URL(fileURLWithPath: "/Volumes/CopiatorYok-\(UUID().uuidString)"))])
-        #expect(model.saveRoutine(away) != nil)
+        #expect(model.saveRoutine(away) == nil, "takılı olmayan disk kayda engel değil")
         away.options.runWhenConnected = true
         #expect(model.saveRoutine(away) == nil)
         #expect(model.runRoutine(away.id) == nil)

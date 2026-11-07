@@ -830,6 +830,10 @@
 "placementMissingFields" = "Negăsit în text: %@. Scrieți numele nou sau săriți fișierul.";
 "placementNameSheetTitle" = "Pentru %ld fișiere este nevoie de un nume sau de o dată";
 "placementDateMissing" = "%@ negăsită; alegeți data:";
+"diskNotConnectedNote" = "„%@” nu este conectat; rulează când discul este conectat.";
+"createFolderButton" = "Creează dosarul";
+"createFoldersButton" = "Creează %ld dosare de destinație lipsă";
+"createFolderFailed" = "Dosarul nu a putut fi creat: %@";
 
 /* Seçili öğeleri rutine gönderme, hedef özeti, klasör önerisi */
 "sendToRoutineTitle" = "Copiază %ld elemente cu o rutină";

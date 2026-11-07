@@ -8,12 +8,15 @@ import Testing
 @Test func diskWaitingJobsAreSkippedNotFailed() {
     var waiting = TransferJob(source: URL(fileURLWithPath: "/Users/x/A"), destination: URL(fileURLWithPath: "/Volumes/Yok/Yedek"),
                               options: CopyOptions(runWhenConnected: true))
-    let other = TransferJob(source: URL(fileURLWithPath: "/Users/x/B"), destination: URL(fileURLWithPath: "/Volumes/Yok/Yedek"))
+    let other = TransferJob(source: URL(fileURLWithPath: "/Users/x/B"), destination: URL(fileURLWithPath: "/Users/x/Yok"))
+    let unplugged = TransferJob(source: URL(fileURLWithPath: "/Users/x/B"), destination: URL(fileURLWithPath: "/Volumes/Yok/Yedek"))
     let missing: (TransferJob) -> Bool = { _ in false }
-    // Diski bekleyen iş atlanır; seçeneği olmayan iş sırasını alır (ve hedef yoksa hatayla biter).
+    // Diski bekleyen iş atlanır; diski takılı olmayan iş seçenek kapalıyken de bekler; bu Mac'te hedefi olmayan iş sırasını
+    // alır (ve hatayla biter).
     #expect(JobQueue.isWaitingForDisk(waiting, pathsAvailable: missing))
+    #expect(JobQueue.isWaitingForDisk(unplugged, pathsAvailable: missing))
     #expect(!JobQueue.isWaitingForDisk(other, pathsAvailable: missing))
-    #expect(JobQueue.next(in: [waiting, other], pathsAvailable: missing) == other.id)
+    #expect(JobQueue.next(in: [waiting, unplugged, other], pathsAvailable: missing) == other.id)
     #expect(JobQueue.next(in: [waiting], pathsAvailable: missing) == nil)
     #expect(JobQueue.next(in: [waiting, other], pathsAvailable: { _ in true }) == waiting.id)
     waiting.status = .paused

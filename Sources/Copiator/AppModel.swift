@@ -885,8 +885,9 @@ final class AppModel {
     func saveRoutine(_ routine: Routine) -> String? {
         var routine = routine
         routine.name = routine.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Diski takılı değilken "disk takılınca başla" seçili rutin yine kaydedilebilir.
-        if let problem = routine.problems(checkPaths: !routine.options.runWhenConnected).first {
+        // Diski takılı olmayan rotalar kaydedilir (disk takılınca çalışır); "disk takılınca başla" seçili rutinde yollar
+        // hiç denetlenmez.
+        if let problem = routine.problems(checkPaths: !routine.options.runWhenConnected, allowUnmounted: true).first {
             return settings.routineProblem(problem)
         }
         routine.updatedAt = Date()
@@ -942,7 +943,8 @@ final class AppModel {
     @discardableResult
     func runRoutine(_ id: Routine.ID) -> String? {
         guard var routine = routine(id) else { return t(.intentRoutineNotFound) }
-        if let problem = routine.problems(checkPaths: !routine.options.runWhenConnected).first {
+        // Diski takılı olmayan rota hata vermez: işi kuyrukta diskini bekler.
+        if let problem = routine.problems(checkPaths: !routine.options.runWhenConnected, allowUnmounted: true).first {
             let message = settings.routineProblem(problem)
             alert = AlertItem(title: t(.errorTitle), message: message)
             return message
@@ -1416,13 +1418,34 @@ final class AppModel {
     }
 
     private func validationMessage(source: URL, destination: URL, options: CopyOptions) -> String? {
-        if let problem = JobValidation.check(source: source, destination: destination, copyMode: options.copyMode) {
+        // Diski takılı olmayan kaynak ya da hedef kayda engel değildir: iş disk takılana kadar bekler.
+        if let problem = JobValidation.check(source: source, destination: destination, copyMode: options.copyMode, allowUnmounted: true) {
             return settings.result(JobResult(kind: RsyncEngine.resultKind(for: problem)))
         }
         if let problem = options.problems(source: source).first {
             return settings.problem(problem)
         }
         return nil
+    }
+
+    /// Takılı bir diskte (ya da bu Mac'te) olmayan hedef klasörü, kullanıcının isteğiyle oluşturur (ara klasörler dahil).
+    /// Diski takılı olmayan yolda klasör oluşturulmaz: /Volumes altında boş bir klasör diski taklit ederdi.
+    /// - Returns: Oluşturulamazsa nedeni.
+    func createDestinationFolder(_ url: URL) -> String? {
+        guard VolumeState.unmountedVolume(of: url) == nil else { return t(.createFolderFailed, OpenSafety.visibleName(url.path)) }
+        do {
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            AppLog.shared.info(.app, "Destination folder created on request")
+            return nil
+        } catch {
+            return t(.createFolderFailed, error.localizedDescription)
+        }
+    }
+
+    /// Hedefi olmayan (ama diski takılı) yol: "Klasörü Oluştur" sunulur.
+    static func isCreatableDestination(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        return VolumeState.unmountedVolume(of: url) == nil && !FileManager.default.fileExists(atPath: url.path)
     }
 
     /// Çalışmayan bir işin kaynağını, hedefini ve seçeneklerini değiştirir; geçmişi ve günlüğü korunur.

@@ -494,10 +494,23 @@ struct RoutineEditorSheet: View {
                 }
 
                 let problems = routine.problems(checkPaths: false)
-                if problem != nil || !problems.isEmpty {
+                let unmounted = Array(Set(routine.routes.flatMap { [$0.source, $0.destination] }.compactMap { $0.flatMap(VolumeState.unmountedVolume(of:)) })).sorted()
+                let creatable = routine.routes.compactMap(\.destination).filter(AppModel.isCreatableDestination)
+                if problem != nil || !problems.isEmpty || !unmounted.isEmpty {
                     Section {
+                        ForEach(unmounted, id: \.self) { name in
+                            Label(settings.t(.diskNotConnectedNote, OpenSafety.visibleName(name)), systemImage: "externaldrive.badge.questionmark")
+                                .foregroundStyle(.secondary)
+                                .font(.callout)
+                        }
                         if let problem {
                             Label(problem, systemImage: "exclamationmark.octagon.fill").foregroundStyle(.red).font(.callout)
+                        }
+                        if problem != nil, !creatable.isEmpty {
+                            Button(settings.t(.createFoldersButton, creatable.count), systemImage: "folder.badge.plus") {
+                                problem = creatable.lazy.compactMap { model.createDestinationFolder($0) }.first
+                                if problem == nil { save(run: false) }
+                            }
                         }
                         ForEach(problems.indices, id: \.self) { index in
                             Label(settings.routineProblem(problems[index]), systemImage: "exclamationmark.octagon.fill")
@@ -699,9 +712,12 @@ struct RoutineImportSheet: View {
     @State private var routines: [Routine] = []
     @State private var excluded: Set<Routine.ID> = []
     @State private var failures: [Routine.ID: String] = [:]
+    /// Klasör oluşturulunca eksik klasör listesi yeniden okunur.
+    @State private var refresh = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            let _ = refresh
             HStack(spacing: 12) {
                 Image(systemName: "square.and.arrow.down").font(.largeTitle).foregroundStyle(.tint).accessibilityHidden(true)
                 Text(settings.t(.importTitle)).font(.headline)
@@ -725,13 +741,28 @@ struct RoutineImportSheet: View {
                         .toggleStyle(.checkbox)
                         ForEach(RoutineTransfer.missingFolders(in: [routine])) { missing in
                             HStack {
-                                Label(settings.t(missing.isSource ? .importSourceMissing : .importDestinationMissing,
-                                                 OpenSafety.visibleName(missing.url.path)), systemImage: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
+                                // Diski takılı olmayan klasör içe aktarmaya engel değildir: rota disk takılınca çalışır.
+                                if let disk = VolumeState.unmountedVolume(of: missing.url) {
+                                    Label(settings.t(.diskNotConnectedNote, OpenSafety.visibleName(disk)), systemImage: "externaldrive.badge.questionmark")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .help(OpenSafety.visibleName(missing.url.path))
+                                } else {
+                                    Label(settings.t(missing.isSource ? .importSourceMissing : .importDestinationMissing,
+                                                     OpenSafety.visibleName(missing.url.path)), systemImage: "exclamationmark.triangle.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
                                 Spacer()
+                                if !missing.isSource, AppModel.isCreatableDestination(missing.url) {
+                                    Button(settings.t(.createFolderButton)) {
+                                        if let failure = model.createDestinationFolder(missing.url) { failures[routine.id] = failure }
+                                        refresh += 1
+                                    }
+                                }
                                 Button(settings.t(.buttonChoose)) { remap(missing) }
                             }
                             .padding(.leading, 20)
