@@ -5,6 +5,18 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+### Fixed
+
+- **"Move to the Trash" in a routine with several routes** moved the source as soon as the first route had copied it, so the other routes (and a route waiting for its disk) had nothing left to copy. Now every job of one routine run (and of one "Send to a Copiator Routine") belongs to one group: each route only records what it copied, and the sources go to the Trash once every job of the group has finished successfully and each source is identical to its copy at every destination that selected it (checked again at that moment). While a route waits for its disk, fails or waits for a decision, no source moves. Undo works on each route: it puts the sources back, and once they are back the other routes' copies can be undone too.
+
+### Changed
+
+- **A disk that is not connected is no longer an error.** Jobs, routines and imported routines whose source or destination is on a disk that is not connected (`/Volumes/…` with nothing mounted there) can be added, edited and saved; the editor says the disk is not connected. Such a job waits in the queue as "Waiting for disk" even without "Start when the destination disk is connected" and runs when the disk is connected, so in a routine with several destinations the routes to connected disks run and the others wait. A folder that is missing on the Mac or on a connected disk is still a problem.
+
+### Added
+
+- **Create Folder** when a job's or route's destination folder does not exist on the Mac or on a connected disk (New Job sheet, routine editor and routine import). Folders are never created on a disk that is not connected, since an empty folder under `/Volumes` would stand in for the disk.
+
 ## [1.2.0] — 2026-11-07
 
 ### Added
