@@ -28,8 +28,22 @@ public enum SourceTrash {
         public var failed: [String] = []
         /// Boşalıp Çöp Sepeti'ne taşınan alt klasörler.
         public var folders = 0
+        /// Çöp'e taşınan dosya ve klasörlerin eski ve Çöp'teki yerleri (taşıyan çalıştırmayı geri almak için).
+        public var located: [RunUndo.MovedSource] = []
+        /// Çöp'e taşınan ama Çöp'teki yeri bilinmeyen (ya da kayıt sınırını aşan) öğeler: bu çalıştırma geri alınamaz.
+        public var unlocated = 0
 
         public init() {}
+
+        /// Taşınan öğenin yerini kaydeder; Çöp'teki yerinde bir öğe yoksa yer bilinmiyor sayılır.
+        mutating func record(original: URL, location: URL, target: URL?) {
+            var info = stat()
+            guard lstat(location.path, &info) == 0, located.count < RunUndo.maxRecordedItems else {
+                unlocated += 1
+                return
+            }
+            located.append(RunUndo.MovedSource(original: original.path, trashed: location.path, target: target?.path))
+        }
     }
 
     /// İşin kopyaladığı dosyalar ve hedefteki karşılıkları. Kurallı işte seçilen yollar (paketlerin içindeki dosyalarla),
@@ -84,12 +98,20 @@ public enum SourceTrash {
         (try? FileManager.default.trashItem(at: url, resultingItemURL: nil)) != nil
     }
 
+    /// Öğeyi sistemin Çöp Sepeti'ne taşır ve Çöp'teki yerini döndürür (geri koymak için); taşınamazsa nil. macOS yeri
+    /// bildirmezse öğenin eski yolu döner: öğe taşınmıştır ama geri konamaz.
+    public static func systemTrashLocating(_ url: URL) -> URL? {
+        var location: NSURL?
+        guard (try? FileManager.default.trashItem(at: url, resultingItemURL: &location)) != nil else { return nil }
+        return (location as URL?) ?? url
+    }
+
     /// Hedefteki karşılığıyla birebir aynı olan kaynak dosyaları Çöp Sepeti'ne taşır.
     /// - Parameters:
     ///   - root: Kaynağın kökü: boşalan alt klasörler köke kadar Çöp'e gider, kök kalır.
-    ///   - trash: Çöp Sepeti'ne taşıma (testler kendi klasörlerini verir).
+    ///   - trash: Çöp Sepeti'ne taşıma; öğenin Çöp'teki yerini döndürür, taşınamazsa nil (testler kendi klasörlerini verir).
     public static func moveVerified(
-        _ pairs: [Pair], root: URL, trash: (URL) -> Bool = systemTrash, isCancelled: () -> Bool = { false }
+        _ pairs: [Pair], root: URL, trash: (URL) -> URL? = systemTrashLocating, isCancelled: () -> Bool = { false }
     ) -> Outcome {
         var outcome = Outcome()
         var touched = Set<String>()
@@ -103,15 +125,20 @@ public enum SourceTrash {
                 outcome.kept += 1
                 continue
             }
-            if trash(pair.source) {
+            // Yollar taşımadan önce çözülür: sonra kaynak artık yoktur.
+            let original = SandboxProfile.resolved(pair.source), copy = SandboxProfile.resolved(pair.target)
+            if let location = trash(pair.source) {
                 outcome.moved += 1
                 outcome.bytes = outcome.bytes.saturatingAdding(Int64(source.st_size))
                 touched.insert(pair.source.deletingLastPathComponent().standardizedFileURL.path)
+                outcome.record(original: original, location: location, target: copy)
             } else {
                 outcome.failed.append(relativePath(pair.source, root: root))
             }
         }
-        outcome.folders = removeEmptyFolders(touched, root: root, trash: trash)
+        let folders = removeEmptyFolders(touched, root: root, trash: trash)
+        outcome.folders = folders.count
+        for (original, location) in folders.located { outcome.record(original: original, location: location, target: nil) }
         return outcome
     }
 
@@ -150,12 +177,15 @@ public enum SourceTrash {
                 outcome.failed.append(relativePath(url, root: root))
             }
         }
-        outcome.folders = removeEmptyFolders(touched, root: root, trash: trash)
+        outcome.folders = removeEmptyFolders(touched, root: root, trash: { trash($0) ? $0 : nil }).count
         return outcome
     }
 
     /// Dosyaları taşınan klasörlerden boşalanlar (en derindekinden başlayarak, köke kadar; kök hariç) Çöp'e gider.
-    private static func removeEmptyFolders(_ folders: Set<String>, root: URL, trash: (URL) -> Bool) -> Int {
+    /// Döner: taşınan klasör sayısı ve her birinin (taşımadan önce çözülmüş) eski yolu ile Çöp'teki yeri.
+    private static func removeEmptyFolders(
+        _ folders: Set<String>, root: URL, trash: (URL) -> URL?
+    ) -> (count: Int, located: [(URL, URL)]) {
         let rootPath = root.standardizedFileURL.path
         var candidates = Set<String>()
         for folder in folders {
@@ -166,11 +196,17 @@ public enum SourceTrash {
             }
         }
         var removed = 0
+        var located: [(URL, URL)] = []
         for path in candidates.sorted(by: { $0.split(separator: "/").count > $1.split(separator: "/").count }) {
             guard (try? FileManager.default.contentsOfDirectory(atPath: path))?.isEmpty == true else { continue }
-            if trash(URL(fileURLWithPath: path, isDirectory: true)) { removed += 1 }
+            let folder = URL(fileURLWithPath: path, isDirectory: true)
+            let original = SandboxProfile.resolved(folder)
+            if let location = trash(folder) {
+                removed += 1
+                located.append((original, location))
+            }
         }
-        return removed
+        return (removed, located)
     }
 
     private static func relativePath(_ url: URL, root: URL) -> String {

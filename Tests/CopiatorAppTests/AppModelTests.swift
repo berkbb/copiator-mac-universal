@@ -86,6 +86,13 @@ final class Fixture {
             let target = trash.appendingPathComponent(UUID().uuidString + "-" + url.lastPathComponent)
             return (try? FileManager.default.moveItem(at: url, to: target)) != nil
         }
+        // "Taşı" adımı da: kaynaklar çalışma klasöründeki ".Trash" klasörüne gider (geri alma yalnızca Çöp klasöründen geri koyar).
+        let sourceTrash = workspace.appendingPathComponent(".Trash", isDirectory: true)
+        model.sourceTrashItem = { url in
+            try? FileManager.default.createDirectory(at: sourceTrash, withIntermediateDirectories: true)
+            let target = sourceTrash.appendingPathComponent(UUID().uuidString + "-" + url.lastPathComponent)
+            return (try? FileManager.default.moveItem(at: url, to: target)) != nil ? target : nil
+        }
     }
 
     /// Aynı kayıt dosyası ve ayarlarla yeni bir model (uygulamanın yeniden açılması).

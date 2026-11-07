@@ -35,6 +35,17 @@ func formatSpecifiersMatchEnglish(code: String) throws {
     }
 }
 
+/// Günlük satırlarının değişkenleri metin olarak saklanır (`JobLogEntry.arguments`): sayı belirteci ("%ld") metni sayı
+/// diye okur ve anlamsız bir değer yazar. Günlük anahtarları yalnızca "%@" kullanır.
+@Test(arguments: AppLanguage.supportedCodes)
+func logStringsTakeTextArguments(code: String) throws {
+    let strings = try table(code)
+    for key in LKey.allCases where key.rawValue.hasPrefix("log") {
+        let numeric = specifiers(strings[key.rawValue] ?? "").filter { !$0.hasSuffix("@") }
+        #expect(numeric.isEmpty, "\(code): \(key.rawValue) \(numeric)")
+    }
+}
+
 /// Çeviri yerine İngilizce bırakılmış metin yakalanır (ürün adları ve yalnızca biçim içeren metinler hariç).
 @Test(arguments: ["tr", "ro"])
 func translationsAreNotEnglishFallbacks(code: String) throws {

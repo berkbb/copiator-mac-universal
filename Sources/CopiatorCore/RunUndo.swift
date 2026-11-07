@@ -20,11 +20,50 @@ public enum RunUndo {
         public var truncated: Bool
         /// Üzerine yazılan ya da silinen öğe sayısı (geri alınamaz).
         public var otherChanges: Int
+        /// "Taşı" ile Çöp Sepeti'ne giden kaynak dosya ve klasörler (geri alma önce bunları yerine koyar).
+        public var movedSources: [MovedSource]
+        /// Çöp'e taşınan bir kaynağın yeri bilinmiyor ya da sınır aşıldı: çalıştırma geri alınamaz.
+        public var movedSourcesIncomplete: Bool
+        /// Kayıt Çöp'e taşınan kaynakları tutabiliyor. 1.1.0'ın kayıtlarında (alan yok) bilinmez: "Taşı" seçili işte
+        /// böyle bir çalıştırma geri alınmaz, yoksa kopyalar da Çöp'e giderdi.
+        public private(set) var knowsMovedSources = true
 
-        public init(created: [String], truncated: Bool, otherChanges: Int) {
+        public init(created: [String], truncated: Bool, otherChanges: Int, movedSources: [MovedSource] = [],
+                    movedSourcesIncomplete: Bool = false) {
             self.created = created
             self.truncated = truncated
             self.otherChanges = otherChanges
+            self.movedSources = movedSources
+            self.movedSourcesIncomplete = movedSourcesIncomplete
+        }
+
+        private enum CodingKeys: String, CodingKey { case created, truncated, otherChanges, movedSources, movedSourcesIncomplete }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            created = (try? c.decodeIfPresent([String].self, forKey: .created)) ?? []
+            // Okunamayan liste eksik sayılır: yarım geri alma sunulmaz.
+            truncated = (try? c.decodeIfPresent(Bool.self, forKey: .truncated)) ?? true
+            otherChanges = (try? c.decodeIfPresent(Int.self, forKey: .otherChanges)) ?? 0
+            knowsMovedSources = c.contains(.movedSources)
+            let moved = try? c.decodeIfPresent([MovedSource].self, forKey: .movedSources)
+            movedSources = moved ?? []
+            movedSourcesIncomplete = ((try? c.decodeIfPresent(Bool.self, forKey: .movedSourcesIncomplete)) ?? false)
+                || (knowsMovedSources && moved == nil)
+        }
+    }
+
+    /// Çöp Sepeti'ne taşınan bir kaynak öğe: eski yeri, Çöp'teki yeri ve (dosyaysa) hedefteki kopyası; mutlak yollar.
+    public struct MovedSource: Codable, Equatable, Sendable {
+        public var original: String
+        public var trashed: String
+        /// Dosyanın hedefteki kopyası; klasörlerde nil.
+        public var target: String?
+
+        public init(original: String, trashed: String, target: String?) {
+            self.original = original
+            self.trashed = trashed
+            self.target = target
         }
     }
 
@@ -35,9 +74,73 @@ public enum RunUndo {
         public var failed: [String] = []
     }
 
+    /// Kaynakları geri koymanın sonucu.
+    public struct RestoreOutcome: Equatable, Sendable {
+        /// Yerine geri konan dosyalar.
+        public var restored = 0
+        /// Geri konamayan dosyalar (Çöp boşaltılmış, eski yer dolu ya da taşıma başarısız): eski yolları.
+        public var notRestored: [String] = []
+        /// Kaynağı geri konamayan dosyaların hedefteki kopyaları: bunlar Çöp'e taşınmaz, tek kopya onlar olabilir.
+        public var keepTargets: Set<String> = []
+    }
+
+    /// Öğeyi Çöp'teki yerinden eski yerine taşır (testler kendi işlevlerini verir).
+    public static func putBack(_ trashed: URL, to original: URL) -> Bool {
+        (try? FileManager.default.moveItem(at: trashed, to: original)) != nil
+    }
+
+    /// Taşıyan çalıştırmayı geri almanın ilk adımı: Çöp Sepeti'ne giden kaynak öğeler eski yerlerine geri konur, önce
+    /// klasörler (en sığdan), sonra dosyalar. Yalnızca bir Çöp klasöründeki (".Trash", ".Trashes") öğe ve yalnızca
+    /// kaynağın içindeki boş bir yere taşınır; "." ya da ".." içeren ya da kaynağın dışına çıkan kayıt reddedilir. Eski yer
+    /// doluysa ya da öğe Çöp'te yoksa dokunulmaz ve dosyanın hedefteki kopyası korunur.
+    /// - Parameter source: İşin kaynağı (klasör ya da tek dosya).
+    public static func restoreSources(_ moved: [MovedSource], source: URL, putBack: (URL, URL) -> Bool = putBack) -> RestoreOutcome {
+        var outcome = RestoreOutcome()
+        let root = SandboxProfile.resolved(source).path
+        func acceptable(_ item: MovedSource) -> Bool {
+            let original = item.original.split(separator: "/", omittingEmptySubsequences: false).dropFirst()
+            let trashed = item.trashed.split(separator: "/", omittingEmptySubsequences: false).dropFirst()
+            guard item.original.hasPrefix("/"), item.trashed.hasPrefix("/"),
+                  !original.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }),
+                  !trashed.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }),
+                  trashed.contains(where: { $0 == ".Trash" || $0 == ".Trashes" }) else { return false }
+            return item.original == root || item.original.hasPrefix(root + "/")
+        }
+        func exists(_ path: String) -> Bool {
+            var info = stat()
+            return lstat(path, &info) == 0
+        }
+        func depth(_ item: MovedSource) -> Int { item.original.split(separator: "/").count }
+        let folders = moved.filter { $0.target == nil }.sorted { depth($0) < depth($1) }
+        for folder in folders where acceptable(folder) && !exists(folder.original) && exists(folder.trashed) {
+            let original = URL(fileURLWithPath: folder.original)
+            try? FileManager.default.createDirectory(at: original.deletingLastPathComponent(), withIntermediateDirectories: true)
+            _ = putBack(URL(fileURLWithPath: folder.trashed), original)
+        }
+        for file in moved where file.target != nil {
+            let original = URL(fileURLWithPath: file.original)
+            if acceptable(file), !exists(file.original), exists(file.trashed) {
+                try? FileManager.default.createDirectory(at: original.deletingLastPathComponent(), withIntermediateDirectories: true)
+                if putBack(URL(fileURLWithPath: file.trashed), original) {
+                    outcome.restored += 1
+                    continue
+                }
+            }
+            outcome.notRestored.append(file.original)
+            if let target = file.target { outcome.keepTargets.insert(Self.key(target)) }
+        }
+        return outcome
+    }
+
+    /// Yolların karşılaştırma biçimi (rsync'in adları ile dosya sisteminin adları Unicode biçimiyle ayrışabilir).
+    static func key(_ path: String) -> String {
+        URL(fileURLWithPath: path).standardizedFileURL.path.precomposedStringWithCanonicalMapping
+    }
+
     /// Anlık görüntüsüz işin son çalıştırmasının eklediği öğeleri Çöp Sepeti'ne taşır: önce dosyalar, sonra boş kalan
     /// klasörler (en derinden). Yalnızca hedefin içindeki, çalıştırma sırasında oluşmuş ve ondan sonra değişmemiş öğeler.
-    public static func undoCreated(_ record: Record, destination: URL, startedAt: Date, finishedAt: Date,
+    /// - Parameter keep: Dokunulmayacak öğeler (mutlak yollar; kaynağı geri konamayan kopyalar).
+    public static func undoCreated(_ record: Record, destination: URL, startedAt: Date, finishedAt: Date, keep: Set<String> = [],
                                    trash: (URL) -> Bool) -> Outcome {
         var outcome = Outcome()
         let root = SandboxProfile.resolved(destination)
@@ -54,7 +157,7 @@ public enum RunUndo {
         var folders: [(String, URL)] = []
         for (path, url) in paths {
             var info = stat()
-            guard lstat(url.path, &info) == 0 else {
+            guard !keep.contains(Self.key(url.path)), lstat(url.path, &info) == 0 else {
                 outcome.kept.append(path)
                 continue
             }

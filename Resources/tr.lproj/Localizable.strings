@@ -1066,8 +1066,10 @@
 "undoButton" = "Geri Al";
 "undoFailed" = "Son çalıştırma geri alınamadı.";
 "logUndoneSnapshot" = "Son çalıştırma geri alındı: “%@” anlık görüntüsü Çöp Sepeti'ne taşındı.";
-"logUndoneCreated" = "Son çalıştırma geri alındı: %1$ld öğe Çöp Sepeti'ne taşındı, %2$ld öğeye dokunulmadı.";
+"logUndoneCreated" = "Son çalıştırma geri alındı: %1$@ öğe Çöp Sepeti'ne taşındı, %2$@ öğeye dokunulmadı.";
 "toastUndone" = "Son çalıştırma geri alındı";
+"logUndoneMoved" = "Son çalıştırma geri alındı: %1$@ kaynak dosya eski yerine kondu, %2$@ dosya konamadı (kopyaları hedefte kaldı); %3$@ öğe Çöp Sepeti'ne taşındı, %4$@ öğeye dokunulmadı.";
+"undoMovedMessage" = "Bu çalıştırmanın Çöp Sepeti'ne taşıdığı %1$ld kaynak dosya önce eski yerine konur, sonra eklediği %2$ld öğe Çöp Sepeti'ne taşınır. Eski yeri dolmuş ya da Çöp Sepeti'nden silinmiş bir kaynağın hedefteki kopyası yerinde kalır. Üzerine yazdığı ya da sildiği %3$ld dosya geri gelmez.";
 "menuSleepWhenDone" = "Kuyruk Bitince Mac'i Uyut";
 "sleepArmedNotice" = "Kuyruk bitince Mac uyuyacak.";
 "sleepCountdownNotice" = "Kuyruk bitti: Mac %ld sn sonra uyuyacak.";

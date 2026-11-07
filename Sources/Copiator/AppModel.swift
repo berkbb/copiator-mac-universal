@@ -61,6 +61,8 @@ enum UndoPlan: Equatable {
     case snapshot(String)
     /// Anlık görüntüsüz iş: eklenen `count` öğe Çöp Sepeti'ne taşınır; üzerine yazılan ya da silinen `otherChanges` öğe geri gelmez.
     case created(count: Int, otherChanges: Int)
+    /// "Taşı" seçili iş: Çöp'e giden `sources` kaynak dosya önce yerine konur, sonra eklenen `count` öğe Çöp'e taşınır.
+    case moved(count: Int, sources: Int, otherChanges: Int)
 }
 
 struct AlertItem: Identifiable {
@@ -253,6 +255,10 @@ final class AppModel {
     var diagnostics: DiagnosticPresentation?
     /// Dosyayı Çöp Sepeti'ne taşır (testler kendi klasörlerini verir).
     @ObservationIgnored var trashItem: (URL) -> Bool = { SourceTrash.systemTrash($0) }
+    /// "Taşı" adımında kaynağı Çöp Sepeti'ne taşır ve Çöp'teki yerini döndürür (testler kendi klasörlerini verir).
+    @ObservationIgnored var sourceTrashItem: @Sendable (URL) -> URL? = { SourceTrash.systemTrashLocating($0) }
+    /// Öğeyi Çöp'teki yerinden eski yerine taşır (taşıyan çalıştırmayı geri alma; testler kendi işlevlerini verir).
+    @ObservationIgnored var putBackItem: (URL, URL) -> Bool = { RunUndo.putBack($0, to: $1) }
     /// "Bitince hedef diski çıkar": hedefin çıkarılabilir birimi ve aynı diskteki birimler (testler sahte bir birim verir).
     @ObservationIgnored var ejectTarget: (URL) -> (volume: URL, disks: [URL])? = { url in
         DiskEject.volume(of: url).map { ($0, DiskEject.siblingVolumes(of: $0)) }
@@ -1455,7 +1461,12 @@ final class AppModel {
             guard let name = run.result.snapshot, SnapshotStore.completeSnapshots(in: job.destination).last == name else { return nil }
             return .snapshot(name)
         }
-        guard let record = run.result.undo, !record.truncated, !record.created.isEmpty else { return nil }
+        guard let record = run.result.undo, !record.truncated, !record.movedSourcesIncomplete else { return nil }
+        // 1.1.0'ın kaydı Çöp'e taşınan kaynakları bilmez: geri alma kopyaları da Çöp'e götürürdü.
+        if job.options.trashSourceAfterCopy, !record.knowsMovedSources { return nil }
+        let sources = record.movedSources.filter { $0.target != nil }.count
+        if sources > 0 { return .moved(count: record.created.count, sources: sources, otherChanges: record.otherChanges) }
+        guard !record.created.isEmpty else { return nil }
         return .created(count: record.created.count, otherChanges: record.otherChanges)
     }
 
@@ -1466,6 +1477,7 @@ final class AppModel {
         switch plan {
         case .snapshot(let name): message = t(.undoSnapshotMessage, name)
         case .created(let count, let otherChanges): message = t(.undoCreatedMessage, count, otherChanges)
+        case .moved(let count, let sources, let otherChanges): message = t(.undoMovedMessage, sources, count, otherChanges)
         }
         alert = AlertItem(title: t(.undoConfirmTitle), message: message, actionTitle: t(.undoButton),
                           action: { [weak self] in self?.undoLastRun(id) }, isDestructive: true)
@@ -1489,6 +1501,16 @@ final class AppModel {
                                               finishedAt: run.finishedAt, trash: trashItem)
             entry = JobLogEntry(level: outcome.failed.isEmpty ? .info : .warning, key: .logUndoneCreated,
                                 arguments: [String(outcome.trashed), String(outcome.kept.count + outcome.failed.count)])
+        case .moved:
+            guard let record = run.result.undo else { return }
+            // Önce kaynaklar yerine konur; yeri dolu ya da Çöp'te olmayan kaynağın kopyasına dokunulmaz.
+            let restore = RunUndo.restoreSources(record.movedSources, source: job.source, putBack: putBackItem)
+            let outcome = RunUndo.undoCreated(record, destination: job.destination, startedAt: run.startedAt,
+                                              finishedAt: run.finishedAt, keep: restore.keepTargets, trash: trashItem)
+            let clean = outcome.failed.isEmpty && restore.notRestored.isEmpty
+            entry = JobLogEntry(level: clean ? .info : .warning, key: .logUndoneMoved,
+                                arguments: [String(restore.restored), String(restore.notRestored.count), String(outcome.trashed),
+                                            String(outcome.kept.count + outcome.failed.count)])
         }
         let now = clock()
         AppLog.shared.info(.job, "Last run of job \(AppLog.short(id)) undone (\(entry.key ?? ""): \(entry.arguments.joined(separator: ", ")))")
@@ -1522,7 +1544,9 @@ final class AppModel {
             holdForBattery()
             return
         }
-        start(next, context: EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine, lowPriority: settings.lowPriorityIO))
+        var context = EngineContext(executable: engineURL, info: engineInfo, sandboxed: settings.sandboxEngine, lowPriority: settings.lowPriorityIO)
+        context.trashItem = sourceTrashItem
+        start(next, context: context)
     }
 
     /// "Disk takılınca başla" seçili iş, diski takılı olmadığı için bekliyor.

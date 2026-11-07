@@ -4,10 +4,11 @@ import Testing
 @testable import CopiatorCore
 
 /// Testlerin "Çöp Sepeti": öğeler sistemin Çöp Sepeti yerine testin klasörüne taşınır.
-private func trash(into folder: URL) -> @Sendable (URL) -> Bool {
+/// Öğenin "Çöp'teki" yerini döndürür (taşıyan çalıştırmayı geri almak için kaydedilir).
+private func trash(into folder: URL) -> @Sendable (URL) -> URL? {
     { url in
         let target = folder.appendingPathComponent(UUID().uuidString + "-" + url.lastPathComponent)
-        return (try? FileManager.default.moveItem(at: url, to: target)) != nil
+        return (try? FileManager.default.moveItem(at: url, to: target)) != nil ? target : nil
     }
 }
 
@@ -54,7 +55,7 @@ private func trashed(_ folder: URL) -> Set<String> {
     let pairs = SourceTrash.pairs(for: job, selection: nil, skippedNames: [], skippedPaths: [])
     let move = trash(into: bin)
     let outcome = SourceTrash.moveVerified(pairs, root: w.url("Kaynak"), trash: { url in
-        url.lastPathComponent == "korumali.txt" ? false : move(url)
+        url.lastPathComponent == "korumali.txt" ? nil : move(url)
     })
     #expect(outcome.moved == 2 && outcome.kept == 2 && outcome.folders == 1 && outcome.failed == ["korumali.txt"])
     #expect(trashed(bin) == ["a.txt", "d.txt", "alt"])
@@ -76,7 +77,7 @@ private func trashed(_ folder: URL) -> Set<String> {
     try w.write("Arsiv/Fotolar/IMG.jpg", "foto içeriği")
     let found = try SourceTrash.archivedFiles(in: w.url("Indirilenler"), destination: w.url("Arsiv"))
     #expect(found.map(\.lastPathComponent) == ["foto.jpg", "fatura.pdf"])
-    let outcome = SourceTrash.move(found, root: w.url("Indirilenler"), trash: trash(into: bin))
+    let outcome = SourceTrash.move(found, root: w.url("Indirilenler"), trash: { trash(into: bin)($0) != nil })
     #expect(outcome.moved == 2 && outcome.folders == 1 && outcome.failed.isEmpty)
     #expect(w.read("Indirilenler/yeni.txt") != nil && w.exists("Indirilenler/.gizli") && !w.exists("Indirilenler/Klasor"))
 }

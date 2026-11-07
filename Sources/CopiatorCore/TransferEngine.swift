@@ -28,8 +28,9 @@ public struct EngineContext: Sendable {
     /// Motorun geçici listelerini (seçilen dosyalar, dışlananlar, liste kopyaları) yazdığı klasör. Her çalıştırma burada
     /// kendine özel (0700) bir alt klasör açar ve bitince siler. Testler kendi klasörlerini verir.
     public var scratchDirectory: URL
-    /// "Taşı" adımında öğeyi Çöp Sepeti'ne taşır (testler kendi klasörlerini verir).
-    public var trashItem: @Sendable (URL) -> Bool = { SourceTrash.systemTrash($0) }
+    /// "Taşı" adımında öğeyi Çöp Sepeti'ne taşır ve Çöp'teki yerini döndürür, taşınamazsa nil (testler kendi klasörlerini
+    /// verir). Yer, taşıyan çalıştırmayı geri alırken kaynağı geri koymak için kaydedilir.
+    public var trashItem: @Sendable (URL) -> URL? = { SourceTrash.systemTrashLocating($0) }
     /// Motor düşük öncelikli disk G/Ç ile çalışsın mı (Ayarlar › Kopyalama; bkz. `CommandRunner.lowPriority`).
     public var lowPriority: Bool
 

@@ -33,6 +33,41 @@ struct UndoAppTests {
         #expect(model.undoPlan(for: undone) == nil, "bir daha geri alınamaz")
     }
 
+    /// "Taşı" seçili işin geri alınması: onay kaynakların geri konacağını söyler; kaynaklar Çöp'ten yerine döner, sonra
+    /// kopyalar Çöp'e gider. Kaynakların kaydı olmayan (1.1.0) çalıştırma geri alınmaz.
+    @Test func undoOfAMoveRunPutsTheSourcesBack() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        await model.refreshEngine()
+        #expect(model.addJob(source: fixture.url("Kaynak"), destination: fixture.url("Hedef"),
+                             options: CopyOptions(conflictPolicy: .replace, trashSourceAfterCopy: true)) == nil)
+        let id = try #require(model.jobs.last?.id)
+        await model.waitUntilIdle()
+        #expect(!FileManager.default.fileExists(atPath: fixture.url("Kaynak/not.txt").path), "kaynak Çöp'e taşındı")
+        let job = try #require(model.job(id))
+        #expect(model.undoPlan(for: job) == .moved(count: 4, sources: 2, otherChanges: 0))
+        model.requestUndoLastRun(id)
+        let alert = try #require(model.alert)
+        #expect(alert.message == fixture.settings.t(.undoMovedMessage, 2, 4, 0) && alert.isDestructive)
+        alert.action?()
+        #expect(fixture.read("Kaynak/not.txt") == "merhaba\n" && fixture.read("Kaynak/alt/b.txt") == "alt\n")
+        #expect(!FileManager.default.fileExists(atPath: fixture.url("Hedef/Kaynak").path))
+        let undone = try #require(model.job(id))
+        #expect(undone.log.contains { $0.key == LKey.logUndoneMoved.rawValue && $0.arguments == ["2", "0", "4", "0"] },
+                "\(undone.log.suffix(3).map { ($0.key ?? "", $0.arguments) })")
+        #expect(model.undoPlan(for: undone) == nil)
+
+        // 1.1.0'dan kalan kayıt: Çöp'e taşınan kaynakları bilmez.
+        model.resume([id])
+        await model.waitUntilIdle()
+        let legacy = try JSONDecoder().decode(RunUndo.Record.self, from: Data(#"{"created":["Kaynak/not.txt"],"truncated":false,"otherChanges":0}"#.utf8))
+        var rerun = try #require(model.job(id))
+        #expect(model.undoPlan(for: rerun) != nil, "yeni kayıt geri alınabilir")
+        rerun.history[rerun.history.count - 1].result.undo = legacy
+        #expect(model.undoPlan(for: rerun) == nil)
+    }
+
     @Test func snapshotUndoMovesTheNewestSnapshot() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }

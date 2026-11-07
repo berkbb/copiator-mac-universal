@@ -131,4 +131,76 @@ struct RunUndoTests {
         let saved = try JSONDecoder().decode(JobRun.self, from: JSONEncoder().encode(job.history[1]))
         #expect(saved.result.undo == second.undo && saved.undoneAt == nil)
     }
+
+    /// "Taşı" seçili çalıştırma: Çöp'e giden kaynak dosya ve boşalan klasörlerin yerleri kaydedilir. Geri alma önce
+    /// kaynakları yerine koyar; eski yeri dolmuş kaynağın hedefteki kopyası Çöp'e gitmez (tek kopya o olabilir).
+    @Test func moveRunPutsSourcesBackBeforeTrashingCopies() async throws {
+        let w = try Workspace("CopiatorMoveUndo")
+        let sourceTrash = try w.mkdir(".Trash")
+        var context = try await engineContext()
+        context.scratchDirectory = try w.mkdir("Gecici")
+        context.trashItem = { url in
+            let target = sourceTrash.appendingPathComponent(UUID().uuidString + "-" + url.lastPathComponent)
+            return (try? FileManager.default.moveItem(at: url, to: target)) != nil ? target : nil
+        }
+        try w.write("Gelen/a.txt", "a")
+        try w.write("Gelen/alt/b.txt", "b")
+        try w.write("Gelen/c.txt", "c")
+        try w.mkdir("Arsiv")
+        let job = TransferJob(source: w.url("Gelen"), destination: w.url("Arsiv"),
+                              options: CopyOptions(copyMode: .contents, conflictPolicy: .replace, trashSourceAfterCopy: true))
+        let started = Date()
+        let result = await RsyncEngine().run(job, context: context) { _ in }
+        let finished = Date()
+        #expect(result.kind.isSuccess, "\(result)")
+        let record = try #require(result.undo)
+        #expect(!record.movedSourcesIncomplete && record.knowsMovedSources)
+        #expect(Set(record.movedSources.map(\.original)) == Set(["Gelen/a.txt", "Gelen/alt/b.txt", "Gelen/c.txt", "Gelen/alt"].map { w.url($0).path }))
+        #expect(record.movedSources.first { $0.original == w.url("Gelen/alt").path }?.target == nil, "klasörün kopyası kaydedilmez")
+        #expect(!w.exists("Gelen/a.txt") && !w.exists("Gelen/alt") && w.exists("Gelen"))
+
+        // Kullanıcı c.txt'nin yerine yeni bir dosya koydu: o kaynak geri konamaz, kopyası hedefte kalır.
+        try w.write("Gelen/c.txt", "yeni c")
+        let restore = RunUndo.restoreSources(record.movedSources, source: job.source)
+        #expect(restore.restored == 2 && restore.notRestored == [w.url("Gelen/c.txt").path])
+        #expect(w.read("Gelen/a.txt") == "a" && w.read("Gelen/alt/b.txt") == "b" && w.read("Gelen/c.txt") == "yeni c")
+        let trash = TestTrash(try w.mkdir("Cop"))
+        let outcome = RunUndo.undoCreated(record, destination: job.destination, startedAt: started, finishedAt: finished,
+                                          keep: restore.keepTargets, trash: trash.callAsFunction)
+        #expect(!w.exists("Arsiv/a.txt") && !w.exists("Arsiv/alt") && w.read("Arsiv/c.txt") == "c")
+        #expect(outcome.kept == ["c.txt"] && outcome.failed.isEmpty)
+    }
+
+    /// Kayıt yalnızca bir Çöp klasöründeki öğeyi ve yalnızca kaynağın içine geri koyar: Çöp dışından, kaynağın dışına
+    /// ya da "." ve ".." içeren yollarla hiçbir şey taşınmaz; geri konamayan dosyaların kopyaları korunur.
+    @Test func restoreAcceptsOnlyTrashToSource() throws {
+        let w = try Workspace("CopiatorMoveUndoSafety")
+        try w.mkdir("Gelen")
+        try w.write("Disari/x.txt", "dışarıdaki")
+        try w.write(".Trash/y.txt", "çöpteki")
+        try w.write(".Trash/z.txt", "çöpteki")
+        let moved = [
+            RunUndo.MovedSource(original: w.url("Gelen/x.txt").path, trashed: w.url("Disari/x.txt").path, target: "/hedef/x.txt"),
+            RunUndo.MovedSource(original: w.url("Baska/y.txt").path, trashed: w.url(".Trash/y.txt").path, target: "/hedef/y.txt"),
+            RunUndo.MovedSource(original: w.url("Gelen").path + "/../Baska/z.txt", trashed: w.url(".Trash/z.txt").path, target: "/hedef/z.txt"),
+            RunUndo.MovedSource(original: "Gelen/z.txt", trashed: w.url(".Trash/z.txt").path, target: "/hedef/w.txt"),
+        ]
+        let outcome = RunUndo.restoreSources(moved, source: w.url("Gelen"))
+        #expect(outcome.restored == 0 && outcome.notRestored.count == 4)
+        #expect(outcome.keepTargets == ["/hedef/x.txt", "/hedef/y.txt", "/hedef/z.txt", "/hedef/w.txt"])
+        #expect(w.exists("Disari/x.txt") && w.exists(".Trash/y.txt") && w.exists(".Trash/z.txt") && !w.exists("Baska"))
+        #expect(((try? FileManager.default.contentsOfDirectory(atPath: w.url("Gelen").path)) ?? ["?"]).isEmpty)
+    }
+
+    /// 1.1.0'ın kayıtları Çöp'e taşınan kaynakları bilmez; yeni kayıtlar bilir ve kaydedilip okununca aynı kalır.
+    @Test func legacyRecordsDoNotKnowMovedSources() throws {
+        let legacy = try JSONDecoder().decode(RunUndo.Record.self, from: Data(#"{"created":["a"],"truncated":false,"otherChanges":0}"#.utf8))
+        #expect(!legacy.knowsMovedSources && !legacy.movedSourcesIncomplete && legacy.movedSources.isEmpty && legacy.created == ["a"])
+        let record = RunUndo.Record(created: ["a"], truncated: false, otherChanges: 1,
+                                    movedSources: [RunUndo.MovedSource(original: "/k/a", trashed: "/u/.Trash/a", target: "/h/a")])
+        let decoded = try JSONDecoder().decode(RunUndo.Record.self, from: JSONEncoder().encode(record))
+        #expect(decoded == record && decoded.knowsMovedSources)
+        let broken = try JSONDecoder().decode(RunUndo.Record.self, from: Data(#"{"created":["a"],"truncated":false,"otherChanges":0,"movedSources":7}"#.utf8))
+        #expect(broken.movedSourcesIncomplete, "okunamayan taşıma listesi eksik sayılır")
+    }
 }

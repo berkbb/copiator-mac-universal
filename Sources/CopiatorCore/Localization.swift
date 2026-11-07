@@ -292,7 +292,7 @@ public enum LKey: String, CaseIterable, Sendable {
     case menuSleepWhenDone, sleepArmedNotice, sleepCountdownNotice, sleepNowButton, notifySleepTitle, notifySleepBody
     // Son çalıştırmayı geri alma
     case menuUndoLastRun, undoConfirmTitle, undoSnapshotMessage, undoCreatedMessage, undoButton, undoFailed, logUndoneSnapshot
-    case logUndoneCreated, toastUndone
+    case logUndoneCreated, toastUndone, undoMovedMessage, logUndoneMoved
     // Time Machine dışlaması
     case optionExcludeFromTimeMachine, optionExcludeFromTimeMachineNote, logTimeMachineExcluded, logTimeMachineExcludeFailed
     // Şifresiz hedef disk

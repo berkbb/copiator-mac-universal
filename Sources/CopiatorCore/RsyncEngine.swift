@@ -248,6 +248,7 @@ public struct RsyncEngine: TransferEngine {
         }
 
         // "Taşı": hedefteki karşılığıyla birebir aynı olduğu doğrulanan kaynak dosyalar Çöp Sepeti'ne (anlık görüntüde yok).
+        var trashed: SourceTrash.Outcome?
         if original.options.trashSourceAfterCopy, preparation == nil, !Task.isCancelled, result.kind.isSuccess || result.kind == .partial {
             onEvent(.phase(.verifying))
             let skippedNames: Set<String> = original.options.excludeSystemFolders ? Set(RsyncCommand.systemExclusions) : []
@@ -255,6 +256,7 @@ public struct RsyncEngine: TransferEngine {
                                           skippedNames: skippedNames, skippedPaths: Set(protectedPaths), isCancelled: { Task.isCancelled })
             let root = Self.isDirectory(original.source) ? original.source : original.source.deletingLastPathComponent()
             let outcome = SourceTrash.moveVerified(pairs, root: root, trash: context.trashItem, isCancelled: { Task.isCancelled })
+            trashed = outcome
             onEvent(.log(JobLogEntry(level: .info, key: .logSourcesTrashed,
                                      arguments: [String(outcome.moved), String(outcome.folders), String(outcome.kept)])))
             if !outcome.failed.isEmpty {
@@ -266,7 +268,14 @@ public struct RsyncEngine: TransferEngine {
 
         if let preparation { finishSnapshot(preparation, root: snapshotRoot, options: job.options, result: &result, onEvent: onEvent) }
         // Son çalıştırmayı geri almak için eklenen öğeler (anlık görüntüde gerekmez: anlık görüntünün kendisi geri alınır).
-        if !original.options.snapshots.enabled, result.kind.isSuccess, advanced.batchMode != .onlyWrite { result.undo = collector.undoRecord }
+        if !original.options.snapshots.enabled, result.kind.isSuccess, advanced.batchMode != .onlyWrite {
+            result.undo = collector.undoRecord
+            // Çöp'e taşınan kaynakların yerleri: geri alma önce bunları geri koyar (bkz. `RunUndo.restoreSources`).
+            if let trashed {
+                result.undo?.movedSources = trashed.unlocated == 0 ? trashed.located : []
+                result.undo?.movedSourcesIncomplete = trashed.unlocated > 0
+            }
+        }
         return result
     }
 

@@ -1066,8 +1066,10 @@
 "undoButton" = "Anulează";
 "undoFailed" = "Ultima rulare nu a putut fi anulată.";
 "logUndoneSnapshot" = "Ultima rulare a fost anulată: instantaneul „%@” a fost mutat în Coș.";
-"logUndoneCreated" = "Ultima rulare a fost anulată: %1$ld elemente au fost mutate în Coș, %2$ld au rămas pe loc.";
+"logUndoneCreated" = "Ultima rulare a fost anulată: %1$@ elemente au fost mutate în Coș, %2$@ au rămas pe loc.";
 "toastUndone" = "Ultima rulare a fost anulată";
+"logUndoneMoved" = "Ultima rulare a fost anulată: %1$@ fișiere sursă au fost puse la loc, %2$@ nu au putut fi (copiile lor au rămas la destinație); %3$@ elemente au fost mutate în Coș, %4$@ au rămas pe loc.";
+"undoMovedMessage" = "Cele %1$ld fișiere sursă pe care această rulare le-a mutat în Coș revin mai întâi la locul lor, apoi cele %2$ld elemente adăugate se mută în Coș. Dacă locul vechi al unei surse este ocupat sau sursa a fost ștearsă din Coș, copia ei de la destinație rămâne. Cele %3$ld fișiere pe care le-a înlocuit sau șters nu revin.";
 "menuSleepWhenDone" = "Pune Mac-ul în repaus când coada se termină";
 "sleepArmedNotice" = "Mac-ul intră în repaus când coada se termină.";
 "sleepCountdownNotice" = "Coada s-a terminat: Mac-ul intră în repaus în %ld s.";
