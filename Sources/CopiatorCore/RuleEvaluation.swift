@@ -334,6 +334,12 @@ public struct RuleEvaluator: @unchecked Sendable {
             default: return item.tags.contains { compare($0, condition) }
             }
         case .content:
+            // Düzenli ifade metne yazıldığı gibi uygulanır (adım sınırlı); Spotlight'a sorulamaz, yalnızca okunabilen
+            // dosyalarda (PDF ve düz metin) çalışır.
+            if condition.op == .matchesRegex {
+                guard let text = item.textContent else { return false }
+                return compare(text.precomposedStringWithCanonicalMapping, condition)
+            }
             // Spotlight dizini bulduysa yeter; bulmadıysa (dizinlenmemiş birim, eski dizin) PDF ve metin dosyaları
             // doğrudan okunur.
             if contentMatches[condition.id]?.contains(item.relativePath) == true { return true }
@@ -455,7 +461,7 @@ public enum RuleScanner {
     ) async throws -> Result {
         // İçerik koşulları taramadan önce Spotlight'a bir kez sorulur.
         var contentMatches: [UUID: Set<String>] = [:]
-        for condition in rules.allConditions where condition.attribute == .content {
+        for condition in rules.allConditions where condition.attribute == .content && condition.op != .matchesRegex {
             contentMatches[condition.id] = Spotlight.relativePaths(containing: condition.value, in: root)
         }
         let index = try destination.flatMap { destination in

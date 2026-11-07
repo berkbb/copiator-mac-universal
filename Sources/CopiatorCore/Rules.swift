@@ -93,7 +93,8 @@ public enum RuleAttribute: String, Codable, CaseIterable, Identifiable, Sendable
         case .modified, .created, .added, .captureDate: [.withinLast, .notWithinLast, .before, .after]
         case .tag: [.equals, .contains, .isTrue, .isFalse]
         case .hidden, .inDestination, .location: [.isTrue, .isFalse]
-        case .content: [.contains]
+        // Düzenli ifade Spotlight'a sorulamaz: dosyanın metni (PDF ve düz metin) doğrudan okunur.
+        case .content: [.contains, .matchesRegex]
         }
     }
 
