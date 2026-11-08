@@ -30,7 +30,13 @@ fi
 
 if [ "$RUN_TESTS" = 1 ]; then
   echo "▸ Testler çalıştırılıyor…"
+  # Testler kullanıcının ~/Library/Preferences klasörüne ayar dosyası bırakmamalı (TestDefaults): koşudan önceki ve
+  # sonraki test biçimli adlar karşılaştırılır (2026-11-08'e dek ~4 900 boş plist birikmişti).
+  PREFS_BEFORE="$(mktemp -t copiator-prefs)"
+  "$ROOT/Scripts/dev/test-preferences.sh" snapshot "$PREFS_BEFORE"
   swift test --package-path "$ROOT"
+  "$ROOT/Scripts/dev/test-preferences.sh" check "$PREFS_BEFORE"
+  rm -f "$PREFS_BEFORE"
 fi
 
 "$ROOT/Scripts/build_app.sh"
@@ -39,7 +45,18 @@ fi
 ENGINE="$APP/Contents/MacOS/rsync"
 [ -x "$ENGINE" ] || { echo "HATA: Pakette rsync yok." >&2; exit 1; }
 ENGINE_VERSION="$(perl -e 'alarm shift; exec @ARGV' 10 "$ENGINE" --version </dev/null 2>/dev/null | head -1 || true)"
-echo "▸ Paketteki rsync: ${ENGINE_VERSION:-okunamadı} ($(lipo -archs "$ENGINE"))"
+ENGINE_ARCHS="$(lipo -archs "$ENGINE")"
+echo "▸ Paketteki rsync: ${ENGINE_VERSION:-okunamadı} ($ENGINE_ARCHS)"
+# Motor, uygulamanın derlendiği her mimariyi içermeli; yoksa o Mac'lerde Copiator motorsuz kalır (build_app.sh ile aynı
+# ARCHS değişkeni; native = yalnızca bu Mac).
+REQUIRED_ARCHS="${ARCHS:-arm64 x86_64}"
+[ "$REQUIRED_ARCHS" != native ] || REQUIRED_ARCHS="$(uname -m)"
+for arch in $REQUIRED_ARCHS; do
+  case " $ENGINE_ARCHS " in
+    *" $arch "*) ;;
+    *) echo "HATA: Paketteki rsync $arch içermiyor ($ENGINE_ARCHS). Scripts/update-rsync.sh install --force çalıştırın (build-rsync.sh evrensel derler)." >&2; exit 1 ;;
+  esac
+done
 "$ROOT/Scripts/verify_bundle.sh" "$APP"
 
 echo "▸ Dağıtım dosyaları hazırlanıyor…"
