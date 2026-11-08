@@ -20,7 +20,7 @@ private func env(_ fs: FileSystemKind = .apfs, engine: EngineInfo = fullEngine, 
 @Test func defaultAdvancedOptionsChangeNothing() {
     #expect(AdvancedOptions().isDefault)
     let arguments = RsyncCommand.transfer(job(AdvancedOptions()), environment: env())
-    #expect(arguments == ["-rltDhX", "--info=progress2", "-i", "--partial", "--exclude=/" + ArchiveIntegrity.manifestName, "--",
+    #expect(arguments == ["-rltDh8X", "--info=progress2", "-i", "--partial", "--exclude=/" + ArchiveIntegrity.manifestName, "--",
                           "/Users/x/Proje", "/Volumes/Yedek/"])
 }
 

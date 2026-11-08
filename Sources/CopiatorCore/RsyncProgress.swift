@@ -61,8 +61,16 @@ public struct TransferProgress: Codable, Equatable, Sendable {
 ///     "              0   0%    0.00kB/s    0:00:00 (xfr#0, ir-chk=1050/1091)"
 ///     "              8   0%    0.00kB/s    0:00:00  "
 ///
-/// Bayt sayısı `-h` ile 1000 tabanlı K/M/G/T/P sonekli ("%.2f"), `-h` olmadan basamak ayırıcılıdır ("1,234,567").
-/// Hız 1024 tabanlıdır (kB/s, MB/s, GB/s). Kalan süre bilinmiyorsa "??:??:??" yazılır.
+/// rsync 3.5.2'den beri bayt sayısı "B" sonekiyle, hız birimleri büyük harfle ve değişken basamakla yazılır:
+///
+///     "         15,000B  99%       0B/s    0:00:00 (xfr#1, to-chk=2/4)"
+///     "          3.00MB  99%    231MB/s    0:00:00 (xfr#2, to-chk=4/7)"
+///     "              1B 100%      83B/s    0:00:00 (xfr#4, to-chk=2/7)"
+///     "         32,768B   1%   32.8MB/s    0:00:00  "
+///
+/// Bayt sayısı `-h` ile 1000 tabanlı K/M/G/T/P sonekli ("%.2f", 3.5.2'de ardından "B"), `-h` olmadan basamak ayırıcılıdır
+/// ("1,234,567", 3.5.2'de "1,234,567B"). Hız 1024 tabanlıdır (kB/s, MB/s, GB/s; 3.5.2'de B/s, KB/s, MB/s, GB/s).
+/// Kalan süre bilinmiyorsa "??:??:??" yazılır.
 public enum RsyncProgressParser {
     public static func parse<S: StringProtocol>(_ record: S) -> TransferProgress? {
         let tokens = record.split(whereSeparator: { $0 == " " || $0 == "\t" })
@@ -92,8 +100,11 @@ public enum RsyncProgressParser {
         return progress
     }
 
-    /// "29.70K" → 29700, "1,234,567" → 1234567, "0" → 0. Uydurma büyük değerler `Int64.max`'ta durur.
+    /// "29.70K" → 29700, "1,234,567" → 1234567, "0" → 0; 3.5.2: "15,000B" → 15000, "3.00MB" → 3000000, "1B" → 1.
+    /// Uydurma büyük değerler `Int64.max`'ta durur.
     static func parseBytes<S: StringProtocol>(_ token: S) -> Int64? {
+        // 3.5.2'nin "B" soneki; tek başına "B" bir sayı değildir.
+        let token = token.count > 1 && token.hasSuffix("B") ? token.dropLast() : token[...]
         guard let last = token.last else { return nil }
         let multipliers: [Character: Double] = ["K": 1e3, "M": 1e6, "G": 1e9, "T": 1e12, "P": 1e15]
         if let multiplier = multipliers[last] {
@@ -105,9 +116,12 @@ public enum RsyncProgressParser {
         return Int64(digits) ?? .max
     }
 
-    /// "0.61kB/s" → 624.64, "624.90MB/s" → 655_257_190.4 (1024 tabanlı).
+    /// "0.61kB/s" → 624.64, "624.90MB/s" → 655_257_190.4 (1024 tabanlı); 3.5.2: "83B/s" → 83, "8.00KB/s" → 8192.
     static func parseRate<S: StringProtocol>(_ token: S) -> Double? {
-        let units: [(String, Double)] = [("kB/s", 1024), ("MB/s", 1024 * 1024), ("GB/s", 1024 * 1024 * 1024)]
+        let units: [(String, Double)] = [
+            ("kB/s", 1024), ("KB/s", 1024), ("MB/s", 1024 * 1024), ("GB/s", 1024 * 1024 * 1024),
+            ("TB/s", 1024 * 1024 * 1024 * 1024), ("B/s", 1),
+        ]
         for (suffix, multiplier) in units where token.hasSuffix(suffix) {
             guard let value = Double(token.dropLast(suffix.count)), value.isFinite, value >= 0 else { return nil }
             return value * multiplier

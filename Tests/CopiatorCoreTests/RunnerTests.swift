@@ -161,3 +161,27 @@ private let shell = CommandRunner(executableURL: URL(fileURLWithPath: "/bin/sh")
         _ = await run.value
     }
 }
+
+/// rsync 3.5.2 adları ve hata iletilerini etkin yerel ayara göre kaçışlar: çocuk süreç her zaman UTF-8 bir karakter
+/// yerel ayarıyla başlar, var olan UTF-8 ayara dokunulmaz.
+@Test func childEnvironmentHasAUTF8CharacterLocale() {
+    let bare = CommandRunner.childEnvironment(["PATH": "/usr/bin", "HOME": "/Users/x"])
+    #expect(bare["LC_CTYPE"] == "UTF-8")
+    #expect(bare["PATH"] == "/usr/bin")
+    #expect(bare["LC_ALL"] == nil)
+
+    let shell = ["LANG": "tr_TR.UTF-8", "PATH": "/usr/bin"]
+    #expect(CommandRunner.childEnvironment(shell) == shell)
+    let ctype = ["LC_CTYPE": "en_US.utf8"]
+    #expect(CommandRunner.childEnvironment(ctype) == ctype)
+    let all = ["LC_ALL": "en_US.UTF-8", "LANG": "C"]
+    #expect(CommandRunner.childEnvironment(all) == all)
+
+    // C yerel ayarı zorlayan LC_ALL kaldırılır; LANG=C tek başına LC_CTYPE ile aşılır.
+    let forcedC = CommandRunner.childEnvironment(["LC_ALL": "C", "LANG": "C"])
+    #expect(forcedC["LC_ALL"] == nil)
+    #expect(forcedC["LC_CTYPE"] == "UTF-8")
+    #expect(forcedC["LANG"] == "C")
+    let posixLang = CommandRunner.childEnvironment(["LANG": "POSIX", "LC_CTYPE": ""])
+    #expect(posixLang["LC_CTYPE"] == "UTF-8")
+}

@@ -37,6 +37,8 @@ import Testing
 @Test(arguments: [
     ("209.72M", Int64(209_720_000)), ("1.02G", Int64(1_020_000_000)), ("3.10T", Int64(3_100_000_000_000)),
     ("1,234,567", Int64(1_234_567)), ("1.234.567", Int64(1_234_567)), ("0", Int64(0)), ("999", Int64(999)),
+    // rsync 3.5.2: "B" soneki.
+    ("15,000B", Int64(15_000)), ("3.00MB", Int64(3_000_000)), ("1B", Int64(1)), ("0B", Int64(0)), ("3,000,000B", Int64(3_000_000)),
 ])
 func parsesByteCounts(token: String, expected: Int64) {
     #expect(RsyncProgressParser.parseBytes(token) == expected)
@@ -46,6 +48,35 @@ func parsesByteCounts(token: String, expected: Int64) {
     #expect(RsyncProgressParser.parseRate("624.90MB/s") == 624.90 * 1024 * 1024)
     #expect(RsyncProgressParser.parseRate("1.50GB/s") == 1.5 * 1024 * 1024 * 1024)
     #expect(RsyncProgressParser.parseRate("12.0") == nil)
+    // rsync 3.5.2: büyük harfli birimler, değişken basamak, "B/s".
+    #expect(RsyncProgressParser.parseRate("0B/s") == 0)
+    #expect(RsyncProgressParser.parseRate("83B/s") == 83)
+    #expect(RsyncProgressParser.parseRate("8.00KB/s") == 8192.0)
+    #expect(RsyncProgressParser.parseRate("32.8MB/s") == 32.8 * 1024 * 1024)
+    #expect(RsyncProgressParser.parseRate("250MB/s") == 262_144_000.0)
+    #expect(RsyncProgressParser.parseRate("B/s") == nil)
+    #expect(RsyncProgressParser.parseBytes("B") == nil)
+}
+
+/// Gerçek rsync 3.5.2 çıktısı: bayt sayısında "B" soneki, hızda "B/s" ve "KB/s"; sayaçlar değişmedi.
+@Test func parsesRsync352ProgressLines() throws {
+    let plain = try #require(RsyncProgressParser.parse("         15,000B  99%       0B/s    0:00:00 (xfr#1, to-chk=2/4)"))
+    #expect(plain.bytesTransferred == 15_000)
+    #expect(plain.fraction == 0.99)
+    #expect(plain.bytesPerSecond == 0)
+    #expect(plain.filesTransferred == 1)
+    #expect(plain.itemsRemaining == 2)
+    #expect(plain.itemsTotal == 4)
+    let human = try #require(RsyncProgressParser.parse("          3.00MB  99%    231MB/s    0:00:00 (xfr#2, to-chk=4/7)"))
+    #expect(human.bytesTransferred == 3_000_000)
+    #expect(human.bytesPerSecond == 242_221_056.0)
+    let tiny = try #require(RsyncProgressParser.parse("              1B 100%      83B/s    0:00:00 (xfr#4, to-chk=2/7)"))
+    #expect(tiny.bytesTransferred == 1)
+    #expect(tiny.fraction == 1)
+    let perFile = try #require(RsyncProgressParser.parse("         32,768B   1%   32.8MB/s    0:00:00  "))
+    #expect(perFile.bytesTransferred == 32_768)
+    #expect(perFile.itemsTotal == nil)
+    #expect(perFile.filesTransferred == 0)
 }
 
 @Test func parsesDurationsAndUnknownTime() {

@@ -150,7 +150,7 @@ struct AppModelTests {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         await fixture.model.refreshEngine()
-        #expect(fixture.model.engineStatus == .ready(version: "3.5.1", limited: false))
+        #expect(fixture.model.engineStatus == .ready(version: "3.5.2", limited: false))
         #expect(fixture.model.engineURL?.path == rsyncURL?.path)
     }
 

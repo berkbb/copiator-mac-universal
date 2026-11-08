@@ -15,12 +15,12 @@ private func env(_ fs: FileSystemKind = .apfs, engine: EngineInfo = fullEngine, 
 private let systemExcludes = (RsyncCommand.systemExclusions + RsyncCommand.windowsLeftoverPatterns + ["/" + ArchiveIntegrity.manifestName])
     .map { "--exclude=\($0)" }
 
-/// Varsayılan yerel kopya: -rltDhX --info=progress2 -i --partial, sistem klasörleri dışarıda, "--"dan sonra yollar.
+/// Varsayılan yerel kopya: -rltDh8X --info=progress2 -i --partial, sistem klasörleri dışarıda, "--"dan sonra yollar.
 /// `-i` geri alma kaydı içindir; anlık görüntülü işte, değişiklik günlüğü açıkken (zaten var) ve yalnızca toplu iş dosyası
 /// yazılırken (hedef değişmez) eklenmez.
 @Test func defaultTransferArguments() {
     let arguments = RsyncCommand.transfer(job(), environment: env())
-    #expect(arguments == ["-rltDhX", "--info=progress2", "-i", "--partial"] + systemExcludes
+    #expect(arguments == ["-rltDh8X", "--info=progress2", "-i", "--partial"] + systemExcludes
         + ["--", "/Users/x/Fotoğraflar", "/Volumes/Yedek/"])
     let snapshot = RsyncCommand.transfer(job(options: CopyOptions(snapshots: SnapshotOptions(enabled: true))), environment: env())
     #expect(!snapshot.contains("-i"))
@@ -61,12 +61,12 @@ func fatLikeDestinationsDropPermissionFlags(fs: FileSystemKind) {
     let arguments = RsyncCommand.transfer(job(options: CopyOptions(preservePermissions: true)), environment: env(fs))
     #expect(!arguments.contains { $0.hasPrefix("-pog") })
     #expect(arguments.contains("--modify-window=1") == (fs == .fat))
-    #expect(arguments.first == "-rltDhX")
+    #expect(arguments.first == "-rltDh8X")
 }
 
 @Test func extendedAttributesCanBeTurnedOff() {
     let arguments = RsyncCommand.transfer(job(options: CopyOptions(preserveExtendedAttributes: false)), environment: env())
-    #expect(arguments.first == "-rltDh")
+    #expect(arguments.first == "-rltDh8")
 }
 
 /// --delete yalnızca açıkça seçilince; kaynağı değiştiren bir seçenek hiçbir koşulda üretilmez.
@@ -124,7 +124,7 @@ func fatLikeDestinationsDropPermissionFlags(fs: FileSystemKind) {
 /// macOS'un openrsync'i: --info=progress2, öznitelikler ve ACL yok; öznitelik seçeneği "düşürülen" olarak bildirilir.
 @Test func openrsyncRestrictedMode() {
     let arguments = RsyncCommand.transfer(job(options: CopyOptions(preservePermissions: true)), environment: env(engine: openrsyncEngine))
-    #expect(arguments.prefix(4) == ["-rltDh", "-i", "--partial", "-pog"])
+    #expect(arguments.prefix(4) == ["-rltDh8", "-i", "--partial", "-pog"])
     #expect(!arguments.contains("--info=progress2"))
     #expect(!arguments.contains { $0 == "--extended-attributes" || $0.hasPrefix("-") && !$0.hasPrefix("--") && $0.contains("X") })
     #expect(RsyncCommand.droppedOptions(job(), environment: env(engine: openrsyncEngine)).first == "-X")
@@ -135,7 +135,7 @@ func fatLikeDestinationsDropPermissionFlags(fs: FileSystemKind) {
 
 @Test func verifyIsADryRunWithItemizeAndDeleteListing() {
     let quick = RsyncCommand.verify(job(), environment: env(), checksum: false)
-    #expect(quick.prefix(3) == ["-rltDhX", "-n", "-i"])
+    #expect(quick.prefix(3) == ["-rltDh8X", "-n", "-i"])
     #expect(quick.contains("--delete"))
     #expect(!quick.contains("-c"))
     #expect(!quick.contains("--info=progress2"))

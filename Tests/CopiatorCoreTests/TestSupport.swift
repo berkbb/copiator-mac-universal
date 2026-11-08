@@ -19,8 +19,8 @@ let vendoredRsync: URL? = {
     return candidates.map { URL(fileURLWithPath: $0) }.first { FileManager.default.isExecutableFile(atPath: $0.path) }
 }()
 
-/// 3.5.1 gibi tam özellikli bir rsync'in yetenekleri (argüman testleri için; çalıştırılmaz).
-let fullEngine = EngineInfo(version: "3.5.1", isOpenrsync: false, supportsACLs: true, supportsXattrs: true)
+/// 3.5.2 gibi tam özellikli bir rsync'in yetenekleri (argüman testleri için; çalıştırılmaz).
+let fullEngine = EngineInfo(version: "3.5.2", isOpenrsync: false, supportsACLs: true, supportsXattrs: true)
 /// macOS'un /usr/bin/rsync'i (openrsync).
 let openrsyncEngine = EngineInfo(version: "2.6.9", isOpenrsync: true, supportsACLs: false, supportsXattrs: false)
 

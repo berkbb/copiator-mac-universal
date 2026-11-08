@@ -30,7 +30,7 @@ struct DiagnosticsTests {
 
         let masker = DiagnosticMasker(home: fixture.workspace.path, userNames: ["kullanici"], salt: Data([7]))
         let report = model.diagnosticReport(masker: masker)
-        for expected in ["Copiator diagnostic report", "rsync: 3.5.1", "Permissions: notifications=denied · full disk access=off",
+        for expected in ["Copiator diagnostic report", "rsync: 3.5.2", "Permissions: notifications=denied · full disk access=off",
                          "sandbox=on", "Jobs: 1", "[1] ~/‹name-", "command: rsync ", "log (last", "detail:"] {
             #expect(report.contains(expected), "\(expected)")
         }

@@ -17,7 +17,7 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 
 | Operation | Arguments | Notes |
 | :--- | :--- | :--- |
-| **Transfer** | `-rltDhX --info=progress2 [-i] --partial [-pogA\|-pog] [--modify-window=1] [--delete] [--exclude=…] -- <source>[/] <destination>/` | `X` dropped when xattrs are off; `-pog*` never on exFAT/FAT/NTFS; `--modify-window=1` on FAT; trailing `/` on the source = "copy its contents". |
+| **Transfer** | `-rltDh8X --info=progress2 [-i] --partial [-pogA\|-pog] [--modify-window=1] [--delete] [--exclude=…] -- <source>[/] <destination>/` | `X` dropped when xattrs are off; `-pog*` never on exFAT/FAT/NTFS; `--modify-window=1` on FAT; trailing `/` on the source = "copy its contents". |
 | **Verify** | `-rltDhX -n -i [-c] [-pog…] --delete [--exclude=…] -- <source>[/] <destination>/` | Dry run; `--delete` lists extra items only; sandbox has no writable folder. |
 | **openrsync (fallback)** | `-rltDh [--extended-attributes] --partial [-pog] …` | No `--info=progress2`, no `-X`, no ACLs; progress is indeterminate. Unsupported advanced options are dropped and logged. |
 | **Advanced (per job)** | `--info=progress1\|2[,name1][,flist2][,stats2] [--no-inc-recursive] [-i]` + selection, attribute, link, write, comparison, reference, backup and output flags + `--filter/--include/--exclude/-F/--*-from` | All defaults add nothing. Verify keeps only comparison-affecting flags. Order of filters: protected, system, user. |

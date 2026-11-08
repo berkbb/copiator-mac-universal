@@ -171,6 +171,32 @@ extension CommandRunner {
     }
 }
 
+extension CommandRunner {
+    /// Çocuk sürecin ortamı: UTF-8 bir karakter yerel ayarı olmayan ortama `LC_CTYPE=UTF-8` eklenir.
+    ///
+    /// Finder'dan ya da Kestirmeler'den açılan bir uygulamanın ortamında `LANG` yoktur; süreç C yerel ayarında başlar.
+    /// rsync 3.5.2 adlardaki ve hata iletilerindeki "uç birim denetim karakterlerini" etkin yerel ayara göre kaçışlar
+    /// (NEWS 3.5.2): C yerel ayarında UTF-8'in 0x80–0x9F baytları (ğ, ş, Ğ, Ş'nin ikinci baytı) denetim karakteri sayılır
+    /// ve hata ayrıntısında "Foto\#237raflar" yazar; `-8` yalnızca dosya listesini korur, stderr iletilerini korumaz
+    /// (ölçüldü, 3.5.2). Yerel ayar UTF-8 iken 3.5.1 ile aynı ham baytlar yazılır. `LC_ALL` her şeyi ezdiği için UTF-8
+    /// olmayan bir `LC_ALL` kaldırılır; UTF-8 bir ayar varsa ortam değiştirilmez.
+    nonisolated static func childEnvironment(_ environment: [String: String]) -> [String: String] {
+        func isUTF8(_ value: String?) -> Bool {
+            guard let value else { return false }
+            let lower = value.lowercased()
+            return lower.contains("utf-8") || lower.contains("utf8")
+        }
+        let effective = environment["LC_ALL"].flatMap { $0.isEmpty ? nil : $0 }
+            ?? environment["LC_CTYPE"].flatMap { $0.isEmpty ? nil : $0 }
+            ?? environment["LANG"].flatMap { $0.isEmpty ? nil : $0 }
+        guard !isUTF8(effective) else { return environment }
+        var result = environment
+        if let all = result["LC_ALL"], !isUTF8(all) { result["LC_ALL"] = nil }
+        result["LC_CTYPE"] = "UTF-8"
+        return result
+    }
+}
+
 /// Process ve borularını eşzamanlı kapanışlara güvenle taşımak için kutu.
 private final class ProcessBox: @unchecked Sendable {
     let process = Process()
@@ -180,6 +206,7 @@ private final class ProcessBox: @unchecked Sendable {
     init(executableURL: URL, arguments: [String], input: Data?) throws {
         process.executableURL = executableURL
         process.arguments = arguments
+        process.environment = CommandRunner.childEnvironment(ProcessInfo.processInfo.environment)
         if let input {
             // Veri süreç başlamadan boruya yazılıp yazma ucu kapatılır: çocuk süreç veriyi ve ardından EOF okur.
             // Böylece kapanmış boruya yazma (SIGPIPE) olamaz. Veri küçüktür, boru tamponuna sığar.

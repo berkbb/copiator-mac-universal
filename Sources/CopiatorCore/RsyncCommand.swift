@@ -63,7 +63,7 @@ public enum RsyncCommand {
         }
     }
 
-    /// Kopyalama. Varsayılan: `-rltDhX --info=progress2 -i --partial` (`-i` anlık görüntüsüz işte geri alma kaydı için).
+    /// Kopyalama. Varsayılan: `-rltDh8X --info=progress2 -i --partial` (`-i` anlık görüntüsüz işte geri alma kaydı için).
     public static func transfer(_ job: TransferJob, environment: Environment) -> [String] {
         let advanced = job.options.advanced
         var arguments = baseFlags(job.options, environment)
@@ -151,7 +151,7 @@ public enum RsyncCommand {
     public static func droppedOptions(_ job: TransferJob, environment: Environment) -> [String] {
         guard environment.engine.isOpenrsync else { return [] }
         var full = environment
-        full.engine = EngineInfo(version: "3.5.1", isOpenrsync: false, supportsACLs: true, supportsXattrs: true)
+        full.engine = EngineInfo(version: "3.5.2", isOpenrsync: false, supportsACLs: true, supportsXattrs: true)
         let wanted = advancedFlags(job.options, full, forVerify: false) + infoFlags(job.options.advanced, full)
         let dropped = wanted.filter { flag in unsupportedByOpenrsync.contains { flag == $0 || flag.hasPrefix($0 + "=") } || flag.hasPrefix("--info=") }
             .map { $0.split(separator: "=", maxSplits: 1).first.map(String.init) ?? $0 }
@@ -261,7 +261,7 @@ public enum RsyncCommand {
         return flags
     }
 
-    /// `-rltDh` + `X` (öznitelikler). openrsync'e öznitelik seçeneği hiç verilmez: `--extended-attributes` ile
+    /// `-rltDh8` + `X` (öznitelikler). openrsync'e öznitelik seçeneği hiç verilmez: `--extended-attributes` ile
     /// öznitelikleri paylaşılan /private/tmp'de tahmin edilebilir adlı geçici AppleDouble dosyalarıyla ("/tmp/.<pid>._ad")
     /// taşır. Kum havuzu bu yazmayı (doğru olarak) engeller ve kuru çalıştırma (doğrulama, önizleme) olmayan "._" dosyalarını
     /// açmaya çalışıp hata verir. Bu kipte karantina işareti `Quarantine.propagate` ile ayrıca aktarılır; seçenek
@@ -278,7 +278,12 @@ public enum RsyncCommand {
 
     static func baseFlags(_ options: CopyOptions, _ environment: Environment) -> [String] {
         let xattrs = options.preserveExtendedAttributes && environment.engine.supportsXattrs && !environment.engine.isOpenrsync
-        return [xattrs ? "-rltDhX" : "-rltDh"]
+        // `-8` (--8-bit-output): rsync 3.5.2 adlardaki ve iletilerdeki "uç birim denetim karakterlerini" kaçışlar ve etkin
+        // yerel ayarı (LANG) temel alır; Finder'dan açılan bir uygulamada yerel ayar C'dir ve UTF-8'in 0x80–0x9F baytları
+        // (ğ, ş, Ğ, Ş'nin ikinci baytı) "\#237" gibi kaçışlanır, ad bozulur. `-8` yalnızca yüksek bitli baytları olduğu
+        // gibi bırakır; gerçek denetim karakterleri ("\#012") yine kaçışlanır ve `ItemizeParser.unescape` çözer. openrsync
+        // da kabul eder.
+        return [xattrs ? "-rltDh8X" : "-rltDh8"]
     }
 
     /// İzinler (-pogA) ve zaman penceresi. exFAT/FAT/NTFS hedef izin, sahip, grup ve ACL saklayamaz: bayraklar hiç
@@ -384,7 +389,7 @@ public enum RsyncCommand {
 }
 
 extension RsyncCommand {
-    /// Argümanları bir kabukta aynen çalıştırılabilecek biçimde gösterir: `rsync -rltDhX … -- '/Kaynak' '/Hedef/'`.
+    /// Argümanları bir kabukta aynen çalıştırılabilecek biçimde gösterir: `rsync -rltDh8X … -- '/Kaynak' '/Hedef/'`.
     /// Yalnızca güvenli karakterlerden oluşan argümanlar tırnaksız kalır; ötekiler tek tırnağa alınır ("'" → '\'').
     public static func displayString(executable: String = "rsync", arguments: [String]) -> String {
         ([executable] + arguments).map(shellQuoted).joined(separator: " ")

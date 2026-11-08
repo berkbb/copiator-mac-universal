@@ -19,7 +19,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_URL="https://github.com/RsyncProject/rsync"
-TAG="v3.5.1"
+TAG="v3.5.2"
 DEST="$ROOT/Vendor/rsync"
 KEEP_WORK=0
 TARBALL=""

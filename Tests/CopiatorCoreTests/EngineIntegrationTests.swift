@@ -24,7 +24,7 @@ struct EngineIntegrationTests {
     @Test func bundledRsyncIsUniversalAndCurrent() async throws {
         let rsync = try #require(vendoredRsync)
         let info = try #require(await EngineLocator.probe(rsync))
-        #expect(info.version == "3.5.1")
+        #expect(info.version == "3.5.2")
         #expect(info.supportsProgress2 && info.supportsACLs && info.supportsXattrs && !info.isOpenrsync)
     }
 

@@ -1,15 +1,15 @@
 name=rsync
-version=3.5.1
-tag=v3.5.1
-commit=04355d27b7386d7de0e6bd5e79c556223210f700
-url=https://github.com/RsyncProject/rsync/tree/v3.5.1
+version=3.5.2
+tag=v3.5.2
+commit=(sürüm paketi: rsync-3.5.2.tar.gz, sha256 a10d591825251e070f74c98df3daad195def4ed81b4a2de16169026aea33f6c8)
+url=https://github.com/RsyncProject/rsync/tree/v3.5.2
 source=https://github.com/RsyncProject/rsync.git
 license=GPL-3.0-or-later (COPYING)
-sha256=2372138340fde1783f207a115b847e2ebe68ea909d39b703c131ef9f690a9703
+sha256=ee76da7f7d8bab75a6f89eeaaa042ea12b040c631de7df6bd556b3db85df773f
 archs=x86_64 arm64
 min_macos=26.0
 configure_flags=--disable-xxhash --disable-zstd --disable-lz4 --disable-openssl --disable-md2man --disable-idn --with-included-popt
 configure_flags_x86_64_extra=--host=x86_64-apple-darwin --build=aarch64-apple-darwin --disable-roll-simd --disable-md5-asm --disable-roll-asm
 dependencies=/usr/lib/libSystem.B.dylib /usr/lib/libcharset.1.dylib /usr/lib/libiconv.2.dylib
-configure_generated_with=autoconf (GNU Autoconf) 2.73; aclocal.m4 = m4_include(m4/*.m4)
-built_with=Apple clang version 21.0.0 (clang-2100.3.34.2)
+configure_generated_with=(configure.sh hazır geldi)
+built_with=Apple clang version 21.0.0 (clang-2100.4.1.1)
