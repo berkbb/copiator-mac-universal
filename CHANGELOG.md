@@ -5,10 +5,6 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
-### Changed
-
-- **A routine looks before it queues.** When a copy routine runs (or files are sent to it from Finder, a drop or Shortcuts) and two or more of its routes have rules, Copiator first scans their sources together, in one pass that reads each file and asks Spotlight about each text once, and queues only the routes that found something. A single invoice given to a routine with twelve routes now opens the two jobs that take it instead of twelve, ten of which copied nothing. A run that matches no route opens no job and says so, and the routine shows "Scanning" in the sidebar meanwhile. Routes without rules, routes whose source disk is not connected and a routine with a single rule route are queued as before.
-
 ## [1.2.0] — 2026-11-08
 
 ### Added
@@ -29,6 +25,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 - **Dates are asked instead of guessed:** when a route takes its date from the file name, the contents or the date taken and no date is found (for example a scanned invoice), the date modified is no longer used silently. The job waits for a decision before copying and the decision sheet asks for that file's date, pre-filled with the date modified. "Automatic" keeps its documented last step (the date modified) and does not ask.
 - The "needs decision" result and notification of placed routes now say that a folder, a name or a date must be chosen.
 - **A disk that is not connected is no longer an error.** Jobs, routines and imported routines whose source or destination is on a disk that is not connected (`/Volumes/…` with nothing mounted there) can be added, edited and saved; the editor says the disk is not connected. Such a job waits in the queue as "Waiting for disk" even without "Start when the destination disk is connected" and runs when the disk is connected, so in a routine with several destinations the routes to connected disks run and the others wait. A folder that is missing on the Mac or on a connected disk is still a problem.
+- **A routine looks before it queues.** When a copy routine runs (or files are sent to it from Finder, a drop or Shortcuts) and two or more of its routes have rules, Copiator first scans their sources together, in one pass that reads each file and asks Spotlight about each text once, and queues only the routes that found something. A single invoice given to a routine with twelve routes now opens the two jobs that take it instead of twelve, ten of which copied nothing. A run that matches no route opens no job and says so, and the routine shows "Scanning" in the sidebar meanwhile. Routes without rules, routes whose source disk is not connected and a routine with a single rule route are queued as before.
 
 ### Fixed
 

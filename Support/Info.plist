@@ -43,7 +43,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.2.0</string>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>8</string>
 	<key>CopiatorRepository</key>
 	<string>berkbb/copiator-mac-universal</string>
 	<key>CopiatorUpdatePublicEDKey</key>
