@@ -80,6 +80,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Finder sağ tık menüsündeki "Hızlı Eylemler / Servisler" öğesi.
         NSApp.servicesProvider = services
         NSUpdateDynamicServices()
+        // Yeni derlemenin ilk açılışında Launch Services kaydı tazelenir (belge türleri, servisler, simge).
+        LaunchServicesRegistration.registerIfBuildChanged()
         let model = AppModel.shared
         // Disk takılınca başlayan işler; çıkarılan diskteki iş duraklar, yeniden takılınca sürer.
         volumes.start(model: model)
