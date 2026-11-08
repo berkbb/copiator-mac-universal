@@ -5,6 +5,24 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-11-08
+
+### Added
+
+- On the first launch of a new build, Copiator re-registers its bundle with Launch Services by itself (`LSRegisterURL`), so Finder picks up changed type claims (the drop types on the Dock icon), the Finder service and the app icon after an upgrade without a manual `lsregister`. Tests: `LaunchServicesRegistrationTests`.
+
+### Fixed
+
+- Progress with rsync 3.5.2: since 3.5.2 rsync writes byte counts with a `B` suffix (`15,000B`, `3.00MB`) and rates as `0B/s`, `83B/s`, `8.00KB/s` or `250MB/s` instead of `15,000`, `3.00M` and `0.00kB/s`. Copiator's progress parser rejected every such line, so the progress bar, the speed, the remaining count and the Dock progress stayed empty and "stop at a given point" never triggered. The parser now reads both formats (tests from real 3.5.2 output).
+- File names with `ğ`, `ş`, `Ğ` or `Ş` in the change log, conflict list, run report and error details: rsync 3.5.2 escapes "terminal control characters" by the active locale, and an app opened from Finder runs in the C locale, where the second UTF-8 byte of those letters (0x9E, 0x9F) counts as one and came out as `\#236` or `\#237`, breaking the name (`Fotoğraflar` became `Foto�raflar`). Every rsync call now passes `-8` (`--8-bit-output`, in the base flags as `-rltDh8X`), which leaves high-bit bytes in file names alone, and rsync is started with a UTF-8 character locale (`LC_CTYPE=UTF-8` when the environment has none), which also keeps the paths in rsync's error messages intact, since `-8` does not cover those. Real control characters are still escaped and decoded as before. openrsync accepts the flag too.
+- The rsync updater (`Scripts/update-rsync.sh`, also inside the app) no longer stops at "Download failed" when GitHub's `github.com/…/releases/download/` endpoint answers with a server error: it then fetches the same source package from the GitHub API asset URL that the release listing already named (accepted only under `api.github.com/repos/RsyncProject/rsync/releases/assets/`), with the usual SHA-256 check against the digest GitHub publishes. On 2026-11-08 GitHub's Frankfurt edge answered 504 for every release download while the API still worked.
+
+### Changed
+
+- The bundled rsync engine is 3.5.2 (universal, built from the release tarball and verified against GitHub's SHA-256 digest). rsync 3.5.2 (4 Nov 2026) bounds the checksum work a malicious receiver can force (CVE-2026-119741), fixes interrupted `--append` and `--inplace` transfers writing their last buffer twice, an out-of-bounds write after a file read error, poor matching on large sparse files, hard-link recovery, and escapes terminal control characters in file names written to the log. Because the in-app rsync update builds from source and needs the Xcode Command Line Tools, this release is how most Macs get the new engine.
+- `Scripts/package.sh` stops when the bundled rsync lacks an architecture the app is built for (`lipo -archs` against `ARCHS`), instead of only printing the architectures.
+- Developer tooling, not part of the app: the tests open their settings only through `Tests/CopiatorAppTests/TestDefaults.swift`, whose domains live in a temporary folder, so a test run leaves no `CopiatorAppTests-<UUID>.plist` in `~/Library/Preferences` (about 4,900 had piled up by 2026-11-08: `removePersistentDomain` empties such a file but does not delete it). `TestDefaultsTests` refuses any other way to open a domain in `Tests/`, and `package.sh` compares the folder before and after `swift test` (`Scripts/dev/test-preferences.sh`). The old files are not deleted by anything; see DEVELOPMENT.md › Build, test, package.
+
 ## [1.2.0] — 2026-11-08
 
 ### Added

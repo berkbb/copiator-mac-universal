@@ -1,6 +1,6 @@
 # Copiator
 
-A native backup and sync app for macOS 26+, built with SwiftUI and Liquid Glass on top of [rsync](https://rsync.samba.org). It is built as a universal app (Apple Silicon + Intel), and a dependency-free universal rsync 3.5.1 ships inside the app bundle.
+A native backup and sync app for macOS 26+, built with SwiftUI and Liquid Glass on top of [rsync](https://rsync.samba.org). It is built as a universal app (Apple Silicon + Intel), and a dependency-free universal rsync 3.5.2 ships inside the app bundle.
 
 Copiator copies from a local disk to a local disk (internal, external, USB or network-mounted volumes). The job model and the engine layer are engine-independent, so other engines can be added as new job kinds.
 
@@ -99,7 +99,7 @@ Double-click in Finder:
 The same tasks from the terminal:
 
 ```bash
-./Scripts/build-rsync.sh              # build Vendor/rsync from the v3.5.1 tag (universal, /usr/lib only)
+./Scripts/build-rsync.sh              # build Vendor/rsync from the v3.5.2 tag (universal, /usr/lib only)
 ./Scripts/update-rsync.sh check       # is a newer rsync available?
 ./Scripts/update-rsync.sh install     # download, verify, build and install into Vendor/rsync
 ./Scripts/build_app.sh                # build/Copiator.app only

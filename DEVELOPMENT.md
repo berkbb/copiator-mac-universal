@@ -151,11 +151,12 @@ Copiator/
 
 ## Bundled rsync
 
-`Scripts/build-rsync.sh` clones `RsyncProject/rsync` at `v3.5.1`, builds arm64 and x86_64 separately with `--disable-xxhash --disable-zstd --disable-lz4 --disable-openssl --disable-md2man --disable-idn --with-included-popt` (ACL, xattr and iconv on), joins them with `lipo -create`, checks with `otool -L` that only `/usr/lib` libraries are used, ad-hoc signs it and writes `Vendor/rsync/SOURCE.txt`.
+`Scripts/build-rsync.sh` clones `RsyncProject/rsync` at `v3.5.2` (or builds the release tarball `update-rsync.sh` hands it), builds arm64 and x86_64 separately with `--disable-xxhash --disable-zstd --disable-lz4 --disable-openssl --disable-md2man --disable-idn --with-included-popt` (ACL, xattr and iconv on), joins them with `lipo -create`, checks with `otool -L` that only `/usr/lib` libraries are used, ad-hoc signs it and writes `Vendor/rsync/SOURCE.txt`.
 
-- The git tag has no generated `configure.sh`; the script recreates `aclocal.m4` from rsync's own `m4/*.m4` (rsync does not use automake) and runs `autoconf`/`autoheader`. `.git` is removed before building so the version reads `3.5.1`, as in release tarballs.
+- The git tag has no generated `configure.sh`; the script recreates `aclocal.m4` from rsync's own `m4/*.m4` (rsync does not use automake) and runs `autoconf`/`autoheader`. `.git` is removed before building so the version reads `3.5.2`, as in release tarballs.
 - x86_64 is cross-configured (`--host=x86_64-apple-darwin`) with the arm64 run's cached test results, because macOS 27 may have no Rosetta to run x86_64 test programs.
 - The binary built from the git tag and the one built from the release tarball are byte-identical (same SHA-256).
+- rsync 3.5.2 prints byte counts with a `B` suffix and rates as `B/s`, `KB/s`, `MB/s` (`RsyncProgressParser` reads both this and the 3.5.1 form), and escapes "terminal control characters" in names and messages by the active locale. Copiator therefore passes `-8` in every call (`-rltDh8X`, names in the itemized output stay raw bytes) and starts rsync with a UTF-8 character locale (`CommandRunner.childEnvironment`: `LC_CTYPE=UTF-8` unless `LC_ALL`, `LC_CTYPE` or `LANG` already names UTF-8; an app opened from Finder has no `LANG`), which `-8` does not do for the paths in error messages. Measured with `env -i`: without either, `Fotoğraflar` arrives as `Foto\#237raflar`.
 
 ## rsync update flow
 
@@ -169,6 +170,8 @@ Copiator/
 | `--dest` / `--app` given | The given targets |
 
 Steps: GitHub release check (`RsyncProject/rsync`, drafts and pre-releases ignored) → download `rsync-X.Y.Z.tar.gz` → compare with GitHub's SHA-256 digest → `build-rsync.sh --tarball` → Mach-O and `--version` check → copy under a temporary name, then move into place. Without the Command Line Tools it stops with `ERROR=command-line-tools-missing`, which the app shows as a clear message.
+
+Download fallback: when the `github.com/…/releases/download/` URL fails (GitHub's Frankfurt edge answered 504 for every release download on 2026-11-08 while `api.github.com` worked), the script downloads the same file from the asset's API URL (`api.github.com/repos/RsyncProject/rsync/releases/assets/<id>`, `Accept: application/octet-stream`), which the release listing already names; both URLs are accepted only under their repository prefix and the SHA-256 check runs on whichever download succeeded. When the API itself is unreachable, the check still fails with "Could not reach GitHub"; there is no mirror. `package.sh` also refuses to package when `lipo -archs` of the bundled rsync lacks an architecture in `ARCHS`.
 
 ## Adding strings (localization)
 
@@ -189,6 +192,8 @@ COPIATOR_SNAPSHOT_DIR=/tmp/copiator-ui swift test --filter ViewRenderTests   # P
 ./Scripts/build_app.sh                       # universal build/Copiator.app (ARCHS=native for this Mac only)
 ./Scripts/package.sh                         # tests + .app + dist/Copiator-<version>.dmg (+ .sig, SHA256SUMS.txt)
 ```
+
+Test settings never reach `~/Library/Preferences`. A `UserDefaults(suiteName:)` domain with a plain name is stored as `~/Library/Preferences/<name>.plist`, and `removePersistentDomain(forName:)` only empties that file; about 4,900 `CopiatorAppTests-<UUID>.plist` and `CopiatorSettings-<UUID>.plist` files had piled up by 2026-11-08. Tests therefore open their settings only through `TestDefaults` (`Tests/CopiatorAppTests/TestDefaults.swift`, ported from Descarcator): `TestDefaults("CopiatorSettings")` names the domain with an absolute path in a new temporary folder, cfprefsd writes the plist there, `remove()` empties the domain, synchronizes it and deletes the folder; the `Fixture` keeps `suiteName` (the domain's file name) for its workspace folder and sleep-assertion reason. `TestDefaultsTests` refuses any other way to open a domain in `Tests/`, and `package.sh` lists the `Copiator<letters>-<UUID>.plist` files before `swift test` (`Scripts/dev/test-preferences.sh snapshot`) and stops when new ones appeared (`check`). Nothing deletes the old files; remove them by hand if wanted.
 
 ### Chaos and security matrix
 
