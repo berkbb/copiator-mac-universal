@@ -22,6 +22,8 @@ set -euo pipefail
 REPO="RsyncProject/rsync"
 API_URL="https://api.github.com/repos/$REPO/releases/latest"
 DOWNLOAD_PREFIX="https://github.com/$REPO/releases/download/"
+# github.com indirme ucu yanıt vermezse aynı dosya GitHub API'nin asset adresinden de iner.
+ASSET_API_PREFIX="https://api.github.com/repos/$REPO/releases/assets/"
 FALLBACK_DIR="$HOME/Library/Application Support/Copiator/engine"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CURRENT=""
@@ -123,18 +125,21 @@ function run(argv) {
   var asset = (release.assets || []).filter(function (a) { return /^rsync-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/.test(a.name); })[0];
   if (!asset) { return "TAG=" + release.tag_name; }
   return ["TAG=" + release.tag_name, "ASSET=" + asset.name, "URL=" + asset.browser_download_url,
-          "DIGEST=" + (asset.digest || "")].join("\n");
+          "API=" + (asset.url || ""), "DIGEST=" + (asset.digest || "")].join("\n");
 }' "$WORK/release.json")" || fail "Sürüm bilgisi okunamadı"
 
 TAG="$(sed -n 's/^TAG=//p' <<<"$RELEASE_INFO")"
 ASSET="$(sed -n 's/^ASSET=//p' <<<"$RELEASE_INFO")"
 URL="$(sed -n 's/^URL=//p' <<<"$RELEASE_INFO")"
+ASSET_API_URL="$(sed -n 's/^API=//p' <<<"$RELEASE_INFO")"
 DIGEST="$(sed -n 's/^DIGEST=//p' <<<"$RELEASE_INFO")"
 
 [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Beklenmeyen sürüm etiketi: ${TAG:-yok}"
 LATEST="${TAG#v}"
 [ "$ASSET" = "rsync-$LATEST.tar.gz" ] || fail "Bu sürümde kaynak paketi yok ($TAG)"
 [[ "$URL" == "$DOWNLOAD_PREFIX"* ]] || fail "Beklenmeyen indirme adresi: $URL"
+# Yedek indirme adresi yalnızca aynı deponun API asset adresi olabilir; başka bir şeyse kullanılmaz.
+[[ "$ASSET_API_URL" == "$ASSET_API_PREFIX"* ]] || ASSET_API_URL=""
 
 # Kurulu sürüm: hedeflerin en eskisi (biri eksikse güncelleme gerekir).
 # Yedek klasöre çevrilen hedefte henüz rsync yoksa uygulamanın kendi rsync'i geçerlidir; "yok" sayılmaz.
@@ -186,8 +191,15 @@ xcode-select -p >/dev/null 2>&1 && xcrun --find clang >/dev/null 2>&1 \
 [ -x "$SCRIPT_DIR/build-rsync.sh" ] || [ -f "$SCRIPT_DIR/build-rsync.sh" ] || fail "build-rsync.sh bulunamadı ($SCRIPT_DIR)"
 
 log "İndiriliyor: $ASSET"
-curl -fL --proto '=https' --tlsv1.2 --max-time 600 --progress-bar "$URL" -o "$WORK/$ASSET" \
-  || fail "İndirme başarısız"
+if ! curl -fL --proto '=https' --tlsv1.2 --max-time 600 --progress-bar "$URL" -o "$WORK/$ASSET"; then
+  # github.com'un sürüm dosyası ucu bölgesel olarak 5xx dönebiliyor (08.11.2026: Frankfurt ucu her depo için 504 verdi).
+  # Aynı dosya GitHub API'nin asset adresinden "application/octet-stream" ile iner; curl -o yarım dosyanın üzerine yazar.
+  [ -n "$ASSET_API_URL" ] || fail "İndirme başarısız"
+  log "Uyarı: github.com indirme adresi yanıt vermedi; GitHub API asset adresinden deneniyor."
+  curl -fL --proto '=https' --tlsv1.2 --max-time 600 --progress-bar \
+    -H "Accept: application/octet-stream" "$ASSET_API_URL" -o "$WORK/$ASSET" \
+    || fail "İndirme başarısız"
+fi
 
 [[ "$DIGEST" == sha256:* ]] || fail "GitHub SHA-256 özeti vermedi; paket doğrulanamıyor"
 EXPECTED="${DIGEST#sha256:}"
