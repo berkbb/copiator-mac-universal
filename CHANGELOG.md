@@ -5,11 +5,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
-### Fixed
-
-- **Send to Routine** (Finder service, dropping on a routine, Shortcuts) no longer refuses the items when a route's destination is on a disk that is not connected. As with **Run**, the routes to connected destinations copy the items and the route to the missing disk waits in the queue as "Waiting for disk". A folder that is missing on the Mac or on a connected disk still stops the send before any job is added.
-
-## [1.2.0] — 2026-11-07
+## [1.2.0] — 2026-11-08
 
 ### Added
 
@@ -36,6 +32,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 - A command's timeout (and the forced stop two seconds after a stop request) could fire seconds late, or not at all, while macOS's shared dispatch pool was busy: a 0.3-second timer ran after 8.8 seconds in a measurement. Timers now run on Copiator's own serial queue and the wait for a finished process's last output runs on its own thread. Found when a release test run failed under load.
 - The undo line in the job log showed meaningless large numbers instead of the item counts; log strings now take their values as text, and a test keeps every log string that way.
 - **"Move to the Trash" in a routine with several routes** moved the source as soon as the first route had copied it, so the other routes (and a route waiting for its disk) had nothing left to copy. Now every job of one routine run (and of one "Send to a Copiator Routine") belongs to one group: each route only records what it copied, and the sources go to the Trash once every job of the group has finished successfully and each source is identical to its copy at every destination that selected it (checked again at that moment). While a route waits for its disk, fails or waits for a decision, no source moves. Undo works on each route: it puts the sources back, and once they are back the other routes' copies can be undone too.
+- **Send to Routine** (Finder service, dropping on a routine, Shortcuts) no longer refuses the items when a route's destination is on a disk that is not connected. As with **Run**, the routes to connected destinations copy the items and the route to the missing disk waits in the queue as "Waiting for disk". A folder that is missing on the Mac or on a connected disk still stops the send before any job is added.
 
 ### Changed
 
