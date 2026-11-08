@@ -5,6 +5,10 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+### Changed
+
+- **A routine looks before it queues.** When a copy routine runs (or files are sent to it from Finder, a drop or Shortcuts) and two or more of its routes have rules, Copiator first scans their sources together, in one pass that reads each file and asks Spotlight about each text once, and queues only the routes that found something. A single invoice given to a routine with twelve routes now opens the two jobs that take it instead of twelve, ten of which copied nothing. A run that matches no route opens no job and says so, and the routine shows "Scanning" in the sidebar meanwhile. Routes without rules, routes whose source disk is not connected and a routine with a single rule route are queued as before.
+
 ## [1.2.0] — 2026-11-08
 
 ### Added
