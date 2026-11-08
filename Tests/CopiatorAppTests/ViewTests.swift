@@ -71,9 +71,9 @@ struct LicenseViewerTests {
 
     @Test func sheetRendersEveryDocument() throws {
         _ = NSApplication.shared
-        let suite = "CopiatorLicense-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = try TestDefaults("CopiatorLicense")
+        defer { store.remove() }
+        let defaults = store.defaults
         let settings = AppSettings(defaults: defaults, bundle: .main)
         for document in LicenseDocument.allCases {
             let item = LicenseViewerItem(document: document, text: String(repeating: "Lorem ipsum dolor sit amet.\n", count: 400))

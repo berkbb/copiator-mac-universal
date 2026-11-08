@@ -47,8 +47,11 @@ final class IntentTargetLock {
 @MainActor
 final class Fixture {
     let workspace: URL
+    /// Ayar alanı geçici klasörde (`TestDefaults`): `~/Library/Preferences` içinde dosya kalmaz.
+    let testDefaults: TestDefaults
     let defaults: UserDefaults
-    let suiteName = "CopiatorAppTests-\(UUID().uuidString)"
+    /// `CopiatorAppTests-<UUID>`: ayar dosyasının ve çalışma klasörünün adı.
+    let suiteName: String
     let settings: AppSettings
     let store: JobStore
     private(set) var model: AppModel
@@ -57,10 +60,12 @@ final class Fixture {
     var noticeActions: [NoticeAction?] = []
 
     init() throws {
+        testDefaults = try TestDefaults("CopiatorAppTests")
+        suiteName = testDefaults.name
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(suiteName, isDirectory: true)
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         workspace = SandboxProfile.resolved(base)
-        defaults = try #require(UserDefaults(suiteName: suiteName))
+        defaults = testDefaults.defaults
         settings = AppSettings(defaults: defaults, bundle: resourcesBundle)
         settings.customEnginePath = rsyncURL?.path
         settings.updateConsentAsked = true
@@ -104,7 +109,7 @@ final class Fixture {
 
     func cleanUp() {
         try? FileManager.default.removeItem(at: workspace)
-        defaults.removePersistentDomain(forName: suiteName)
+        testDefaults.remove()
     }
 
     func url(_ path: String) -> URL { workspace.appendingPathComponent(path) }
@@ -371,9 +376,9 @@ struct AppModelTests {
 @MainActor
 struct SettingsTests {
     @Test func defaultsAreSafe() throws {
-        let suite = "CopiatorSettings-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = try TestDefaults("CopiatorSettings")
+        defer { store.remove() }
+        let defaults = store.defaults
         let settings = AppSettings(defaults: defaults, bundle: .main)
         #expect(settings.language == .tr)
         #expect(settings.sandboxEngine)
@@ -387,16 +392,16 @@ struct SettingsTests {
     }
 
     @Test func resetRemovesAllPreferences() throws {
-        let suite = "CopiatorSettings-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = try TestDefaults("CopiatorSettings")
+        defer { store.remove() }
+        let defaults = store.defaults
         let settings = AppSettings(defaults: defaults, bundle: .main)
         settings.language = .ro
         settings.sandboxEngine = false
         settings.queueHeld = true
         settings.setShortcut(KeyboardShortcutData(key: "J", command: true, shift: true), for: .verify)
         settings.resetAll()
-        let remaining = defaults.dictionaryRepresentation().keys.filter { defaults.persistentDomain(forName: suite)?[$0] != nil }
+        let remaining = defaults.dictionaryRepresentation().keys.filter { defaults.persistentDomain(forName: store.suite)?[$0] != nil }
         #expect(remaining.isEmpty, "\(remaining)")
         #expect(settings.sandboxEngine)
         #expect(settings.isAllShortcutsDefault)
@@ -409,9 +414,9 @@ struct SettingsTests {
     }
 
     @Test func formatsDurationsAndResults() throws {
-        let suite = "CopiatorSettings-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = try TestDefaults("CopiatorSettings")
+        defer { store.remove() }
+        let defaults = store.defaults
         let settings = AppSettings(defaults: defaults, bundle: .main)
         #expect(!settings.duration(seconds: 75).isEmpty)
         #expect(!settings.duration(seconds: 7_300).isEmpty)
