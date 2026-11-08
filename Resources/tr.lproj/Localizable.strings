@@ -629,6 +629,8 @@
 "routineJobs" = "İşler";
 "routineNoJobs" = "Rutin çalıştırılınca her rota burada bir iş olarak görünür.";
 "toastRoutineQueued" = "Rutin sıraya alındı";
+"toastRoutineScanning" = "“%@” taranıyor…";
+"toastRoutineNothingMatched" = "“%@”: hiçbir rotaya uyan dosya yok";
 "toastRoutineSaved" = "Rutin kaydedildi";
 "logRoutineRun" = "“%@” rutini çalıştırıldı.";
 "routineSampleTitle" = "Dene";

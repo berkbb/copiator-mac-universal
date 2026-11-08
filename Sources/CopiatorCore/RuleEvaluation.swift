@@ -447,6 +447,18 @@ public enum RuleScanner {
         public var scanned = 0
     }
 
+    /// Aynı kökte değerlendirilecek bir kural kümesi (ör. bir rutinin aynı kaynaktan okuyan rotalarından biri).
+    public struct RuleSet: Sendable {
+        public var rules: RuleGroup
+        /// "Hedefte kopyası var" ölçütü için hedef (yalnızca o ölçüt kullanılıyorsa taranır).
+        public var destination: URL?
+
+        public init(rules: RuleGroup, destination: URL? = nil) {
+            self.rules = rules
+            self.destination = destination
+        }
+    }
+
     /// - Parameters:
     ///   - skippedPaths: Hiç girilmeyecek göreli yollar (kum havuzunun okutmadığı kişisel klasörler).
     ///   - skippedNames: Hiçbir düzeyde girilmeyecek adlar (macOS sistem klasörleri).
@@ -459,22 +471,45 @@ public enum RuleScanner {
         skipsWindowsLeftovers: Bool = false, now: Date = Date(),
         destination: URL? = nil, onlyItems: Set<String>? = nil, isCancelled: () -> Bool = { false }
     ) async throws -> Result {
-        // İçerik koşulları taramadan önce Spotlight'a bir kez sorulur.
-        var contentMatches: [UUID: Set<String>] = [:]
-        for condition in rules.allConditions where condition.attribute == .content && condition.op != .matchesRegex {
-            contentMatches[condition.id] = Spotlight.relativePaths(containing: condition.value, in: root)
+        try await scan(root, sets: [RuleSet(rules: rules, destination: destination)], skippedPaths: skippedPaths,
+                       skippedNames: skippedNames, skipsWindowsLeftovers: skipsWindowsLeftovers, now: now,
+                       onlyItems: onlyItems, isCancelled: isCancelled)[0]
+    }
+
+    /// Birden çok kural kümesini tek geçişte değerlendirir: kök bir kez gezilir, aynı içerik metni Spotlight'a bir kez
+    /// sorulur, her dosyanın metni ve özellikleri bir kez okunur ve bütün kümelerde kullanılır. Sonuçlar `sets` sırasıyla
+    /// döner; bir kümedeki kaçak düzenli ifade bütün taramayı hatayla bitirir (tek kümeli taramadaki gibi).
+    public static func scan(
+        _ root: URL, sets: [RuleSet], skippedPaths: Set<String> = [], skippedNames: Set<String> = [],
+        skipsWindowsLeftovers: Bool = false, now: Date = Date(), onlyItems: Set<String>? = nil, isCancelled: () -> Bool = { false }
+    ) async throws -> [Result] {
+        guard !sets.isEmpty else { return [] }
+        // İçerik koşulları taramadan önce Spotlight'a sorulur; aynı metin birden çok kümede geçse de bir kez.
+        var spotlight: [String: Set<String>] = [:]
+        var indexes: [String: DestinationIndex] = [:]
+        var evaluators: [RuleEvaluator] = []
+        for set in sets {
+            var contentMatches: [UUID: Set<String>] = [:]
+            for condition in set.rules.allConditions where condition.attribute == .content && condition.op != .matchesRegex {
+                let found = spotlight[condition.value] ?? Spotlight.relativePaths(containing: condition.value, in: root)
+                spotlight[condition.value] = found
+                contentMatches[condition.id] = found
+            }
+            var index: DestinationIndex?
+            if let destination = set.destination, set.rules.allConditions.contains(where: { $0.attribute == .inDestination }) {
+                index = try indexes[destination.path] ?? DestinationIndex(root: destination, isCancelled: isCancelled)
+                indexes[destination.path] = index
+            }
+            evaluators.append(try RuleEvaluator(set.rules, now: now, contentMatches: contentMatches, destinationIndex: index))
         }
-        let index = try destination.flatMap { destination in
-            try rules.allConditions.contains { $0.attribute == .inDestination } ? DestinationIndex(root: destination, isCancelled: isCancelled) : nil
-        }
-        let evaluator = try RuleEvaluator(rules, now: now, contentMatches: contentMatches, destinationIndex: index)
         let onlyItems = onlyItems.map { Set($0.map(\.precomposedStringWithCanonicalMapping)) }
-        let needsMedia = rules.allConditions.contains { $0.attribute.needsMedia }
-        var result = Result()
-        guard let enumerator = FileManager.default.enumerator(atPath: root.path) else { return result }
+        let needsMedia = sets.contains { $0.rules.allConditions.contains { $0.attribute.needsMedia } }
+        var results = Array(repeating: Result(), count: sets.count)
+        var scanned = 0
+        guard let enumerator = FileManager.default.enumerator(atPath: root.path) else { return results }
         while let relative = enumerator.nextObject() as? String {
-            if result.scanned % 256 == 0, isCancelled() || Task.isCancelled { throw CancellationError() }
-            result.scanned += 1
+            if scanned % 256 == 0, isCancelled() || Task.isCancelled { throw CancellationError() }
+            scanned += 1
             let attributes = enumerator.fileAttributes
             let isDirectory = attributes?[.type] as? FileAttributeType == .typeDirectory
             let name = (relative as NSString).lastPathComponent
@@ -495,14 +530,18 @@ public enum RuleScanner {
                 enumerator.skipDescendants()
             }
             let url = root.appendingPathComponent(relative)
+            // Öğe bütün kümelerde paylaşılır: metni, türü ve medya bilgisi ilk sorulduğunda bir kez okunur.
             let item = RuleItem(relativePath: relative, isDirectory: isDirectory, url: url, attributes: attributes)
             if needsMedia, !isDirectory, let type = item.type, type.conforms(to: .image) || type.conforms(to: .audiovisualContent) {
                 item.media = await MediaInfo.load(url, type: type)
             }
-            if evaluator.matches(item) { result.paths.append(relative) }
-            if let pattern = evaluator.runawayPattern { throw RuleEvaluator.RunawayRegex(pattern: pattern) }
+            for (position, evaluator) in evaluators.enumerated() {
+                if evaluator.matches(item) { results[position].paths.append(relative) }
+                if let pattern = evaluator.runawayPattern { throw RuleEvaluator.RunawayRegex(pattern: pattern) }
+            }
         }
-        return result
+        for position in results.indices { results[position].scanned = scanned }
+        return results
     }
 }
 

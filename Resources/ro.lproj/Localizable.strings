@@ -629,6 +629,8 @@
 "routineJobs" = "Lucrări";
 "routineNoJobs" = "Când rutina rulează, fiecare rută apare aici ca lucrare.";
 "toastRoutineQueued" = "Rutină pusă în coadă";
+"toastRoutineScanning" = "Se scanează „%@”…";
+"toastRoutineNothingMatched" = "„%@”: niciun fișier nu se potrivește cu vreo rută";
 "toastRoutineSaved" = "Rutină salvată";
 "logRoutineRun" = "Rutina „%@” a fost rulată.";
 "routineSampleTitle" = "Încearcă";

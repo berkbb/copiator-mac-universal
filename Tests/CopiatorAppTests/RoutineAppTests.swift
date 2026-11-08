@@ -111,6 +111,8 @@ struct RoutineAppTests {
         #expect(model.saveRoutine(routine) == nil)
         model.runRoutine(routine.id)
         model.runRoutine(routine.id)
+        // Kurallı iki rota önce taranır (kuyruk tutulduğu için yalnızca tarama beklenir); ikinci çalıştırma iş çoğaltmaz.
+        await model.waitUntilIdle()
         #expect(model.jobs.count == 2 && model.jobs.allSatisfy { $0.status == .waiting })
 
         var away = Routine(name: "Harici", routes: [RoutineRoute(source: fixture.url("Ofis"), destination: URL(fileURLWithPath: "/Volumes/CopiatorYok-\(UUID().uuidString)"))])
@@ -124,6 +126,47 @@ struct RoutineAppTests {
         await model.waitUntilIdle()
         #expect(model.job(waiting.id)?.status == .waiting)
         #expect(model.jobs(for: routine.id).allSatisfy { $0.status == .finished })
+    }
+
+    /// Rutin önce tarar, sonra kuyruğa alır: tek bir dosya yalnızca onu alan rotanın işini açar; hiçbir rotaya uymayan
+    /// çalıştırma iş açmadan bildirilir; Finder'dan gönderilen öğe de yalnızca onu alan rotaya gider.
+    @Test func onlyRoutesWithFilesAreQueued() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        await model.refreshEngine()
+        try fixture.write("Gelen/fatura.pdf", "fatura")
+        for folder in ["PDF", "Foto", "Metin"] {
+            try FileManager.default.createDirectory(at: fixture.url(folder), withIntermediateDirectories: true)
+        }
+        func route(_ fileExtension: String, _ folder: String) -> RoutineRoute {
+            RoutineRoute(source: fixture.url("Gelen"), destination: fixture.url(folder),
+                         rules: RuleGroup(conditions: [RuleCondition(attribute: .fileExtension, op: .equals, value: fileExtension)]))
+        }
+        let routine = Routine(name: "Gelen", routes: [route("pdf", "PDF"), route("heic", "Foto"), route("txt", "Metin")])
+        #expect(model.saveRoutine(routine) == nil)
+        #expect(model.runRoutine(routine.id) == nil)
+        await model.waitUntilIdle()
+        let first = model.jobs(for: routine.id)
+        #expect(first.count == 1 && first.first?.destination == fixture.url("PDF") && first.first?.status == .finished)
+        #expect(fixture.read("PDF/fatura.pdf") == "fatura")
+        #expect(model.scanningRoutines.isEmpty)
+
+        // Hiçbir rotaya uyan dosya yok: iş açılmaz ya da yeniden sıraya girmez, kullanıcıya bildirilir.
+        try FileManager.default.removeItem(at: fixture.url("Gelen/fatura.pdf"))
+        try fixture.write("Gelen/not.md", "not")
+        #expect(model.runRoutine(routine.id) == nil)
+        await model.waitUntilIdle()
+        #expect(model.toast?.message == fixture.settings.t(.toastRoutineNothingMatched, "Gelen"))
+        #expect(model.jobs(for: routine.id).count == 1 && model.job(first[0].id)?.history.count == 1)
+
+        // Finder'dan gönderilen öğe yalnızca onu alan rotanın işini açar.
+        try fixture.write("Masaustu/foto.heic", "foto")
+        #expect(model.runRoutine(routine.id, on: [fixture.url("Masaustu/foto.heic")]) == nil)
+        await model.waitUntilIdle()
+        let sent = model.jobs(for: routine.id).filter { $0.routeID == nil }
+        #expect(sent.count == 1 && sent.first?.destination == fixture.url("Foto"))
+        #expect(fixture.read("Foto/foto.heic") == "foto")
     }
 
     @Test func previewRouteAndShortcuts() async throws {
@@ -189,12 +232,14 @@ struct RoutineAppTests {
         #expect(await IntentTarget.runRoutine(routine.id, on: [fixture.url("İndirilenler/seçilmeyen.pdf")])
             == fixture.settings.t(.intentRoutineQueued, "Gelen kutusu"))
         await model.waitUntilIdle()
-        #expect(model.jobs(for: routine.id).count == 4)
+        // Yalnızca PDF rotası: fotoğraf rotası bu öğeyi almadığı için iş açmaz (bkz. `RoutineScan`).
+        #expect(model.jobs(for: routine.id).count == 3)
+        #expect(model.jobs(for: routine.id).filter { $0.destination == fixture.url("Fotograflar") }.count == 1)
 
         // Sorunlar: öğe yok; öğeler hedefin üst klasöründe (hedef kaynağın içine düşer).
         #expect(model.runRoutine(routine.id, on: []) == fixture.settings.t(.sendToRoutineNoItems))
         #expect(model.runRoutine(routine.id, on: [fixture.url("Raporlar")]) != nil)
-        #expect(model.jobs(for: routine.id).count == 4)
+        #expect(model.jobs(for: routine.id).count == 3)
         model.alert = nil
     }
 

@@ -21,6 +21,8 @@ struct SidebarView: View {
                 ForEach(model.routines) { routine in
                     Label(OpenSafety.visibleName(routine.name), systemImage: "wand.and.stars")
                         .lineLimit(1)
+                        // Çalıştırılan rutinin kurallı rotaları kuyruğa girmeden önce taranırken.
+                        .badge(model.scanningRoutines.contains(routine.id) ? Text(settings.t(.statusScanning)) : nil)
                         .tag(SidebarItem.routine(routine.id))
                         // Finder'dan bırakılan öğeler bu rutinle kopyalanır.
                         // Açık `return`: değer döndürmeyen yeni sürüm değil, bırakmanın başarısını bildiren sürüm seçilir.

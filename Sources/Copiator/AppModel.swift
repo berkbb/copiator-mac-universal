@@ -332,8 +332,12 @@ final class AppModel {
         showInspector.toggle()
     }
     var isDropTargeted = false
+    /// Kuyruğa girmeden önce kurallı rotaları taranan rutinler (bkz. `RoutineScan`); kenar çubuğunda "Taranıyor" görünür.
+    private(set) var scanningRoutines: Set<Routine.ID> = []
 
     @ObservationIgnored private let store: JobStore
+    /// Süren rutin taramaları (anahtar her tarama için ayrı); `waitUntilIdle` bunları da bekler.
+    @ObservationIgnored private var routineScans: [UUID: (routine: Routine.ID, task: Task<Void, Never>)] = [:]
     @ObservationIgnored private let routineStore: RoutineStore
     @ObservationIgnored private var runningTask: Task<Void, Never>?
     @ObservationIgnored private var operationTask: Task<Void, Never>?
@@ -938,18 +942,65 @@ final class AppModel {
         refreshShortcutParameters()
     }
 
-    /// Rutini çalıştırır: her rota kuyruğa bir iş olarak girer (rota başına tek iş; bitmiş iş yeniden sıraya alınır,
-    /// bekleyen ya da çalışan iş olduğu gibi kalır). - Returns: Sorun varsa açıklaması.
+    /// Rutini çalıştırır: işi olan her rota kuyruğa bir iş olarak girer (rota başına tek iş; bitmiş iş yeniden sıraya
+    /// alınır, bekleyen ya da çalışan iş olduğu gibi kalır). Kopyalama rutininin kurallı rotaları (en az iki tane varsa)
+    /// önce birlikte taranır (bkz. `RoutineScan`): hiçbir öğe bulamayan rota kuyruğa girmez. - Returns: Sorun varsa açıklaması.
     @discardableResult
     func runRoutine(_ id: Routine.ID) -> String? {
-        guard var routine = routine(id) else { return t(.intentRoutineNotFound) }
+        guard let routine = routine(id) else { return t(.intentRoutineNotFound) }
         // Diski takılı olmayan rota hata vermez: işi kuyrukta diskini bekler.
         if let problem = routine.problems(checkPaths: !routine.options.runWhenConnected, allowUnmounted: true).first {
             let message = settings.routineProblem(problem)
             alert = AlertItem(title: t(.errorTitle), message: message)
             return message
         }
-        for route in routine.routes {
+        // Aynı rutin zaten taranıyorsa ikinci çalıştırma yok sayılır: tarama bitince işi olan rotalar sıraya girecek.
+        guard !scanningRoutines.contains(id) else { return nil }
+        // Bekleyen ya da çalışan rota işi olduğu gibi kalır (taranmaz) ve bu çalıştırmaya sayılır.
+        let busy = Set(jobs.filter { $0.routineID == id && ($0.status.isActive || $0.status == .waiting) }.compactMap(\.routeID))
+        let candidates: [(route: RoutineRoute.ID, candidate: RoutineScan.Candidate)] = routine.kind == .copy
+            ? routine.routes.compactMap { route in
+                guard !busy.contains(route.id), let source = route.source, let destination = route.destination else { return nil }
+                return (route.id, RoutineScan.Candidate(source: source, destination: destination, options: routine.jobOptions(for: route)))
+            }
+            : []
+        let all = Set(routine.routes.map(\.id))
+        // Tek taranabilen rota önceden taranmaz: boş bir iş, aynı kaynağı iki kez taramaktan ucuzdur.
+        guard candidates.filter({ RoutineScan.canScan($0.candidate) }).count > 1 else {
+            queueRoutineRun(id, routes: all)
+            return nil
+        }
+        showToast(t(.toastRoutineScanning, routine.name), systemImage: "magnifyingglass")
+        scanRoutine(id, candidates.map(\.candidate)) { [weak self] work in
+            let idle = Set(candidates.indices.filter { !work.contains($0) }.map { candidates[$0].route })
+            self?.queueRoutineRun(id, routes: all.subtracting(idle))
+        }
+        return nil
+    }
+
+    /// Kurallı adayları arka planda tarar; bitince `finish` işi olan adayların indeksleriyle ana iş parçacığında çağrılır.
+    private func scanRoutine(_ id: Routine.ID, _ candidates: [RoutineScan.Candidate], finish: @escaping (Set<Int>) -> Void) {
+        let token = UUID()
+        let sandboxHome = settings.sandboxEngine ? FileManager.default.homeDirectoryForCurrentUser : nil
+        scanningRoutines.insert(id)
+        let task = Task { [weak self] in
+            let work = try? await Task.detached(priority: .userInitiated) {
+                try await RoutineScan.candidatesWithWork(candidates, sandboxHome: sandboxHome)
+            }.value
+            guard let self else { return }
+            routineScans[token] = nil
+            if !routineScans.values.contains(where: { $0.routine == id }) { scanningRoutines.remove(id) }
+            AppLog.shared.info(.job, "Routine \(AppLog.short(id)) scanned: \(work?.count ?? 0) of \(candidates.count) candidates have work")
+            if let work { finish(work) }
+        }
+        routineScans[token] = (id, task)
+    }
+
+    /// Rutinin verilen rotalarını kuyruğa alır; hiçbiri yoksa (taramada hiçbir rota öğe bulamadı) yalnızca bildirir.
+    private func queueRoutineRun(_ id: Routine.ID, routes selected: Set<RoutineRoute.ID>) {
+        guard var routine = routine(id) else { return }
+        let routes = routine.routes.filter { selected.contains($0.id) }
+        for route in routes {
             if let index = jobs.firstIndex(where: { $0.routeID == route.id }) {
                 guard !jobs[index].status.isActive, jobs[index].status != .waiting else { continue }
                 apply(route, of: routine, to: &jobs[index])
@@ -966,18 +1017,21 @@ final class AppModel {
             }
         }
         // Çok rotalı rutinde "Taşı": bu çalıştırmanın bütün rota işleri (bekleyen ya da çalışan eski iş dahil) aynı gruba girer;
-        // kaynaklar ancak grubun bütün işleri kopyalayınca taşınır (bkz. `completeRoutineMove`).
-        let group: UUID? = routine.routes.count > 1 ? UUID() : nil
-        for route in routine.routes {
+        // kaynaklar ancak grubun bütün işleri kopyalayınca taşınır (bkz. `completeRoutineMove`). İşi olmayan rota gruba girmez.
+        let group: UUID? = routes.count > 1 ? UUID() : nil
+        for route in routes {
             if let index = jobs.firstIndex(where: { $0.routeID == route.id }) { jobs[index].moveGroup = group }
         }
         routine.lastRunAt = Date()
         if let index = routines.firstIndex(where: { $0.id == id }) { routines[index] = routine }
         saveRoutines()
         save()
-        showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
+        if routes.isEmpty {
+            showToast(t(.toastRoutineNothingMatched, routine.name), systemImage: "tray")
+        } else {
+            showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
+        }
         scheduleNext()
-        return nil
     }
 
     /// Finder'da seçilen öğeleri bir rutine göndermek için rutin seçme sayfasını açar.
@@ -1238,7 +1292,8 @@ final class AppModel {
     /// Rutini seçilen öğelerle çalıştırır: her rota, rotanın kaynak klasörü yerine öğelerin bulunduğu klasörde yalnızca bu
     /// öğelere kurallarını ve yerleşimini uygular. Her (klasör, rota) için kuyruğa tek seferlik bir iş girer; rutinin
     /// kendi işleri değişmez. Hedefi takılı olmayan bir diskte olan rotanın işi de "Çalıştır"daki gibi kuyruğa girer ve diskini
-    /// bekler; öteki rotalar çalışır. - Returns: Sorun varsa açıklaması.
+    /// bekler; öteki rotalar çalışır. Kurallı işler önce birlikte taranır: seçilen öğelerden hiçbirini almayan rota kuyruğa
+    /// girmez (bkz. `RoutineScan`). - Returns: Sorun varsa açıklaması.
     @discardableResult
     func runRoutine(_ id: Routine.ID, on items: [URL]) -> String? {
         guard let routine = routine(id) else { return t(.intentRoutineNotFound) }
@@ -1273,6 +1328,23 @@ final class AppModel {
                 added.append(job)
             }
         }
+        let candidates = added.map { RoutineScan.Candidate(source: $0.source, destination: $0.destination, options: $0.options) }
+        guard candidates.filter(RoutineScan.canScan).count > 1 else {
+            queueSentItems(added, routineID: routine.id, routineName: routine.name)
+            return nil
+        }
+        showToast(t(.toastRoutineScanning, routine.name), systemImage: "magnifyingglass")
+        let sent = added, routineID = routine.id, routineName = routine.name
+        scanRoutine(routineID, candidates) { [weak self] work in
+            self?.queueSentItems(sent.indices.filter(work.contains).map { sent[$0] }, routineID: routineID, routineName: routineName)
+        }
+        return nil
+    }
+
+    /// Rutine gönderilen öğelerin işlerini kuyruğa alır; iş yoksa (seçilenlerden hiçbiri bir rotaya uymadı) yalnızca bildirir.
+    private func queueSentItems(_ added: [TransferJob], routineID: Routine.ID, routineName: String) {
+        guard routine(routineID) != nil else { return }
+        var added = added
         // Birden çok iş (rota ya da klasör) varsa "Taşı" hepsi bitince taşır.
         if added.count > 1 {
             let group = UUID()
@@ -1280,9 +1352,12 @@ final class AppModel {
         }
         jobs += added
         save()
-        showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
+        if added.isEmpty {
+            showToast(t(.toastRoutineNothingMatched, routineName), systemImage: "tray")
+        } else {
+            showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
+        }
         scheduleNext()
-        return nil
     }
 
     /// Çakışma kararlarını kaydeder ve işi yeniden sıraya alır. `remember` verilirse karar işin (rutin işinde rutinin)
@@ -2396,6 +2471,7 @@ final class AppModel {
     /// Çalışan işin ya da tek seferlik işlemin bitmesini bekler (testler için).
     func waitUntilIdle() async {
         while true {
+            if let scan = routineScans.values.first { await scan.task.value; continue }
             if let runningTask { await runningTask.value; continue }
             if let operationTask { await operationTask.value; continue }
             break

@@ -629,6 +629,8 @@
 "routineJobs" = "Jobs";
 "routineNoJobs" = "When the routine runs, each route appears here as a job.";
 "toastRoutineQueued" = "Routine queued";
+"toastRoutineScanning" = "Scanning “%@”…";
+"toastRoutineNothingMatched" = "“%@”: no files match any route";
 "toastRoutineSaved" = "Routine saved";
 "logRoutineRun" = "Routine “%@” was run.";
 "routineSampleTitle" = "Try";
