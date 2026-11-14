@@ -13,6 +13,10 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 - `Delete` (`⌫`) key support via `.onDeleteCommand` in both the job queue list and the sidebar routines list.
 - Pre-copy **folder conflict detection and resolution** (`FolderConflictPolicy`, `FolderConflictDecision`, `FolderConflictDecisionView`, `FolderConflictPolicyPicker`) with full `tr`/`en`/`ro` localization: copying a folder or folder contents with "Ask" enabled pauses before writing when a matching folder already exists at the destination and prompts to **Merge** (proceeding to file-level conflict checks), **Replace** (moving the existing folder to the Trash safely), **Keep Both** (copying to a Finder-numbered folder like `Folder 2`), or **Skip**, with independent "Remember my choice" persistence (`folderConflictPolicy`). Tests: `ConflictTests`, `ConflictAppTests`.
 
+### Fixed
+
+- Widened `ConflictSheet` and its decision columns so 4-way folder conflict choices and long localized labels fit without clipping.
+
 ## [1.2.1] — 2026-11-08
 
 ### Added

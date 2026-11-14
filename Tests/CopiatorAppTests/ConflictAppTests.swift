@@ -180,8 +180,8 @@ struct ConflictAppTests {
         #expect(model.job(id)?.pendingFolderConflicts != nil)
         _ = NSApplication.shared
         // Klasör karar sayfası da dosya karar sayfası da sorunsuz çizilir.
-        for view in [AnyView(ConflictSheet(prompt: ConflictPrompt(id: id))), AnyView(ConflictSheet(prompt: ConflictPrompt(id: UUID()))),
-                     AnyView(ContentView()), AnyView(MenuBarContent())] {
+        for (index, view) in [AnyView(ConflictSheet(prompt: ConflictPrompt(id: id))), AnyView(ConflictSheet(prompt: ConflictPrompt(id: UUID()))),
+                              AnyView(ContentView()), AnyView(MenuBarContent())].enumerated() {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 680), styleMask: [.titled], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             let host = NSHostingView(rootView: view.environment(model).environment(fixture.settings)
@@ -190,6 +190,13 @@ struct ConflictAppTests {
             window.layoutIfNeeded()
             window.displayIfNeeded()
             spinRunLoop(0.3)
+            if index == 0,
+               let directory = ProcessInfo.processInfo.environment["COPIATOR_SNAPSHOT_DIR"].map({ URL(fileURLWithPath: $0) }),
+               let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                host.cacheDisplay(in: host.bounds, to: rep)
+                try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                try? rep.representation(using: .png, properties: [:])?.write(to: directory.appendingPathComponent("folder-conflict.png"))
+            }
             window.close()
         }
         model.resolveFolderConflicts(id, resolution: FolderConflictResolution(others: .merge), remember: nil)

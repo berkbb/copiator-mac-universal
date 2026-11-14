@@ -127,7 +127,7 @@ struct ConflictSheet: View {
                 .padding(20)
             }
         }
-        .frame(width: 720, height: 540)
+        .frame(width: 880, height: 540)
     }
 
     /// Eski (bu ayardan önce kurulmuş) iş ya da rutinde "hatırla" önceden işaretlenir.
@@ -190,6 +190,7 @@ struct ConflictSheet: View {
                         }
                     }
                 }
+                .width(min: 180, ideal: 320)
                 TableColumn(settings.t(.conflictDecisionColumn)) { item in
                     Picker(settings.t(.conflictDecisionColumn), selection: binding(for: item)) {
                         ForEach(choices) { decision in
@@ -199,7 +200,7 @@ struct ConflictSheet: View {
                     .labelsHidden()
                     .pickerStyle(.segmented)
                 }
-                .width(min: 300, ideal: 330)
+                .width(min: 440, ideal: 480)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -213,6 +214,7 @@ struct ConflictSheet: View {
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
 
             HStack {
                 Toggle(settings.t(job.routineID != nil ? .conflictRememberRoutine : .conflictRememberJob), isOn: $remember)
@@ -315,6 +317,7 @@ private struct FolderConflictDecisionView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
+                .width(min: 160, ideal: 220)
                 TableColumn(settings.t(.conflictDecisionColumn)) { item in
                     Picker(settings.t(.conflictDecisionColumn), selection: binding(for: item)) {
                         ForEach(choices) { decision in
@@ -324,7 +327,7 @@ private struct FolderConflictDecisionView: View {
                     .labelsHidden()
                     .pickerStyle(.segmented)
                 }
-                .width(min: 360, ideal: 400)
+                .width(min: 540, ideal: 580)
             }
 
             Text(settings.t(.folderConflictMergeNote))
