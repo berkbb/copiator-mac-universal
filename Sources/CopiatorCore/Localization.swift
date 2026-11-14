@@ -382,6 +382,9 @@ public enum LKey: String, CaseIterable, Sendable {
     case conflictTruncated, conflictRememberJob, conflictRememberRoutine, conflictLater, conflictContinue, conflictKeepBothNote
     case menuResolveConflicts, notifyDecisionTitle, notifyDecisionBody, optionConflictPolicy, optionConflictPolicyNote
     case conflictPolicyAsk, conflictPolicyReplace, conflictPolicyKeepBoth, conflictPolicySkip, logConflictsDecided, menuBarAwaiting
+    // Çıkış koruması
+    case quitConfirmTitle, quitConfirmMessage, quitConfirmButton, quitConfirmSuppress, settingsConfirmQuit
+    case quitHoldTitle, quitHoldActive, settingsHoldToQuit, settingsHoldToQuitNote
 }
 
 extension StringTable {

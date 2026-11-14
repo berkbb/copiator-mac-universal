@@ -51,6 +51,11 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .onDeleteCommand {
+            if case .routine(let id) = model.sidebarSelection {
+                model.requestDeleteRoutine(id)
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             // "rsync hazır" yalnızca karşılama ekranında görünür; kenar çubuğu yalnızca bir sorun (bulunamadı, yanıt
             // vermiyor, kısıtlı kip) olduğunda ve karşılama ekranı görünmüyorken uyarır.
@@ -93,6 +98,7 @@ struct JobListView: View {
                     .onMove(perform: model.filter == .all ? { model.move(from: $0, to: $1) } : nil)
                 }
                 .listStyle(.inset(alternatesRowBackgrounds: true))
+                .onDeleteCommand { model.remove(model.selection) }
                 .accessibilityIdentifier("copiator.joblist")
             }
         }

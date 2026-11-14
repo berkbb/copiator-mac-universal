@@ -1183,3 +1183,13 @@
 "consoleCategoryDisk" = "Disk";
 "consoleCategoryIntegrity" = "Integrity";
 "consoleCategoryUpdate" = "Update";
+
+"quitConfirmTitle" = "Quit Copiator?";
+"quitConfirmMessage" = "Active backups or operations: %ld. Running jobs will be stopped and can be resumed when you reopen Copiator.";
+"quitConfirmButton" = "Quit";
+"quitConfirmSuppress" = "Don't ask again";
+"settingsConfirmQuit" = "Ask before quitting while backups or operations are active";
+"quitHoldTitle" = "Hold ⌘Q to quit Copiator";
+"quitHoldActive" = "Active backups or operations: %ld. Running jobs will be stopped and can be resumed when you reopen Copiator.";
+"settingsHoldToQuit" = "Hold ⌘Q to quit";
+"settingsHoldToQuitNote" = "Pressing ⌘Q once does not quit: hold it for about a second. Holding counts as confirmation to quit. When off, ⌘Q works like the Quit menu item.";

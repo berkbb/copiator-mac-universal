@@ -64,6 +64,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let volumes = VolumeWatcher()
     private let dock = DockProgress()
     private let notices = NoticeHandler()
+    private lazy var quitHold = QuitHoldController(settings: AppSettings.shared)
+    private var quitConfirmed = false
+    private var terminating = false
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Bildirim düğmeleri (Şimdi Yedekle, Göster, Karar Ver); uygulama bir düğmeyle açılsa da tıklama kaybolmasın diye
@@ -94,6 +97,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await model.launch() }
         // Bildirim izni açılışta sorulur (rozet dahil: Dock simgesindeki ilerleme onunla görünür); Tam Disk Erişimi yoklanır.
         Task { await model.refreshPermissions(ask: true) }
+        quitHold.activeTransfers = { [weak model] in model?.activeWorkCount ?? 0 }
+        quitHold.requestQuit = { [weak self] confirmed in self?.requestQuit(confirmedByHold: confirmed) }
+        quitHold.canHandle = { [weak self] in NSApp.modalWindow == nil && self?.terminating != true }
+        quitHold.install()
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -109,8 +116,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.handleDrop(urls)
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if terminating { return .terminateNow }
+        if !quitConfirmed, !confirmQuitIfNeeded() { return .terminateCancel }
+        terminating = true
+        return .terminateNow
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         AppModel.shared.prepareForTermination()
+    }
+
+    func requestQuit(confirmedByHold: Bool, sender: Any? = nil) {
+        if !confirmedByHold, !confirmQuitIfNeeded() {
+            quitHold.quitDidNotHappen()
+            return
+        }
+        for window in NSApp.windows { Self.endSheets(of: window) }
+        quitConfirmed = true
+        NSApp.terminate(sender)
+        quitConfirmed = false
+        if !terminating { quitHold.quitDidNotHappen() }
+    }
+
+    private func confirmQuitIfNeeded() -> Bool {
+        let model = AppModel.shared
+        let settings = AppSettings.shared
+        let activeCount = model.activeWorkCount
+        guard settings.confirmQuit, activeCount > 0 else { return true }
+        let alert = NSAlert()
+        alert.messageText = settings.t(.quitConfirmTitle)
+        alert.informativeText = settings.t(.quitConfirmMessage, activeCount)
+        alert.addButton(withTitle: settings.t(.quitConfirmButton))
+        alert.addButton(withTitle: settings.t(.buttonCancel))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = settings.t(.quitConfirmSuppress)
+        let response = alert.runModal()
+        if alert.suppressionButton?.state == .on { settings.confirmQuit = false }
+        return response == .alertFirstButtonReturn
+    }
+
+    static func endSheets(of window: NSWindow) {
+        guard let sheet = window.attachedSheet else { return }
+        endSheets(of: sheet)
+        window.endSheet(sheet)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

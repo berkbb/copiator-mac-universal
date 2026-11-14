@@ -5,6 +5,13 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-11-14
+
+### Added
+
+- Chromium-style **Hold `⌘Q` to quit** (`QuitHoldMachine`, `QuitHoldController`, `QuitHoldHUD`) and active-job quit confirmation (`confirmQuit`), configurable in Settings → General (`confirmQuit`, `holdToQuit`) with full `tr`/`en`/`ro` localization. Tests: `QuitHoldTests`.
+- `Delete` (`⌫`) key support via `.onDeleteCommand` in both the job queue list and the sidebar routines list.
+
 ## [1.2.1] — 2026-11-08
 
 ### Added

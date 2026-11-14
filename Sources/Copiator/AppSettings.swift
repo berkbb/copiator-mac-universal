@@ -207,11 +207,13 @@ final class AppSettings {
         static let backupRemindedAt = "backupRemindedAt"
         static let fillWarnedAt = "fillWarnedAt"
         static let integrityOnConnect = "integrityOnConnect"
+        static let confirmQuit = "confirmQuit"
+        static let holdToQuit = "holdToQuit"
         static let all = [
             language, appearance, notifyOnFinish, resumeInterruptedAtLaunch, defaultCopyMode, defaultPreservePermissions,
             defaultPreserveXattrs, defaultExcludeSystemFolders, customEnginePath, checkUpdatesAtLaunch, updateConsentAsked,
             sandboxEngine, queueHeld, customShortcuts, keepDisplayAwake, lowPriorityIO, pauseOnCriticalBattery, defaultAdvanced, defaultVerifyAfterCopy,
-            showMenuBarIcon, showDockProgress, defaultConflictPolicy, aiSuggestions, aiProvider, aiOllamaModel, aiLMStudioModel,
+            showMenuBarIcon, showDockProgress, confirmQuit, holdToQuit, defaultConflictPolicy, aiSuggestions, aiProvider, aiOllamaModel, aiLMStudioModel,
             aiAutomaticOrder, aiAutomaticOff, backupReminderDays, backupRemindedAt, fillWarnedAt, integrityOnConnect,
         ]
     }
@@ -272,6 +274,10 @@ final class AppSettings {
     var showMenuBarIcon: Bool { didSet { defaults.set(showMenuBarIcon, forKey: Key.showMenuBarIcon) } }
     /// Dock simgesinde çalışan işin ilerlemesi ve bekleyen işlerin sayısı.
     var showDockProgress: Bool { didSet { defaults.set(showDockProgress, forKey: Key.showDockProgress) } }
+    /// Etkin yedekleme veya işlem varken çıkmadan önce onay iste.
+    var confirmQuit: Bool { didSet { defaults.set(confirmQuit, forKey: Key.confirmQuit) } }
+    /// Çıkmak için ⌘Q'yu yaklaşık bir saniye basılı tut (Chromium tarayıcılarındaki gibi).
+    var holdToQuit: Bool { didSet { defaults.set(holdToQuit, forKey: Key.holdToQuit) } }
     /// Yapay zekâ önerileri (isteğe bağlı, varsayılan kapalı; açılırken ön koşullar denetlenir); yalnızca bu Mac'te.
     var aiSuggestions: Bool { didSet { defaults.set(aiSuggestions, forKey: Key.aiSuggestions) } }
     /// Önerilerin modeli: Otomatik (varsayılan; sırayla ilk yanıt veren), Apple Intelligence ya da bu Mac'teki yerel sunucu
@@ -343,6 +349,8 @@ final class AppSettings {
         defaultConflictPolicy = ConflictPolicy(rawValue: defaults.string(forKey: Key.defaultConflictPolicy) ?? "") ?? .ask
         showMenuBarIcon = defaults.object(forKey: Key.showMenuBarIcon) as? Bool ?? true
         showDockProgress = defaults.object(forKey: Key.showDockProgress) as? Bool ?? true
+        confirmQuit = defaults.object(forKey: Key.confirmQuit) as? Bool ?? true
+        holdToQuit = defaults.object(forKey: Key.holdToQuit) as? Bool ?? true
         aiSuggestions = defaults.object(forKey: Key.aiSuggestions) as? Bool ?? false
         aiProvider = SuggestionProvider(rawValue: defaults.string(forKey: Key.aiProvider) ?? "") ?? .automatic
         backupReminderDays = (defaults.object(forKey: Key.backupReminderDays) as? Int).flatMap { BackupFreshness.choices.contains($0) ? $0 : nil } ?? 30
@@ -394,6 +402,8 @@ final class AppSettings {
         defaultConflictPolicy = .ask
         showMenuBarIcon = true
         showDockProgress = true
+        confirmQuit = true
+        holdToQuit = true
         aiSuggestions = false
         backupReminderDays = 30
         backupRemindedAt = [:]

@@ -1183,3 +1183,13 @@
 "consoleCategoryDisk" = "Disc";
 "consoleCategoryIntegrity" = "Integritate";
 "consoleCategoryUpdate" = "Actualizare";
+
+"quitConfirmTitle" = "Închideți Copiator?";
+"quitConfirmMessage" = "Copii de rezervă sau operații active: %ld. Lucrările în curs vor fi oprite și pot fi reluate la redeschiderea Copiator.";
+"quitConfirmButton" = "Închide";
+"quitConfirmSuppress" = "Nu mai întreba";
+"settingsConfirmQuit" = "Întreabă înainte de închidere dacă există copii de rezervă sau operații active";
+"quitHoldTitle" = "Țineți apăsat ⌘Q pentru a închide Copiator";
+"quitHoldActive" = "Copii de rezervă sau operații active: %ld. Lucrările în curs vor fi oprite și pot fi reluate la redeschiderea Copiator.";
+"settingsHoldToQuit" = "Țineți apăsat ⌘Q pentru a închide";
+"settingsHoldToQuitNote" = "O singură apăsare pe ⌘Q nu închide aplicația: țineți apăsat aproximativ o secundă. Ținerea apăsată ține loc de confirmare. Când este dezactivat, ⌘Q funcționează ca elementul de meniu Închide.";

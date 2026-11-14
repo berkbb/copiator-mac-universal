@@ -309,6 +309,10 @@ final class AppModel {
     private(set) var isPausingRunningJob = false
 
     var operation: OperationState?
+    /// Etkin yedekleme veya işlem sayısı (çıkış onayı ve ⌘Q basılı tutma göstergesi için).
+    var activeWorkCount: Int {
+        (runningJobID != nil ? 1 : 0) + (operation != nil ? 1 : 0)
+    }
     var lastOperationOutcome: OperationOutcome?
     var toast: Toast?
     var alert: AlertItem? { didSet { if alert == nil { schedulePendingConsent() } } }

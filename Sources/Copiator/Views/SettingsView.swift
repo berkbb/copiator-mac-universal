@@ -122,6 +122,18 @@ private struct GeneralSettingsView: View {
                 }
                 Toggle(settings.t(.settingsDockProgress), isOn: $settings.showDockProgress)
                     .onChange(of: settings.showDockProgress) { model.onActivityChange?() }
+                Toggle(settings.t(.settingsConfirmQuit), isOn: $settings.confirmQuit)
+                    .accessibilityIdentifier("copiator.settings.confirmQuit")
+                Toggle(isOn: $settings.holdToQuit) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(settings.t(.settingsHoldToQuit))
+                        Text(settings.t(.settingsHoldToQuitNote))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .accessibilityIdentifier("copiator.settings.holdToQuit")
             }
 
             Section(settings.t(.settingsAISection)) {
@@ -547,7 +559,8 @@ private struct AdvancedSettingsView: View {
     }
 }
 
-private struct ShortcutsSettingsView: View {
+struct ShortcutsSettingsView: View {
+    @MainActor static var isRecording = false
     @Environment(AppSettings.self) private var settings
     @State private var recordingAction: ShortcutAction? = nil
     @State private var monitor: Any? = nil
@@ -660,6 +673,7 @@ private struct ShortcutsSettingsView: View {
 
     private func startRecording(for action: ShortcutAction) {
         stopRecording()
+        Self.isRecording = true
         recordingAction = action
         recordingWarning = nil
 
@@ -673,6 +687,7 @@ private struct ShortcutsSettingsView: View {
             NSEvent.removeMonitor(monitor)
             self.monitor = nil
         }
+        Self.isRecording = false
         recordingAction = nil
         recordingWarning = nil
     }

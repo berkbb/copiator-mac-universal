@@ -1183,3 +1183,13 @@
 "consoleCategoryDisk" = "Disk";
 "consoleCategoryIntegrity" = "Bütünlük";
 "consoleCategoryUpdate" = "Güncelleme";
+
+"quitConfirmTitle" = "Copiator'dan çıkılsın mı?";
+"quitConfirmMessage" = "Etkin yedekleme veya işlem: %ld. Çalışan işler durdurulur; Copiator yeniden açıldığında kaldığı yerden sürdürülebilir.";
+"quitConfirmButton" = "Çık";
+"quitConfirmSuppress" = "Bir daha sorma";
+"settingsConfirmQuit" = "Etkin yedekleme veya işlem varken çıkmadan önce sor";
+"quitHoldTitle" = "Copiator'dan çıkmak için ⌘Q'yu basılı tutun";
+"quitHoldActive" = "Etkin yedekleme veya işlem: %ld. Çalışan işler durdurulur; Copiator yeniden açıldığında kaldığı yerden sürdürülebilir.";
+"settingsHoldToQuit" = "Çıkmak için ⌘Q'yu basılı tut";
+"settingsHoldToQuitNote" = "⌘Q'ya bir kez basmak uygulamayı kapatmaz: yaklaşık bir saniye basılı tutun. Basılı tutmak çıkış onayı yerine geçer. Kapalıyken ⌘Q, Çık menü öğesi gibi davranır.";
