@@ -114,6 +114,92 @@ public struct ConflictResolution: Codable, Equatable, Sendable {
     public func decision(for path: String) -> ConflictDecision? { decisions[path] ?? others }
 }
 
+/// Hedefte aynı adlı bir klasör varken varsayılan davranış (varsayılan: sor).
+public enum FolderConflictPolicy: String, Codable, CaseIterable, Identifiable, Sendable {
+    /// İş "karar bekliyor" olarak duraklar; kullanıcı Birleştir / Değiştir / İkisini de sakla / Atla seçer.
+    case ask
+    /// İki klasörü birleştir (içindeki aynı adlı dosyalar ayrıca `conflictPolicy` ayarına göre çözülür).
+    case merge
+    /// Hedefteki eski klasörü Çöp Sepeti'ne taşıyıp kaynak klasörü baştan kopyala.
+    case replace
+    /// Hedefteki klasöre dokunma; yeni klasörü numaralı adla ("Kaynak 2") kopyala.
+    case keepBoth
+    /// Bu klasörü kopyalama.
+    case skip
+
+    public var id: String { rawValue }
+
+    /// Sormadan uygulanan karar (`ask` kipinde nil).
+    public var decision: FolderConflictDecision? {
+        switch self {
+        case .ask: nil
+        case .merge: .merge
+        case .replace: .replace
+        case .keepBoth: .keepBoth
+        case .skip: .skip
+        }
+    }
+}
+
+/// Hedefte aynı adlı bir klasör için karar.
+public enum FolderConflictDecision: String, Codable, CaseIterable, Identifiable, Sendable {
+    /// 1 · İki klasörü birleştir (içindeki aynı adlı dosyalar varsa dosya kuralına göre çözülür).
+    case merge
+    /// 2 · Hedefteki eski klasörü Çöp Sepeti'ne taşıyıp kaynak klasörü yerine kopyala.
+    case replace
+    /// 3 · İkisini de sakla: hedefteki klasör kalır, gelen klasör numaralı adla kopyalanır ("Kaynak 2").
+    case keepBoth
+    /// 4 · Bu klasörü kopyalama.
+    case skip
+
+    public var id: String { rawValue }
+
+    public var policy: FolderConflictPolicy {
+        switch self {
+        case .merge: .merge
+        case .replace: .replace
+        case .keepBoth: .keepBoth
+        case .skip: .skip
+        }
+    }
+}
+
+/// Hedefte aynı adla zaten bulunan bir klasör (gelen de klasördür).
+public struct FolderConflict: Codable, Equatable, Hashable, Identifiable, Sendable {
+    /// Hedefe göre göreli klasör adı ("Belgeler").
+    public var path: String
+
+    public var id: String { path }
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
+/// Bir çalıştırmada bulunan üst düzey klasör çakışmaları.
+public struct FolderConflictReport: Codable, Equatable, Sendable {
+    public var items: [FolderConflict]
+
+    public init(items: [FolderConflict]) {
+        self.items = items
+    }
+
+    public var total: Int { items.count }
+}
+
+/// Kullanıcının bir sonraki çalıştırma için verdiği klasör kararları.
+public struct FolderConflictResolution: Codable, Equatable, Sendable {
+    public var decisions: [String: FolderConflictDecision]
+    public var others: FolderConflictDecision?
+
+    public init(decisions: [String: FolderConflictDecision] = [:], others: FolderConflictDecision? = nil) {
+        self.decisions = decisions
+        self.others = others
+    }
+
+    public func decision(for path: String) -> FolderConflictDecision? { decisions[path] ?? others }
+}
+
 /// Çakışmaları bulur ve "ikisini de sakla" adlarını üretir.
 public enum ConflictDetector {
     /// Bir işte en çok bu kadar çakışma saklanır ve gösterilir (kayıt dosyası şişmesin); fazlası için tek karar uygulanır.
@@ -153,6 +239,54 @@ public enum ConflictDetector {
         return result
     }
 
+    /// Hedefte aynı adla zaten bulunan üst düzey klasörleri `-n -ii` çıktısından bulur (yalnızca aktarım kökündeki
+    /// gerçek klasörler; yeni klasörler ve alt klasörler sayılmaz).
+    public static func folderConflicts(
+        in output: String, format: ItemizeParser.Format, existsAtDestination: (String) -> Bool
+    ) -> [FolderConflict] {
+        let width = format.codeWidth
+        var seen = Set<String>()
+        var result: [FolderConflict] = []
+        for line in output.split(omittingEmptySubsequences: true, whereSeparator: { $0 == "\n" || $0 == "\r" }) {
+            let characters = Array(line)
+            guard characters.count > width + 1, characters[width] == " ", "<>c.".contains(characters[0]),
+                  characters[1] == "d" else { continue }
+            let attributes = characters[2..<width]
+            guard !attributes.allSatisfy({ $0 == "+" }) else { continue }
+            var path = ItemizeParser.unescape(String(characters[(width + 1)...]))
+            while path.hasSuffix("/") { path.removeLast() }
+            guard !path.isEmpty, path != ".", !path.contains("/") else { continue }
+            guard seen.insert(path).inserted, existsAtDestination(path) else { continue }
+            result.append(FolderConflict(path: path))
+        }
+        return result
+    }
+
+    /// "Klasörün kendisi" kipinde hedefte aynı adlı gerçek bir klasör zaten varsa döndürür (bağlantılar sayılmaz).
+    public static func existingTopFolder(source: URL, destination: URL) -> FolderConflict? {
+        let resolvedSource = source.standardizedFileURL
+        let name = resolvedSource.lastPathComponent
+        guard resolvedSource.path != "/", !name.isEmpty, name != ".", name != ".." else { return nil }
+        return isRealDirectory(destination.standardizedFileURL.appendingPathComponent(name).path) ? FolderConflict(path: name) : nil
+    }
+
+    /// "İçeriği" kipinde kaynağın kökünde, hedefte de gerçek bir klasör olarak bulunan en az bir alt klasör var mı?
+    static func topSubdirectoryExists(source: URL, destination: URL) -> Bool {
+        let resolvedDestination = destination.standardizedFileURL.path
+        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: source.standardizedFileURL.path) else { return false }
+        for entry in entries where !entry.isEmpty && entry != "." && entry != ".." {
+            let srcPath = (source.standardizedFileURL.path as NSString).appendingPathComponent(entry)
+            let dstPath = (resolvedDestination as NSString).appendingPathComponent(entry)
+            if isRealDirectory(srcPath), isRealDirectory(dstPath) { return true }
+        }
+        return false
+    }
+
+    static func isRealDirectory(_ path: String) -> Bool {
+        var info = stat()
+        return lstat(path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR
+    }
+
     /// Finder gibi numaralı ad: "rapor.xlsx" → "rapor 2.xlsx", "rapor 3.xlsx"…; uzantısız "Notlar" → "Notlar 2".
     /// - Parameter isTaken: Bu ad hedefte (ya da bu çalıştırmada başka bir kopya için) kullanılıyor mu?
     public static func numberedName(for name: String, isTaken: (String) -> Bool) -> String {
@@ -167,11 +301,47 @@ public enum ConflictDetector {
         }
     }
 
+    /// Klasör için numaralı ad ("Projeler" → "Projeler 2", "2026.10" → "2026.10 2").
+    public static func numberedFolderName(for name: String, isTaken: (String) -> Bool) -> String {
+        var number = 2
+        while true {
+            let candidate = "\(name) \(number)"
+            if !isTaken(candidate) { return candidate }
+            number += 1
+        }
+    }
+
     /// Atlanacak ve numaralı kopyalanacak dosyaların ana kopyalamadan dışlanması için rsync süzgeç kalıpları: aktarım
     /// köküne sabitlenmiş, özel karakterleri kaçışlanmış ("/Kaynak/a\*.txt").
     public static func excludePatterns(for paths: [String]) -> [String] {
         paths.map { RsyncCommand.escapePattern("/" + $0) }
     }
+}
+
+/// `-ii` çıktısını satır satır okuyup üst düzey klasör çakışmalarını toplar.
+final class FolderConflictCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private let format: ItemizeParser.Format
+    private let destination: String
+    private var seen = Set<String>()
+    private var found: [FolderConflict] = []
+
+    init(format: ItemizeParser.Format, destination: URL) {
+        self.format = format
+        self.destination = destination.standardizedFileURL.path
+    }
+
+    func consume(_ record: String) {
+        let items = ConflictDetector.folderConflicts(in: record, format: format) { [destination] path in
+            ConflictDetector.isRealDirectory((destination as NSString).appendingPathComponent(path))
+        }
+        guard !items.isEmpty else { return }
+        lock.withLock {
+            for item in items where seen.insert(item.path).inserted { found.append(item) }
+        }
+    }
+
+    var conflicts: [FolderConflict] { lock.withLock { found } }
 }
 
 /// `-ii` çıktısını satır satır okuyup çakışmaları toplar (çıktı bellekte biriktirilmez; büyük ağaçlarda megabaytlarca olur).

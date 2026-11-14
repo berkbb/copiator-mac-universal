@@ -479,6 +479,9 @@ struct JobDetailView: View {
         if options.snapshots.enabled { parts.append(settings.t(.optionSnapshots)) }
         if options.runWhenConnected { parts.append(settings.t(.optionRunWhenConnected)) }
         if options.ejectWhenDone { parts.append(settings.t(.optionEjectWhenDone)) }
+        if options.folderConflictPolicy != .ask {
+            parts.append(settings.t(.optionFolderConflictPolicy) + ": " + settings.title(options.folderConflictPolicy))
+        }
         parts.append(settings.t(.optionConflictPolicy) + ": " + settings.title(options.conflictPolicy, kind: kind))
         switch options.verifyAfterCopy {
         case .off: break

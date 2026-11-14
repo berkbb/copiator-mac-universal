@@ -64,6 +64,9 @@ struct NewJobSheet: View {
                     option(.optionXattrs, note: settings.t(.optionXattrsNote), isOn: $options.preserveExtendedAttributes)
                     option(.optionExcludeSystem, note: settings.t(.optionExcludeSystemNote), isOn: $options.excludeSystemFolders)
                     option(.optionExcludeWindows, note: settings.t(.optionExcludeWindowsNote), isOn: $options.excludeWindowsLeftovers)
+                    if sourceIsDirectory && (options.conflictPolicy == .ask || options.folderConflictPolicy != .ask) {
+                        FolderConflictPolicyPicker(selection: $options.folderConflictPolicy)
+                    }
                     ConflictPolicyPicker(selection: $options.conflictPolicy)
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle(settings.t(.optionDelete), isOn: $options.deleteExtraneous)

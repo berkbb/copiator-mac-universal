@@ -65,8 +65,23 @@ import Testing
     #expect(try JSONDecoder().decode(CopyOptions.self, from: JSONEncoder().encode(legacy)).suggestsRememberingConflictChoice)
     let unknown = try JSONDecoder().decode(CopyOptions.self, from: Data(#"{"conflictPolicy": "merge"}"#.utf8))
     #expect(unknown.conflictPolicy == .ask)
+    #expect(unknown.folderConflictPolicy == .ask)
+    let unknownFolder = try JSONDecoder().decode(CopyOptions.self, from: Data(#"{"folderConflictPolicy": "future"}"#.utf8))
+    #expect(unknownFolder.folderConflictPolicy == .ask)
     #expect(ConflictPolicy.allCases.compactMap(\.decision) == [.replace, .keepBoth, .skip, .reverse])
     #expect(ConflictDecision.allCases.map(\.policy) == [.replace, .keepBoth, .skip, .reverse])
+    #expect(FolderConflictPolicy.allCases.compactMap(\.decision) == [.merge, .replace, .keepBoth, .skip])
+    #expect(FolderConflictDecision.allCases.map(\.policy) == [.merge, .replace, .keepBoth, .skip])
+    #expect(ConflictDetector.numberedFolderName(for: "2026.10", isTaken: { $0 == "2026.10 2" }) == "2026.10 3")
+    let folderOutput = """
+    .d          ./
+    .d..t...... Alt/
+    cd+++++++++ Yeni/
+    .d          Alt/ic/
+    .f          a.txt
+    """
+    let folderConflicts = ConflictDetector.folderConflicts(in: folderOutput, format: .rsync3, existsAtDestination: { $0 == "Alt" })
+    #expect(folderConflicts == [FolderConflict(path: "Alt")])
     let resolution = ConflictResolution(decisions: ["a": .skip], others: .replace)
     #expect(resolution.decision(for: "a") == .skip && resolution.decision(for: "b") == .replace)
     #expect(ConflictResolution().decision(for: "a") == nil)
@@ -108,7 +123,16 @@ struct ConflictEngineTests {
 
     @Test func askStopsBeforeCopyingAndListsEverySameNameFile() async throws {
         let workspace = try setUp()
-        let job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"))
+        var job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"))
+        // Hedefte "Kaynak" klasörü zaten var: önce klasör için karar istenir, hiçbir şey kopyalanmaz.
+        let (folderResult, folderEvents) = try await run(job)
+        #expect(folderResult.kind == .awaitingDecision && folderResult.detail == JobResult.foldersDetail && folderResult.noteCount == 1)
+        let folderReport = try #require(folderEvents.compactMap { if case .folderConflicts(let r) = $0 { r } else { nil } }.first)
+        #expect(folderReport.items == [FolderConflict(path: "Kaynak")])
+        #expect(!workspace.exists("Hedef/Kaynak/yeni.txt"))
+
+        // Klasörde "Birleştir" seçilince içindeki aynı adlı dosyalar sorulur.
+        job.folderConflictResolution = FolderConflictResolution(decisions: ["Kaynak": .merge])
         let (result, events) = try await run(job)
         #expect(result.kind == .awaitingDecision && result.noteCount == 2)
         let report = try #require(events.compactMap { if case .conflicts(let report) = $0 { report } else { nil } }.first)
@@ -161,7 +185,8 @@ struct ConflictEngineTests {
     /// Dosya dosya karar; listede olmayan yeni bir çakışma "ötekiler" kararıyla, o da yoksa yeniden sorulur.
     @Test func perFileDecisionsAndLaterConflicts() async throws {
         let workspace = try setUp()
-        var job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"))
+        var job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"),
+                              options: CopyOptions(folderConflictPolicy: .merge))
         job.conflictResolution = ConflictResolution(decisions: ["Kaynak/ayni.txt": .skip, "Kaynak/alt/farkli.txt": .keepBoth])
         try workspace.write("Kaynak/sonradan.txt", "kaynak\n")
         try workspace.write("Hedef/Kaynak/sonradan.txt", "hedef\n")
@@ -199,5 +224,83 @@ struct ConflictEngineTests {
                                    options: CopyOptions(snapshots: SnapshotOptions(enabled: true)))
         #expect(try await run(snapshot).0.kind == .succeeded)
         #expect(try await run(snapshot).0.kind == .succeeded)
+    }
+
+    /// Klasör çakışması kararları: birleştir, değiştir (Çöp'e taşıyarak), ikisini de sakla (numaralı klasör) ve atla.
+    @Test func folderConflictDecisionsAndContentsMode() async throws {
+        for decision in FolderConflictDecision.allCases {
+            let w = try Workspace()
+            try w.write("Kaynak/yeni.txt", "yeni\n")
+            try w.write("Hedef/Kaynak/eski.txt", "eski\n")
+            let trash = try w.mkdir("Cop")
+            var context = try await engineContext()
+            context.trashItem = { url in
+                let dst = trash.appendingPathComponent(url.lastPathComponent + "-\(UUID().uuidString)")
+                return (try? FileManager.default.moveItem(at: url, to: dst)) != nil ? dst : nil
+            }
+            var job = TransferJob(source: w.url("Kaynak"), destination: w.url("Hedef"),
+                                  options: CopyOptions(verifyAfterCopy: .quick))
+            job.folderConflictResolution = FolderConflictResolution(decisions: ["Kaynak": decision])
+            let result = await RsyncEngine().run(job, context: context) { _ in }
+            #expect(result.kind == .succeeded, "\(decision): \(result)")
+            switch decision {
+            case .merge:
+                #expect(w.read("Hedef/Kaynak/eski.txt") == "eski\n")
+                #expect(w.read("Hedef/Kaynak/yeni.txt") == "yeni\n")
+            case .replace:
+                #expect(!w.exists("Hedef/Kaynak/eski.txt"))
+                #expect(w.read("Hedef/Kaynak/yeni.txt") == "yeni\n")
+                let trashed = try FileManager.default.contentsOfDirectory(atPath: trash.path)
+                #expect(trashed.count == 1)
+            case .keepBoth:
+                #expect(w.read("Hedef/Kaynak/eski.txt") == "eski\n")
+                #expect(!w.exists("Hedef/Kaynak/yeni.txt"))
+                #expect(w.read("Hedef/Kaynak 2/yeni.txt") == "yeni\n")
+                #expect(result.undo?.created.contains("Kaynak 2") == true)
+            case .skip:
+                #expect(w.read("Hedef/Kaynak/eski.txt") == "eski\n")
+                #expect(!w.exists("Hedef/Kaynak/yeni.txt"))
+            }
+        }
+
+        // İçerik kipinde birden çok alt klasör: tek tek Birleştir / Değiştir / İkisini de sakla / Atla.
+        let w = try Workspace()
+        try w.write("Kaynak/kok.txt", "kök\n")
+        try w.write("Kaynak/Birlestir/yeni.txt", "b-yeni\n")
+        try w.write("Kaynak/Degistir/yeni.txt", "d-yeni\n")
+        try w.write("Kaynak/Ikisi/yeni.txt", "i-yeni\n")
+        try w.write("Kaynak/Atla/yeni.txt", "a-yeni\n")
+        try w.write("Hedef/Birlestir/eski.txt", "b-eski\n")
+        try w.write("Hedef/Degistir/eski.txt", "d-eski\n")
+        try w.write("Hedef/Ikisi/eski.txt", "i-eski\n")
+        try w.write("Hedef/Atla/eski.txt", "a-eski\n")
+        let trash = try w.mkdir("Cop")
+        var context = try await engineContext()
+        context.trashItem = { url in
+            let dst = trash.appendingPathComponent(url.lastPathComponent)
+            return (try? FileManager.default.moveItem(at: url, to: dst)) != nil ? dst : nil
+        }
+        var contentsJob = TransferJob(source: w.url("Kaynak"), destination: w.url("Hedef"),
+                                      options: CopyOptions(copyMode: .contents, verifyAfterCopy: .quick))
+        let (askResult, askEvents) = await { () async -> (JobResult, [TransferEvent]) in
+            let ev = Collected<TransferEvent>()
+            let r = await RsyncEngine().run(contentsJob, context: context) { ev.add($0) }
+            return (r, ev.values)
+        }()
+        #expect(askResult.kind == .awaitingDecision && askResult.detail == JobResult.foldersDetail && askResult.noteCount == 4)
+        let asked = try #require(askEvents.compactMap { if case .folderConflicts(let r) = $0 { r } else { nil } }.first)
+        #expect(Set(asked.items.map(\.path)) == ["Birlestir", "Degistir", "Ikisi", "Atla"])
+
+        contentsJob.folderConflictResolution = FolderConflictResolution(decisions: [
+            "Birlestir": .merge, "Degistir": .replace, "Ikisi": .keepBoth, "Atla": .skip,
+        ])
+        let done = await RsyncEngine().run(contentsJob, context: context) { _ in }
+        #expect(done.kind == .succeeded, "\(done)")
+        #expect(w.read("Hedef/kok.txt") == "kök\n")
+        #expect(w.read("Hedef/Birlestir/eski.txt") == "b-eski\n" && w.read("Hedef/Birlestir/yeni.txt") == "b-yeni\n")
+        #expect(!w.exists("Hedef/Degistir/eski.txt") && w.read("Hedef/Degistir/yeni.txt") == "d-yeni\n")
+        #expect(w.read("Hedef/Ikisi/eski.txt") == "i-eski\n" && !w.exists("Hedef/Ikisi/yeni.txt"))
+        #expect(w.read("Hedef/Ikisi 2/yeni.txt") == "i-yeni\n")
+        #expect(w.read("Hedef/Atla/eski.txt") == "a-eski\n" && !w.exists("Hedef/Atla/yeni.txt"))
     }
 }

@@ -112,12 +112,18 @@ public enum JobQueue {
             entries.forEach { job.appendLog($0) }
         case .conflicts(let report):
             job.pendingConflicts = report
+        case .folderConflicts(let report):
+            job.pendingFolderConflicts = report
         case .conflictsSettled:
             // Sürdürmede yeni görünen aynı adlı dosyalar bu geçişin yazdıklarıdır: olağan güncelleme (değiştir).
             var resolution = job.conflictResolution ?? ConflictResolution()
             resolution.others = resolution.others ?? .replace
             job.conflictResolution = resolution
             job.pendingConflicts = nil
+            var folderResolution = job.folderConflictResolution ?? FolderConflictResolution()
+            folderResolution.others = folderResolution.others ?? .merge
+            job.folderConflictResolution = folderResolution
+            job.pendingFolderConflicts = nil
         case .placements(let report):
             job.pendingPlacements = report
         }
@@ -145,10 +151,13 @@ public enum JobQueue {
             // Verilen kararlar, iş sürdürülünce de geçerlidir.
             job.status = .paused
             job.pendingConflicts = nil
+            job.pendingFolderConflicts = nil
             job.pendingPlacements = nil
         case let kind where kind.isSuccess:
             job.pendingConflicts = nil
             job.conflictResolution = nil
+            job.pendingFolderConflicts = nil
+            job.folderConflictResolution = nil
             job.pendingPlacements = nil
             job.placementResolution = nil
             job.status = .finished
@@ -165,6 +174,8 @@ public enum JobQueue {
             job.finishedAt = date
             job.pendingConflicts = nil
             job.conflictResolution = nil
+            job.pendingFolderConflicts = nil
+            job.folderConflictResolution = nil
             job.pendingPlacements = nil
             job.placementResolution = nil
         }

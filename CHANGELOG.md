@@ -11,6 +11,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 - Chromium-style **Hold `⌘Q` to quit** (`QuitHoldMachine`, `QuitHoldController`, `QuitHoldHUD`) and active-job quit confirmation (`confirmQuit`), configurable in Settings → General (`confirmQuit`, `holdToQuit`) with full `tr`/`en`/`ro` localization. Tests: `QuitHoldTests`.
 - `Delete` (`⌫`) key support via `.onDeleteCommand` in both the job queue list and the sidebar routines list.
+- Pre-copy **folder conflict detection and resolution** (`FolderConflictPolicy`, `FolderConflictDecision`, `FolderConflictDecisionView`, `FolderConflictPolicyPicker`) with full `tr`/`en`/`ro` localization: copying a folder or folder contents with "Ask" enabled pauses before writing when a matching folder already exists at the destination and prompts to **Merge** (proceeding to file-level conflict checks), **Replace** (moving the existing folder to the Trash safely), **Keep Both** (copying to a Finder-numbered folder like `Folder 2`), or **Skip**, with independent "Remember my choice" persistence (`folderConflictPolicy`). Tests: `ConflictTests`, `ConflictAppTests`.
 
 ## [1.2.1] — 2026-11-08
 

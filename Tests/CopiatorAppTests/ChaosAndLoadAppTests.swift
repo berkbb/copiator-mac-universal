@@ -44,7 +44,7 @@ struct ChaosAndLoadAppTests {
         defer { fixture.cleanUp() }
         try fixture.write("Hedef/Kaynak/not.txt", "hedefteki\n")
         await fixture.model.refreshEngine()
-        let id = try #require(fixture.addJob())
+        let id = try #require(fixture.addJob(options: CopyOptions(folderConflictPolicy: .merge)))
         await fixture.model.waitUntilIdle()
         #expect(fixture.model.job(id)?.isAwaitingDecision == true)
 
@@ -71,7 +71,7 @@ struct ChaosAndLoadAppTests {
         let model = fixture.model
         try fixture.write("Hedef/Kaynak/not.txt", "hedefteki not\n")
         await model.refreshEngine()
-        let id = try #require(fixture.addJob())
+        let id = try #require(fixture.addJob(options: CopyOptions(folderConflictPolicy: .merge)))
         await model.waitUntilIdle()
         #expect(model.job(id)?.pendingConflicts?.items.map(\.path) == ["Kaynak/not.txt"])
 

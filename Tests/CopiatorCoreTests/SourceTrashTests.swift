@@ -115,7 +115,7 @@ struct LiveSourceTrashTests {
         var advanced = AdvancedOptions()
         advanced.excludePatterns = ["*.tmp"]
         var job = TransferJob(source: w.url("Kaynak"), destination: w.url("Hedef"),
-                              options: CopyOptions(advanced: advanced, trashSourceAfterCopy: true))
+                              options: CopyOptions(advanced: advanced, folderConflictPolicy: .merge, trashSourceAfterCopy: true))
         job.conflictResolution = ConflictResolution(decisions: ["Kaynak/catisma.txt": .skip])
         let events = Collected<TransferEvent>()
         let result = await RsyncEngine().run(job, context: try await context(w, bin: bin)) { events.add($0) }

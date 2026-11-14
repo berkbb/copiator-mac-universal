@@ -733,6 +733,26 @@
 "conflictPolicySkip" = "Skip";
 "logConflictsDecided" = "A decision was made; the job was queued again.";
 "menuBarAwaiting" = "%ld jobs need a decision";
+"logAwaitingFolderDecision" = "%@ folders with the same name already exist at the destination; waiting for your decision.";
+"logFolderConflictMerged" = "Merging the “%@” folder with the existing folder at the destination.";
+"logFolderConflictReplaced" = "The existing “%@” folder at the destination was moved to the Trash to be replaced.";
+"logFolderReplaceTrashFailed" = "The existing “%@” folder at the destination could not be moved to the Trash to be replaced.";
+"logFolderConflictKeptBoth" = "Copying the “%1$@” folder as “%2$@” (keeping both).";
+"logFolderConflictSkipped" = "Skipped the “%@” folder because it already exists at the destination.";
+"resultAwaitingFolderDecision" = "Waiting for a decision: %ld folders with the same name exist at the destination";
+"notifyFolderDecisionBody" = "“%1$@”: %2$ld folders with the same name already exist at the destination.";
+"folderConflictTitleSingle" = "A folder named “%@” already exists at the destination";
+"folderConflictTitleMultiple" = "%ld folders with the same name already exist at the destination";
+"folderConflictFolderColumn" = "Folder";
+"folderConflictMerge" = "Merge";
+"folderConflictMergeNote" = "Merge: new files are added into the existing folder, and any files with the same name are handled by your file rule (or asked about). Replace: moves the old folder at the destination to the Trash. Keep Both: copies the incoming folder under a numbered name (“Source 2”).";
+"optionFolderConflictPolicy" = "If a folder with the same name exists";
+"optionFolderConflictPolicyNote" = "With “Ask”, the job stops before copying and asks whether to Merge, Replace, Keep Both, or Skip.";
+"folderConflictPolicyAsk" = "Ask";
+"folderConflictPolicyMerge" = "Merge";
+"folderConflictPolicyReplace" = "Replace (move old folder to Trash)";
+"folderConflictPolicyKeepBoth" = "Keep both (numbered folder)";
+"folderConflictPolicySkip" = "Skip";
 
 /* Hedefte yerleşim */
 "placementTitle" = "Placement at the destination";

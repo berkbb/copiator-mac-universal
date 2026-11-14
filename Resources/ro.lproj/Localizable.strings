@@ -733,6 +733,26 @@
 "conflictPolicySkip" = "Omite";
 "logConflictsDecided" = "S-a luat o decizie; lucrarea a fost pusă din nou în coadă.";
 "menuBarAwaiting" = "%ld lucrări așteaptă o decizie";
+"logAwaitingFolderDecision" = "În destinație există deja %@ dosare cu același nume; se așteaptă decizia dvs.";
+"logFolderConflictMerged" = "Dosarul „%@” se îmbină cu dosarul existent din destinație.";
+"logFolderConflictReplaced" = "Dosarul existent „%@” din destinație a fost mutat la Coș pentru a fi înlocuit.";
+"logFolderReplaceTrashFailed" = "Dosarul existent „%@” din destinație nu a putut fi mutat la Coș pentru a fi înlocuit.";
+"logFolderConflictKeptBoth" = "Dosarul „%1$@” este copiat ca „%2$@” (ambele păstrate).";
+"logFolderConflictSkipped" = "Dosarul „%@” a fost omis deoarece există deja în destinație.";
+"resultAwaitingFolderDecision" = "Se așteaptă o decizie: în destinație există %ld dosare cu același nume";
+"notifyFolderDecisionBody" = "„%1$@”: în destinație există deja %2$ld dosare cu același nume.";
+"folderConflictTitleSingle" = "În destinație există deja un dosar numit „%@”";
+"folderConflictTitleMultiple" = "În destinație există deja %ld dosare cu același nume";
+"folderConflictFolderColumn" = "Dosar";
+"folderConflictMerge" = "Îmbină";
+"folderConflictMergeNote" = "Îmbină: fișierele noi sunt adăugate în dosarul existent, iar cele cu același nume urmează regula pentru fișiere (sau sunt întrebate). Înlocuiește: mută dosarul vechi din destinație la Coș. Păstrează ambele: copiază dosarul nou cu un nume numerotat („Sursă 2”).";
+"optionFolderConflictPolicy" = "Dacă există un dosar cu același nume";
+"optionFolderConflictPolicyNote" = "Cu „Întreabă”, lucrarea se oprește înainte de copiere și întreabă dacă să îmbine, să înlocuiască, să păstreze ambele sau să omită.";
+"folderConflictPolicyAsk" = "Întreabă";
+"folderConflictPolicyMerge" = "Îmbină";
+"folderConflictPolicyReplace" = "Înlocuiește (mută dosarul vechi la Coș)";
+"folderConflictPolicyKeepBoth" = "Păstrează ambele (dosar numerotat)";
+"folderConflictPolicySkip" = "Omite";
 
 /* Hedefte yerleşim */
 "placementTitle" = "Plasare la destinație";

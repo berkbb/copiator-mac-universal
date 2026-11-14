@@ -1390,6 +1390,24 @@ final class AppModel {
         scheduleNext()
     }
 
+    /// Klasör çakışması kararlarını kaydeder ve işi yeniden sıraya alır. `remember` verilirse karar işin klasör ayarı olur.
+    func resolveFolderConflicts(_ id: TransferJob.ID, resolution: FolderConflictResolution, remember: FolderConflictPolicy?) {
+        guard job(id) != nil else { return }
+        update(id) {
+            var merged = $0.folderConflictResolution ?? FolderConflictResolution()
+            merged.decisions.merge(resolution.decisions) { _, new in new }
+            merged.others = resolution.others ?? merged.others
+            $0.folderConflictResolution = merged
+            $0.pendingFolderConflicts = nil
+            if let remember { $0.options.folderConflictPolicy = remember }
+            JobQueue.requeue(&$0)
+            $0.appendLog(JobLogEntry(level: .info, key: .logConflictsDecided))
+        }
+        if conflictPrompt?.id == id { conflictPrompt = nil }
+        save()
+        scheduleNext()
+    }
+
     /// "Klasörü sor" kararlarını kaydeder ve işi yeniden sıraya alır. `remember` (yol → klasör) verilen seçimler rotanın
     /// öğrenilmiş klasörleri olur: benzer adlı dosyalar sonraki çalıştırmalarda sorulmaz.
     func resolvePlacements(_ id: TransferJob.ID, resolution: PlacementResolution, remember: [String: String]) {
@@ -1645,7 +1663,10 @@ final class AppModel {
         for id in ids {
             guard let job = job(id), JobQueue.canResume(job) || JobQueue.canRunAgain(job) else { continue }
             // Karar bekleyen iş kararsız yeniden çalışmaz: karar sayfası açılır.
-            if job.isAwaitingDecision, job.pendingPlacements != nil || job.conflictResolution == nil {
+            if job.isAwaitingDecision,
+               job.pendingPlacements != nil
+               || (job.pendingFolderConflicts != nil && job.folderConflictResolution == nil)
+               || (job.pendingConflicts != nil && job.conflictResolution == nil) {
                 conflictPrompt = ConflictPrompt(id: id)
                 continue
             }
@@ -1951,7 +1972,7 @@ final class AppModel {
     private func apply(_ event: TransferEvent, to id: TransferJob.ID) {
         update(id) { JobQueue.apply(event, to: &$0) }
         switch event {
-        case .phase, .log, .logBatch, .conflicts, .conflictsSettled, .placements:
+        case .phase, .log, .logBatch, .conflicts, .folderConflicts, .conflictsSettled, .placements:
             save()
         case .progress:
             if Date().timeIntervalSince(lastProgressSave) > 5 {
@@ -2202,8 +2223,12 @@ final class AppModel {
         if result.kind == .stoppedAtLimit {
             notifier(t(.notifyStoppedTitle), t(.notifyStoppedBody, name), nil)
         } else if result.kind == .awaitingDecision {
-            notifier(t(.notifyDecisionTitle), t(result.detail == JobResult.placementsDetail ? .notifyPlacementBody : .notifyDecisionBody, name, result.noteCount),
-                     .decide(job.id))
+            let key: LKey = switch result.detail {
+            case JobResult.placementsDetail: .notifyPlacementBody
+            case JobResult.foldersDetail: .notifyFolderDecisionBody
+            default: .notifyDecisionBody
+            }
+            notifier(t(.notifyDecisionTitle), t(key, name, result.noteCount), .decide(job.id))
         } else if result.kind.isSuccess {
             notifier(t(.notifyFinishedTitle), t(.notifyFinishedBody, name), nil)
         } else {

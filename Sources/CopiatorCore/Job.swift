@@ -56,6 +56,8 @@ public struct CopyOptions: Codable, Equatable, Sendable {
     public var ejectWhenDone: Bool
     /// Hedefte aynı adlı dosya varken ne yapılacağı (varsayılan: sor).
     public var conflictPolicy: ConflictPolicy
+    /// Hedefte aynı adlı klasör varken ne yapılacağı (varsayılan: sor).
+    public var folderConflictPolicy: FolderConflictPolicy
     /// Bu ayar gelmeden önce kurulmuş iş ya da rutin: ilk karar sayfasında "hatırla" önceden işaretli gelir; böylece eski
     /// bir yedekleme işi her çalıştırmada aynı dosyaları yeniden sormaz. İlk karardan sonra kalkar.
     public var suggestsRememberingConflictChoice: Bool
@@ -77,9 +79,10 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         copyMode: CopyMode = .folder, preservePermissions: Bool = false, preserveExtendedAttributes: Bool = true,
         deleteExtraneous: Bool = false, excludeSystemFolders: Bool = true, advanced: AdvancedOptions = AdvancedOptions(),
         snapshots: SnapshotOptions = SnapshotOptions(), verifyAfterCopy: VerifyAfterCopy = .off, runWhenConnected: Bool = false,
-        rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask, suggestsRememberingConflictChoice: Bool = false,
-        placement: RoutePlacement? = nil, selectedItems: [String]? = nil, trashSourceAfterCopy: Bool = false, ejectWhenDone: Bool = false,
-        excludeFromTimeMachine: Bool = false, excludeWindowsLeftovers: Bool = true
+        rules: RuleGroup? = nil, conflictPolicy: ConflictPolicy = .ask, folderConflictPolicy: FolderConflictPolicy = .ask,
+        suggestsRememberingConflictChoice: Bool = false, placement: RoutePlacement? = nil, selectedItems: [String]? = nil,
+        trashSourceAfterCopy: Bool = false, ejectWhenDone: Bool = false, excludeFromTimeMachine: Bool = false,
+        excludeWindowsLeftovers: Bool = true
     ) {
         self.copyMode = copyMode
         self.preservePermissions = preservePermissions
@@ -92,6 +95,7 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         self.runWhenConnected = runWhenConnected
         self.rules = rules
         self.conflictPolicy = conflictPolicy
+        self.folderConflictPolicy = folderConflictPolicy
         self.suggestsRememberingConflictChoice = suggestsRememberingConflictChoice
         self.placement = placement
         self.selectedItems = selectedItems
@@ -103,8 +107,9 @@ public struct CopyOptions: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case copyMode, preservePermissions, preserveExtendedAttributes, deleteExtraneous, excludeSystemFolders, advanced
-        case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy, suggestsRememberingConflictChoice, placement
-        case selectedItems, trashSourceAfterCopy, ejectWhenDone, excludeFromTimeMachine, excludeWindowsLeftovers
+        case snapshots, verifyAfterCopy, runWhenConnected, rules, conflictPolicy, folderConflictPolicy
+        case suggestsRememberingConflictChoice, placement, selectedItems, trashSourceAfterCopy, ejectWhenDone
+        case excludeFromTimeMachine, excludeWindowsLeftovers
     }
 
     public init(from decoder: Decoder) throws {
@@ -128,6 +133,8 @@ public struct CopyOptions: Codable, Equatable, Sendable {
         ejectWhenDone = (try? container.decodeIfPresent(Bool.self, forKey: .ejectWhenDone)) ?? false
         excludeFromTimeMachine = (try? container.decodeIfPresent(Bool.self, forKey: .excludeFromTimeMachine)) ?? false
         conflictPolicy = (try? container.decodeIfPresent(ConflictPolicy.self, forKey: .conflictPolicy)) ?? defaults.conflictPolicy
+        folderConflictPolicy = (try? container.decodeIfPresent(FolderConflictPolicy.self, forKey: .folderConflictPolicy))
+            ?? defaults.folderConflictPolicy
         // Ayarı hiç olmayan (bu sürümden önce kaydedilmiş) seçenekler eski kabul edilir.
         suggestsRememberingConflictChoice = (try? container.decodeIfPresent(Bool.self, forKey: .suggestsRememberingConflictChoice))
             ?? !container.contains(.conflictPolicy)
@@ -204,6 +211,8 @@ public struct JobResult: Codable, Equatable, Sendable {
     public var detail: String
     /// `.awaitingDecision` sonucunun klasör kararı ("Klasörü sor") beklediğini belirten `detail` değeri.
     public static let placementsDetail = "placements"
+    /// `.awaitingDecision` sonucunun aynı adlı klasör kararı beklediğini belirten `detail` değeri.
+    public static let foldersDetail = "folders"
     /// Yer yetmediğinde gereken ve boş bayt (`destinationFull`); yazma sürerken durdurulduysa `requiredBytes` nil'dir.
     public var requiredBytes: Int64?
     public var availableBytes: Int64?
@@ -350,6 +359,10 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
     public var pendingConflicts: ConflictReport?
     /// Bir sonraki çalıştırmada uygulanacak kararlar; iş bitince silinir.
     public var conflictResolution: ConflictResolution?
+    /// Karar bekleyen aynı adlı klasörler (iş "karar bekliyor" olarak duraklatıldı).
+    public var pendingFolderConflicts: FolderConflictReport?
+    /// Bir sonraki çalıştırmada uygulanacak klasör kararları; iş bitince silinir.
+    public var folderConflictResolution: FolderConflictResolution?
     /// "Klasörü sor" rotasında klasörü seçilmemiş dosyalar (iş "karar bekliyor" olarak duraklatıldı).
     public var pendingPlacements: PlacementReport?
     /// Seçilen klasörler; iş bitince silinir.
@@ -385,14 +398,16 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         self.routineName = nil
         self.pendingConflicts = nil
         self.conflictResolution = nil
+        self.pendingFolderConflicts = nil
+        self.folderConflictResolution = nil
         self.pendingPlacements = nil
         self.placementResolution = nil
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, kind, source, destination, options, status, progress, result, log, createdAt, startedAt, finishedAt, wasInterrupted
-        case suspendedForDisk, moveGroup, history, routineID, routeID, routineName, pendingConflicts, conflictResolution, pendingPlacements
-        case placementResolution
+        case suspendedForDisk, moveGroup, history, routineID, routeID, routineName, pendingConflicts, conflictResolution
+        case pendingFolderConflicts, folderConflictResolution, pendingPlacements, placementResolution
     }
 
     public init(from decoder: Decoder) throws {
@@ -419,12 +434,16 @@ public struct TransferJob: Codable, Equatable, Identifiable, Sendable {
         routineName = (try? container.decodeIfPresent(String.self, forKey: .routineName)) ?? nil
         pendingConflicts = (try? container.decodeIfPresent(ConflictReport.self, forKey: .pendingConflicts)) ?? nil
         conflictResolution = (try? container.decodeIfPresent(ConflictResolution.self, forKey: .conflictResolution)) ?? nil
+        pendingFolderConflicts = (try? container.decodeIfPresent(FolderConflictReport.self, forKey: .pendingFolderConflicts)) ?? nil
+        folderConflictResolution = (try? container.decodeIfPresent(FolderConflictResolution.self, forKey: .folderConflictResolution)) ?? nil
         pendingPlacements = (try? container.decodeIfPresent(PlacementReport.self, forKey: .pendingPlacements)) ?? nil
         placementResolution = (try? container.decodeIfPresent(PlacementResolution.self, forKey: .placementResolution)) ?? nil
     }
 
-    /// Kullanıcının kararı bekleniyor: hedefte aynı adlı dosyalar ya da klasörü seçilmemiş dosyalar.
-    public var isAwaitingDecision: Bool { (pendingConflicts != nil || pendingPlacements != nil) && status == .paused }
+    /// Kullanıcının kararı bekleniyor: hedefte aynı adlı dosya/klasörler ya da klasörü seçilmemiş dosyalar.
+    public var isAwaitingDecision: Bool {
+        (pendingConflicts != nil || pendingFolderConflicts != nil || pendingPlacements != nil) && status == .paused
+    }
 
     /// Time Machine dışında tutulacak klasör: anlık görüntülü işte anlık görüntülerin kökü (hedef), ötekilerde kaynağın
     /// hedefteki karşılığı. Hedef klasörün başka içeriği dışlanmaz.

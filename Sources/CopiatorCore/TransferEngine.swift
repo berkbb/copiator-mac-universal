@@ -11,6 +11,8 @@ public enum TransferEvent: Sendable, Equatable {
     case logBatch([JobLogEntry])
     /// Hedefte aynı adlı dosyalar var ve karar bekleniyor (iş ardından `.awaitingDecision` ile biter).
     case conflicts(ConflictReport)
+    /// Hedefte aynı adlı klasörler var ve karar bekleniyor (iş ardından `.awaitingDecision` ile biter).
+    case folderConflicts(FolderConflictReport)
     /// Çakışmalar bu geçiş için karara bağlandı (ya da hiç yoktu); kopyalama başlıyor. İş duraklatılıp sürdürülürse bu
     /// geçişin hedefe yazdığı dosyalar yeniden sorulmaz.
     case conflictsSettled

@@ -374,8 +374,14 @@ public enum LKey: String, CaseIterable, Sendable {
     case unitPixels, unitLevels
     case ruleListPlaceholder, ruleTagPlaceholder, ruleConditionFormatNoValue, routineSampleAdvancedNote
     case problemRuleNumber, problemRuleDate, ruleWithinFormat, ruleNotWithinFormat
-    // Aynı adlı dosyalar
+    // Aynı adlı dosya ve klasörler
     case logAwaitingDecision, logConflictsResolved, logKeptBoth, logKeepBothFailed, logKeptBothRenamed, resultAwaitingDecision
+    case logAwaitingFolderDecision, logFolderConflictMerged, logFolderConflictReplaced, logFolderReplaceTrashFailed
+    case logFolderConflictKeptBoth, logFolderConflictSkipped, resultAwaitingFolderDecision, notifyFolderDecisionBody
+    case folderConflictTitleSingle, folderConflictTitleMultiple, folderConflictFolderColumn, folderConflictMerge
+    case folderConflictMergeNote, optionFolderConflictPolicy, optionFolderConflictPolicyNote
+    case folderConflictPolicyAsk, folderConflictPolicyMerge, folderConflictPolicyReplace
+    case folderConflictPolicyKeepBoth, folderConflictPolicySkip
     case conflictIncomingFolder, conflictKeepBothFolderNote
     case statusAwaitingDecision, conflictTitle, conflictSubtitle, conflictIdenticalCount, conflictApplyAll
     case conflictReplace, conflictKeepBoth, conflictSkip, conflictFile, conflictDecisionColumn, conflictIdentical
@@ -403,7 +409,12 @@ extension StringTable {
         case .cancelled: return string(.resultCancelled, language: code)
         case .stoppedAtLimit: return string(.resultStoppedAtLimit, language: code)
         case .awaitingDecision:
-            return format(result.detail == JobResult.placementsDetail ? .resultAwaitingPlacement : .resultAwaitingDecision, result.noteCount)
+            let key: LKey = switch result.detail {
+            case JobResult.placementsDetail: .resultAwaitingPlacement
+            case JobResult.foldersDetail: .resultAwaitingFolderDecision
+            default: .resultAwaitingDecision
+            }
+            return format(key, result.noteCount)
         case .destinationFull:
             if let required = result.requiredBytes, let available = result.availableBytes {
                 return format(.resultDestinationFullDetail, bytes(required), bytes(available))

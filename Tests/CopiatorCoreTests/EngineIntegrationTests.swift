@@ -62,7 +62,8 @@ struct EngineIntegrationTests {
         try makeSource(workspace)
         try workspace.write("Hedef/Kaynak/fazla.txt", "silinecek\n")
         let before = try snapshot(workspace.url("Kaynak"))
-        let job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"), options: CopyOptions(deleteExtraneous: true))
+        let job = TransferJob(source: workspace.url("Kaynak"), destination: workspace.url("Hedef"),
+                              options: CopyOptions(deleteExtraneous: true, conflictPolicy: .replace))
         let (result, _) = try await run(job)
         #expect(result.kind == .succeeded)
         #expect(!workspace.exists("Hedef/Kaynak/fazla.txt"))

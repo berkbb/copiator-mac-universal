@@ -30,8 +30,8 @@ struct ConflictAppTests {
         await model.waitUntilIdle()
 
         let job = try #require(model.job(id))
-        #expect(job.isAwaitingDecision && job.result?.kind == .awaitingDecision)
-        #expect(job.pendingConflicts?.total == 2)
+        #expect(job.isAwaitingDecision && job.result?.kind == .awaitingDecision && job.result?.detail == JobResult.foldersDetail)
+        #expect(job.pendingFolderConflicts?.items == [FolderConflict(path: "Kaynak")])
         #expect(model.conflictPrompt?.id == id)
         #expect(fixture.notifications.contains { $0.0 == fixture.settings.t(.notifyDecisionTitle) })
         // Karar beklenirken sıradaki iş çalıştı; karar bekleyen işte hiçbir şey kopyalanmadı.
@@ -42,6 +42,14 @@ struct ConflictAppTests {
         model.resume([id])
         #expect(model.conflictPrompt?.id == id && model.job(id)?.status == .paused)
 
+        // Klasör kararında "Birleştir" seçilir: ardından içindeki aynı adlı dosyalar sorulur.
+        model.resolveFolderConflicts(id, resolution: FolderConflictResolution(decisions: ["Kaynak": .merge]), remember: nil)
+        await model.waitUntilIdle()
+        let fileJob = try #require(model.job(id))
+        #expect(fileJob.isAwaitingDecision && fileJob.result?.kind == .awaitingDecision)
+        #expect(fileJob.pendingConflicts?.total == 2)
+        #expect(model.conflictPrompt?.id == id)
+
         model.resolveConflicts(id, resolution: ConflictResolution(decisions: ["Kaynak/not.txt": .keepBoth, "Kaynak/alt/b.txt": .skip]), remember: nil)
         #expect(model.conflictPrompt == nil)
         await model.waitUntilIdle()
@@ -50,12 +58,41 @@ struct ConflictAppTests {
         #expect(fixture.read("Hedef/Kaynak/not.txt") == "hedefteki eski not\n")
         #expect(fixture.read("Hedef/Kaynak/not 2.txt") == "merhaba\n")
         #expect(done.conflictResolution == nil && done.pendingConflicts == nil)
-        #expect(done.options.conflictPolicy == .ask)
+        #expect(done.folderConflictResolution == nil && done.pendingFolderConflicts == nil)
+        #expect(done.options.conflictPolicy == .ask && done.options.folderConflictPolicy == .ask)
 
         // Yeniden çalıştırınca yine sorulur (artık "not 2.txt" de aynı adlı dosyalardan biri değil, çünkü kaynakta yok).
         model.resume([id])
         await model.waitUntilIdle()
         #expect(model.job(id)?.isAwaitingDecision == true)
+    }
+
+    /// Klasör kararında "Hatırla" birleştirmeyi kalıcı yapar, dosya soruları ise yine sorulur.
+    @Test func folderConflictRememberAndKeepBothWork() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try prepare(fixture)
+        let model = fixture.model
+        await model.refreshEngine()
+        let id = try #require(fixture.addJob())
+        await model.waitUntilIdle()
+        #expect(model.job(id)?.pendingFolderConflicts?.items == [FolderConflict(path: "Kaynak")])
+
+        model.resolveFolderConflicts(id, resolution: FolderConflictResolution(decisions: ["Kaynak": .keepBoth]), remember: nil)
+        await model.waitUntilIdle()
+        #expect(model.job(id)?.status == .finished)
+        #expect(fixture.read("Hedef/Kaynak/not.txt") == "hedefteki eski not\n")
+        #expect(fixture.read("Hedef/Kaynak 2/not.txt") == "merhaba\n")
+        #expect(model.job(id)?.options.folderConflictPolicy == .ask)
+
+        // Şimdi "Birleştir" + "Hatırla" seçilince sonraki çalıştırmada klasör sorulmaz, yalnızca dosya sorulur.
+        model.resume([id])
+        await model.waitUntilIdle()
+        #expect(model.job(id)?.pendingFolderConflicts?.items == [FolderConflict(path: "Kaynak")])
+        model.resolveFolderConflicts(id, resolution: FolderConflictResolution(decisions: ["Kaynak": .merge]), remember: .merge)
+        await model.waitUntilIdle()
+        #expect(model.job(id)?.options.folderConflictPolicy == .merge)
+        #expect(model.job(id)?.pendingConflicts?.total == 2)
     }
 
     /// "Hatırla": karar işin (rutin işinde rutinin) ayarı olur, bir daha sorulmaz.
@@ -100,6 +137,9 @@ struct ConflictAppTests {
         #expect(model.job(id)?.options.suggestsRememberingConflictChoice == true)
         model.resume([id])
         await model.waitUntilIdle()
+        #expect(model.job(id)?.pendingFolderConflicts != nil)
+        model.resolveFolderConflicts(id, resolution: FolderConflictResolution(others: .merge), remember: .merge)
+        await model.waitUntilIdle()
         #expect(model.job(id)?.isAwaitingDecision == true)
         model.resolveConflicts(id, resolution: ConflictResolution(others: .replace), remember: .replace)
         await model.waitUntilIdle()
@@ -137,9 +177,25 @@ struct ConflictAppTests {
         let id = try #require(fixture.addJob())
         await model.waitUntilIdle()
         #expect(model.job(id)?.isAwaitingDecision == true)
+        #expect(model.job(id)?.pendingFolderConflicts != nil)
         _ = NSApplication.shared
+        // Klasör karar sayfası da dosya karar sayfası da sorunsuz çizilir.
         for view in [AnyView(ConflictSheet(prompt: ConflictPrompt(id: id))), AnyView(ConflictSheet(prompt: ConflictPrompt(id: UUID()))),
                      AnyView(ContentView()), AnyView(MenuBarContent())] {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 680), styleMask: [.titled], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            let host = NSHostingView(rootView: view.environment(model).environment(fixture.settings)
+                .background(Color(nsColor: .windowBackgroundColor)))
+            window.contentView = host
+            window.layoutIfNeeded()
+            window.displayIfNeeded()
+            spinRunLoop(0.3)
+            window.close()
+        }
+        model.resolveFolderConflicts(id, resolution: FolderConflictResolution(others: .merge), remember: nil)
+        await model.waitUntilIdle()
+        #expect(model.job(id)?.pendingConflicts != nil)
+        for view in [AnyView(ConflictSheet(prompt: ConflictPrompt(id: id)))] {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 680), styleMask: [.titled], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             let host = NSHostingView(rootView: view.environment(model).environment(fixture.settings)

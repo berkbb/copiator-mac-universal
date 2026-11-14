@@ -733,6 +733,26 @@
 "conflictPolicySkip" = "Atla";
 "logConflictsDecided" = "Karar verildi; iş yeniden sıraya alındı.";
 "menuBarAwaiting" = "Karar bekleyen %ld iş";
+"logAwaitingFolderDecision" = "Hedefte aynı adlı %@ klasör zaten var; karar bekleniyor.";
+"logFolderConflictMerged" = "“%@” klasörü hedefteki klasörle birleştiriliyor.";
+"logFolderConflictReplaced" = "Hedefteki “%@” klasörü değiştirilmek üzere Çöp Sepeti’ne taşındı.";
+"logFolderReplaceTrashFailed" = "Hedefteki “%@” klasörü Çöp Sepeti’ne taşınamadığı için değiştirilemedi.";
+"logFolderConflictKeptBoth" = "“%1$@” klasörü “%2$@” adıyla kopyalanıyor (ikisi de saklanıyor).";
+"logFolderConflictSkipped" = "“%@” klasörü hedefte zaten olduğu için atlandı.";
+"resultAwaitingFolderDecision" = "Karar bekliyor: hedefte aynı adlı %ld klasör var";
+"notifyFolderDecisionBody" = "“%1$@”: hedefte aynı adlı %2$ld klasör var.";
+"folderConflictTitleSingle" = "Hedefte “%@” adlı klasör zaten var";
+"folderConflictTitleMultiple" = "Hedefte aynı adlı %ld klasör zaten var";
+"folderConflictFolderColumn" = "Klasör";
+"folderConflictMerge" = "Birleştir";
+"folderConflictMergeNote" = "Birleştir: hedefteki klasörün içine yeni dosyalar eklenir; aynı adlı dosyalar varsa onlar için ayrıca sorulur (veya dosya kuralı uygulanır). Değiştir: hedefteki eski klasör Çöp Sepeti’ne taşınır. İkisini de sakla: gelen klasör numaralı adla (“Kaynak 2”) kopyalanır.";
+"optionFolderConflictPolicy" = "Hedefte aynı adlı klasör varsa";
+"optionFolderConflictPolicyNote" = "“Sor” seçiliyse kopyalamadan önce durur ve Birleştir, Değiştir, İkisini de sakla veya Atla seçeneğini sorar.";
+"folderConflictPolicyAsk" = "Sor";
+"folderConflictPolicyMerge" = "Birleştir";
+"folderConflictPolicyReplace" = "Değiştir (eski klasörü Çöp’e taşı)";
+"folderConflictPolicyKeepBoth" = "İkisini de sakla (numaralı klasör)";
+"folderConflictPolicySkip" = "Atla";
 
 /* Hedefte yerleşim */
 "placementTitle" = "Hedefte yerleşim";

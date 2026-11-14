@@ -23,6 +23,25 @@ extension AppSettings {
         case .newer: t(.conflictPolicyNewer)
         }
     }
+
+    func title(_ decision: FolderConflictDecision) -> String {
+        switch decision {
+        case .merge: t(.folderConflictMerge)
+        case .replace: t(.conflictReplace)
+        case .keepBoth: t(.conflictKeepBoth)
+        case .skip: t(.conflictSkip)
+        }
+    }
+
+    func title(_ policy: FolderConflictPolicy) -> String {
+        switch policy {
+        case .ask: t(.folderConflictPolicyAsk)
+        case .merge: t(.folderConflictPolicyMerge)
+        case .replace: t(.folderConflictPolicyReplace)
+        case .keepBoth: t(.folderConflictPolicyKeepBoth)
+        case .skip: t(.folderConflictPolicySkip)
+        }
+    }
 }
 
 extension ConflictDecision {
@@ -30,6 +49,31 @@ extension ConflictDecision {
     /// 1 · A'dakini B'ye, 2 · B'dekini A'ya, 3 · Atla).
     func number(for kind: JobKind) -> Int {
         (Self.choices(for: kind).firstIndex(of: self) ?? 0) + 1
+    }
+}
+
+extension FolderConflictDecision {
+    var number: Int {
+        (Self.allCases.firstIndex(of: self) ?? 0) + 1
+    }
+}
+
+/// "Hedefte aynı adlı klasör varsa" seçimi (Yeni İş).
+struct FolderConflictPolicyPicker: View {
+    @Binding var selection: FolderConflictPolicy
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Picker(settings.t(.optionFolderConflictPolicy), selection: $selection) {
+                ForEach(FolderConflictPolicy.allCases) { Text(settings.title($0)).tag($0) }
+            }
+            .accessibilityIdentifier("copiator.folderConflictPolicy")
+            Text(settings.t(.optionFolderConflictPolicyNote))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -69,7 +113,9 @@ struct ConflictSheet: View {
 
     var body: some View {
         Group {
-            if let job = model.job(prompt.id), let report = job.pendingPlacements {
+            if let job = model.job(prompt.id), let report = job.pendingFolderConflicts {
+                FolderConflictDecisionView(job: job, report: report)
+            } else if let job = model.job(prompt.id), let report = job.pendingPlacements {
                 PlacementDecisionView(job: job, report: report)
             } else if let job = model.job(prompt.id), let report = job.pendingConflicts {
                 content(job, report)
@@ -213,6 +259,127 @@ struct ConflictSheet: View {
         guard isComplete(report) else { return }
         let remembered = remember ? uniformDecision(report)?.policy : nil
         model.resolveConflicts(prompt.id, resolution: ConflictResolution(decisions: decisions, others: others), remember: remembered)
+        dismiss()
+    }
+}
+
+/// Hedefte aynı adlı klasörler için karar sayfası: 1 · Birleştir, 2 · Değiştir, 3 · İkisini de sakla, 4 · Atla.
+private struct FolderConflictDecisionView: View {
+    let job: TransferJob
+    let report: FolderConflictReport
+    @Environment(AppModel.self) private var model
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var decisions: [String: FolderConflictDecision] = [:]
+    @State private var others: FolderConflictDecision?
+    @State private var remember = false
+
+    var body: some View {
+        let choices = FolderConflictDecision.allCases
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "folder.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(.orange)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(report.items.count == 1
+                         ? settings.t(.folderConflictTitleSingle, OpenSafety.visibleName(report.items[0].path))
+                         : settings.t(.folderConflictTitleMultiple, report.items.count))
+                        .font(.headline)
+                    Text(settings.t(.conflictSubtitle, OpenSafety.visibleName(job.source.lastPathComponent), OpenSafety.visibleName(job.destination.path)))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
+            }
+
+            HStack(spacing: 8) {
+                if report.items.count > 1 {
+                    Text(settings.t(.conflictApplyAll))
+                }
+                ForEach(choices) { decision in
+                    Button("\(decision.number) · " + settings.title(decision)) { applyAll(decision) }
+                        .keyboardShortcut(KeyEquivalent(Character(String(decision.number))), modifiers: [])
+                        .buttonStyle(.bordered)
+                        .tint(selectedAll == decision ? .accentColor : nil)
+                        .accessibilityIdentifier("copiator.folderConflict.all.\(decision.rawValue)")
+                }
+            }
+
+            Table(report.items) {
+                TableColumn(settings.t(.folderConflictFolderColumn)) { item in
+                    Text(OpenSafety.visibleName(item.path))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                TableColumn(settings.t(.conflictDecisionColumn)) { item in
+                    Picker(settings.t(.conflictDecisionColumn), selection: binding(for: item)) {
+                        ForEach(choices) { decision in
+                            Text("\(decision.number) · " + settings.title(decision)).tag(Optional(decision))
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                }
+                .width(min: 360, ideal: 400)
+            }
+
+            Text(settings.t(.folderConflictMergeNote))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Toggle(settings.t(.conflictRememberJob), isOn: $remember)
+                    .disabled(uniformDecision == nil)
+                Spacer()
+                Button(settings.t(.conflictLater)) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button(settings.t(.conflictContinue)) { submit() }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.glassProminent)
+                    .disabled(!isComplete)
+                    .accessibilityIdentifier("copiator.folderConflict.continue")
+            }
+        }
+        .padding(20)
+    }
+
+    private var selectedAll: FolderConflictDecision? {
+        guard isComplete else { return nil }
+        let values = Set(report.items.compactMap { decisions[$0.path] })
+        return values.count == 1 ? values.first : others
+    }
+
+    private func binding(for item: FolderConflict) -> Binding<FolderConflictDecision?> {
+        Binding(
+            get: { decisions[item.path] },
+            set: { decisions[item.path] = $0 }
+        )
+    }
+
+    private func applyAll(_ decision: FolderConflictDecision) {
+        others = decision
+        for item in report.items { decisions[item.path] = decision }
+    }
+
+    private var isComplete: Bool {
+        report.items.allSatisfy { decisions[$0.path] != nil }
+    }
+
+    private var uniformDecision: FolderConflictDecision? {
+        let values = Set(report.items.compactMap { decisions[$0.path] })
+        guard isComplete, values.count == 1, let value = values.first, others == nil || others == value else { return nil }
+        return value
+    }
+
+    private func submit() {
+        guard isComplete else { return }
+        let remembered = remember ? uniformDecision?.policy : nil
+        model.resolveFolderConflicts(job.id, resolution: FolderConflictResolution(decisions: decisions, others: others), remember: remembered)
         dismiss()
     }
 }
