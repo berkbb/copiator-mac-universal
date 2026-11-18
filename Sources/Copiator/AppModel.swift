@@ -1392,7 +1392,7 @@ final class AppModel {
 
     /// Klasör çakışması kararlarını kaydeder ve işi yeniden sıraya alır. `remember` verilirse karar işin klasör ayarı olur.
     func resolveFolderConflicts(_ id: TransferJob.ID, resolution: FolderConflictResolution, remember: FolderConflictPolicy?) {
-        guard job(id) != nil else { return }
+        guard let job = job(id) else { return }
         update(id) {
             var merged = $0.folderConflictResolution ?? FolderConflictResolution()
             merged.decisions.merge(resolution.decisions) { _, new in new }
@@ -1402,6 +1402,11 @@ final class AppModel {
             if let remember { $0.options.folderConflictPolicy = remember }
             JobQueue.requeue(&$0)
             $0.appendLog(JobLogEntry(level: .info, key: .logConflictsDecided))
+        }
+        // Rutin işinin seçenekleri her çalıştırmada rutinden gelir: hatırlanan karar rutinin ayarı olur.
+        if let remember, let routineID = job.routineID, let index = routines.firstIndex(where: { $0.id == routineID }) {
+            routines[index].options.folderConflictPolicy = remember
+            saveRoutines()
         }
         if conflictPrompt?.id == id { conflictPrompt = nil }
         save()

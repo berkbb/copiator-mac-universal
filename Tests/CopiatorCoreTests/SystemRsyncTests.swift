@@ -74,4 +74,31 @@ struct SystemRsyncTests {
             #expect(report.entries.contains { $0.kind == .missing && $0.path.hasSuffix("yeni.txt") }, "\(report.entries)")
         }
     }
+
+    /// openrsync'te (satır sonuyla ayrılmış seçim listesi) rutin klasör kararları yalnızca seçilen dosyalara uygulanır.
+    @Test(arguments: [true, false])
+    func routineFolderConflictsWithMacOSRsync(sandboxed: Bool) async throws {
+        guard let context = try await context(sandboxed: sandboxed) else { return }
+        let w = try Workspace()
+        try w.write("Kaynak/kok.txt", "kök\n")
+        for name in ["Birlestir", "Ikisi", "Atla"] {
+            try w.write("Kaynak/\(name)/yeni.txt", "\(name)-yeni\n")
+            try w.write("Kaynak/\(name)/disari.log", "kurala uymaz\n")
+            try w.write("Hedef/\(name)/eski.txt", "\(name)-eski\n")
+        }
+        let rules = RuleGroup(conditions: [RuleCondition(attribute: .fileExtension, op: .equals, value: "txt")])
+        var job = TransferJob(source: w.url("Kaynak"), destination: w.url("Hedef"),
+                              options: CopyOptions(copyMode: .contents, rules: rules))
+        job.routineID = UUID()
+        let asked = await RsyncEngine().run(job, context: context) { _ in }
+        #expect(asked.kind == .awaitingDecision && asked.detail == JobResult.foldersDetail && asked.noteCount == 3, "\(asked)")
+        job.folderConflictResolution = FolderConflictResolution(decisions: ["Birlestir": .merge, "Ikisi": .keepBoth, "Atla": .skip])
+        let done = try await withDecoyRsync(w) { await RsyncEngine().run(job, context: context) { _ in } }
+        #expect(done.kind.isSuccess, "\(done)")
+        #expect(w.read("Hedef/kok.txt") == "kök\n")
+        #expect(w.read("Hedef/Birlestir/yeni.txt") == "Birlestir-yeni\n" && w.read("Hedef/Birlestir/eski.txt") == "Birlestir-eski\n")
+        #expect(!w.exists("Hedef/Ikisi/yeni.txt") && w.read("Hedef/Ikisi 2/yeni.txt") == "Ikisi-yeni\n")
+        #expect(!w.exists("Hedef/Ikisi 2/disari.log") && !w.exists("Hedef/Birlestir/disari.log"))
+        #expect(!w.exists("Hedef/Atla/yeni.txt") && w.read("Hedef/Atla/eski.txt") == "Atla-eski\n")
+    }
 }

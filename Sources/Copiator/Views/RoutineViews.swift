@@ -469,6 +469,10 @@ struct RoutineEditorSheet: View {
                     Toggle(settings.t(.optionExcludeSystem), isOn: $routine.options.excludeSystemFolders)
                     Toggle(settings.t(.optionExcludeWindows), isOn: $routine.options.excludeWindowsLeftovers)
                         .help(settings.t(.optionExcludeWindowsNote))
+                    if routine.kind == .copy, routine.routes.contains(where: { !$0.placement.isActive }),
+                       routine.options.conflictPolicy == .ask || routine.options.folderConflictPolicy != .ask {
+                        FolderConflictPolicyPicker(selection: $routine.options.folderConflictPolicy)
+                    }
                     ConflictPolicyPicker(selection: $routine.options.conflictPolicy, kind: routine.jobKind)
                     if routine.kind == .copy {
                         VStack(alignment: .leading, spacing: 4) {

@@ -120,6 +120,55 @@ struct ConflictAppTests {
         #expect(model.job(job.id)?.status == .finished && model.job(job.id)?.isAwaitingDecision == false)
     }
 
+    /// Rutinde klasör çakışması: ilk çalıştırmada sorulur; "Hatırla" rutinin ayarı olur. Hatırlanmayan kararla bitmiş
+    /// rota sonraki çalıştırmada kendi klasörlerini sormadan birleştirir.
+    @Test func routineFolderConflictAsksFirstThenMerges() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try fixture.write("Rutin/2026/fatura-1.txt", "bir\n")
+        try fixture.write("Rutin/2026/not.log", "kurala uymaz\n")
+        try fixture.write("Arsiv/2026/eski.txt", "eski\n")
+        let model = fixture.model
+        await model.refreshEngine()
+        let rules = RuleGroup(conditions: [RuleCondition(attribute: .fileExtension, op: .equals, value: "txt")])
+        let routine = Routine(name: "Faturalar", routes: [RoutineRoute(source: fixture.url("Rutin"), destination: fixture.url("Arsiv"), rules: rules)])
+        #expect(model.saveRoutine(routine) == nil)
+        model.runRoutine(routine.id)
+        await model.waitUntilIdle()
+        let job = try #require(model.jobs(for: routine.id).first)
+        #expect(job.isAwaitingDecision && job.result?.detail == JobResult.foldersDetail, "\(String(describing: job.result))")
+        #expect(job.pendingFolderConflicts?.items == [FolderConflict(path: "2026")])
+        #expect(model.conflictPrompt?.id == job.id)
+        #expect(fixture.read("Arsiv/2026/fatura-1.txt") == nil)
+
+        // Hatırlanmayan karar: yalnızca bu çalıştırmaya uygulanır, rutinin ayarı "Sor" kalır.
+        model.resolveFolderConflicts(job.id, resolution: FolderConflictResolution(decisions: ["2026": .skip]), remember: nil)
+        await model.waitUntilIdle()
+        #expect(model.job(job.id)?.status == .finished, "\(String(describing: model.job(job.id)?.result))")
+        #expect(fixture.read("Arsiv/2026/fatura-1.txt") == nil)
+        #expect(model.routine(routine.id)?.options.folderConflictPolicy == .ask)
+
+        // Rota bir kez başarıyla bitti: sonraki çalıştırmada klasör sorulmaz, birleştirilir.
+        try fixture.write("Rutin/2026/fatura-2.txt", "iki\n")
+        model.runRoutine(routine.id)
+        await model.waitUntilIdle()
+        #expect(model.job(job.id)?.status == .finished, "\(String(describing: model.job(job.id)?.result))")
+        #expect(fixture.read("Arsiv/2026/fatura-2.txt") == "iki\n" && fixture.read("Arsiv/2026/eski.txt") == "eski\n")
+        #expect(fixture.read("Arsiv/2026/not.log") == nil)
+
+        // Yeni rutin, aynı hedef: "Hatırla" ile verilen karar rutinin ayarı olur ve rotanın işine de yazılır.
+        let second = Routine(name: "Faturalar 2", routes: [RoutineRoute(source: fixture.url("Rutin"), destination: fixture.url("Arsiv"), rules: rules)])
+        #expect(model.saveRoutine(second) == nil)
+        model.runRoutine(second.id)
+        await model.waitUntilIdle()
+        let secondJob = try #require(model.jobs(for: second.id).first)
+        #expect(secondJob.pendingFolderConflicts?.items == [FolderConflict(path: "2026")])
+        model.resolveFolderConflicts(secondJob.id, resolution: FolderConflictResolution(decisions: ["2026": .merge]), remember: .merge)
+        await model.waitUntilIdle()
+        #expect(model.routine(second.id)?.options.folderConflictPolicy == .merge)
+        #expect(model.job(secondJob.id)?.options.folderConflictPolicy == .merge)
+    }
+
     /// Bu sürümden önce kaydedilmiş iş: ilk kararda "hatırla" önerilir; karar verilince öneri kalkar.
     @Test func legacyJobsSuggestRememberingOnce() async throws {
         let fixture = try Fixture()

@@ -303,4 +303,107 @@ struct ConflictEngineTests {
         #expect(w.read("Hedef/Ikisi 2/yeni.txt") == "i-yeni\n")
         #expect(w.read("Hedef/Atla/eski.txt") == "a-eski\n" && !w.exists("Hedef/Atla/yeni.txt"))
     }
+
+    /// Rutin işinde (kurallar, `--files-from`) de klasör çakışması sorulur; kararlar yalnızca seçilen dosyalara uygulanır.
+    @Test func routineFolderConflictsUseRuleSelection() async throws {
+        let w = try Workspace()
+        try w.write("Kaynak/kok.txt", "kök\n")
+        for name in ["Birlestir", "Degistir", "Ikisi", "Atla"] {
+            try w.write("Kaynak/\(name)/yeni.txt", "\(name)-yeni\n")
+            try w.write("Kaynak/\(name)/disari.log", "kurala uymaz\n")
+            try w.write("Hedef/\(name)/eski.txt", "\(name)-eski\n")
+        }
+        try w.write("Kaynak/Yalniz/yeni.log", "kurala uymaz\n")
+        try w.mkdir("Hedef/Yalniz")
+        let trash = try w.mkdir("Cop")
+        var context = try await engineContext()
+        context.trashItem = { url in
+            let dst = trash.appendingPathComponent(url.lastPathComponent)
+            return (try? FileManager.default.moveItem(at: url, to: dst)) != nil ? dst : nil
+        }
+        let rules = RuleGroup(conditions: [RuleCondition(attribute: .fileExtension, op: .equals, value: "txt")])
+        var job = TransferJob(source: w.url("Kaynak"), destination: w.url("Hedef"),
+                              options: CopyOptions(copyMode: .contents, verifyAfterCopy: .quick, rules: rules))
+        job.routineID = UUID()
+
+        let events = Collected<TransferEvent>()
+        let asked = await RsyncEngine().run(job, context: context) { events.add($0) }
+        #expect(asked.kind == .awaitingDecision && asked.detail == JobResult.foldersDetail && asked.noteCount == 4, "\(asked)")
+        let report = try #require(events.values.compactMap { if case .folderConflicts(let r) = $0 { r } else { nil } }.first)
+        // Kurala uyan dosyası olmayan klasör ("Yalniz") sorulmaz.
+        #expect(Set(report.items.map(\.path)) == ["Birlestir", "Degistir", "Ikisi", "Atla"])
+        #expect(!w.exists("Hedef/kok.txt"))
+
+        job.folderConflictResolution = FolderConflictResolution(decisions: [
+            "Birlestir": .merge, "Degistir": .replace, "Ikisi": .keepBoth, "Atla": .skip,
+        ])
+        let done = await RsyncEngine().run(job, context: context) { _ in }
+        #expect(done.kind == .succeeded, "\(done)")
+        #expect(w.read("Hedef/kok.txt") == "kök\n")
+        #expect(w.read("Hedef/Birlestir/eski.txt") == "Birlestir-eski\n" && w.read("Hedef/Birlestir/yeni.txt") == "Birlestir-yeni\n")
+        #expect(!w.exists("Hedef/Degistir/eski.txt") && w.read("Hedef/Degistir/yeni.txt") == "Degistir-yeni\n")
+        #expect(w.read("Hedef/Ikisi/eski.txt") == "Ikisi-eski\n" && !w.exists("Hedef/Ikisi/yeni.txt"))
+        #expect(w.read("Hedef/Ikisi 2/yeni.txt") == "Ikisi-yeni\n" && !w.exists("Hedef/Ikisi 2/disari.log"))
+        #expect(w.read("Hedef/Atla/eski.txt") == "Atla-eski\n" && !w.exists("Hedef/Atla/yeni.txt"))
+        #expect(!w.exists("Hedef/Birlestir/disari.log"))
+
+        // Rota daha önce başarıyla çalıştıysa ("Sor" kipinde) klasörleri kendisi oluşturmuştur: sormadan birleştirir.
+        var settled = job
+        settled.folderConflictResolution = nil
+        settled.history = [JobRun(startedAt: Date(), finishedAt: Date(), result: JobResult(kind: .succeeded))]
+        try w.write("Kaynak/Atla/ikinci.txt", "ikinci\n")
+        // Hedefte aynı adla duran (ilk çalıştırmanın yazdığı) dosyalar ayrıca dosya düzeyinde sorulur; klasör sorulmaz.
+        let settledEvents = Collected<TransferEvent>()
+        let settledAsk = await RsyncEngine().run(settled, context: context) { settledEvents.add($0) }
+        #expect(settledAsk.kind == .awaitingDecision && settledAsk.detail != JobResult.foldersDetail, "\(settledAsk)")
+        #expect(!settledEvents.values.contains { if case .folderConflicts = $0 { true } else { false } })
+        settled.conflictResolution = ConflictResolution(decisions: [
+            "kok.txt": .replace, "Birlestir/yeni.txt": .replace, "Degistir/yeni.txt": .replace,
+        ])
+        let settledResult = await RsyncEngine().run(settled, context: context) { _ in }
+        #expect(settledResult.kind == .succeeded, "\(settledResult)")
+        #expect(w.read("Hedef/Atla/ikinci.txt") == "ikinci\n" && w.read("Hedef/Atla/eski.txt") == "Atla-eski\n")
+
+        // Geri alınan çalıştırma "daha önce çalıştı" sayılmaz: klasör yine sorulur.
+        var undone = settled
+        undone.conflictResolution = nil
+        undone.history[0].undoneAt = Date()
+        let undoneResult = await RsyncEngine().run(undone, context: context) { _ in }
+        #expect(undoneResult.kind == .awaitingDecision && undoneResult.detail == JobResult.foldersDetail, "\(undoneResult)")
+
+        // Birleştir ayarlı rutin sormaz.
+        var merging = job
+        merging.folderConflictResolution = nil
+        merging.options.folderConflictPolicy = .merge
+        merging.options.conflictPolicy = .replace
+        #expect(await RsyncEngine().run(merging, context: context) { _ in }.kind == .succeeded)
+    }
+
+    /// Satır sonuyla ayrılmış seçim listesinde (kullanıcının liste dosyası varken) de Atla / İkisini de sakla yalnızca
+    /// seçilen dosyalara uygulanır; atlanan klasörün hepsi atlanınca liste boş kalır ve kökteki dosya yine kopyalanır.
+    @Test func routineFolderConflictsWithNewlineListAndAllSkipped() async throws {
+        let w = try Workspace()
+        try w.write("Kaynak/kok.txt", "kök\n")
+        try w.write("Kaynak/Atla/yeni.txt", "atla-yeni\n")
+        try w.write("Kaynak/Ikisi/alt/derin.txt", "derin\n")
+        try w.write("Kaynak/Ikisi/disari.log", "kurala uymaz\n")
+        try w.write("Hedef/Atla/eski.txt", "atla-eski\n")
+        try w.write("Hedef/Ikisi/eski.txt", "ikisi-eski\n")
+        try w.write("Hedef/Ikisi 2/onceki.txt", "önceki kopya\n")
+        try w.write("Listeler/dislama.txt", "*.tmp\n")
+        let rules = RuleGroup(conditions: [RuleCondition(attribute: .fileExtension, op: .equals, value: "txt")])
+        var options = CopyOptions(copyMode: .contents, verifyAfterCopy: .quick, rules: rules)
+        options.advanced.excludeFromFile = w.url("Listeler/dislama.txt").path
+        var job = TransferJob(source: w.url("Kaynak"), destination: w.url("Hedef"), options: options)
+        job.routineID = UUID()
+        job.folderConflictResolution = FolderConflictResolution(decisions: ["Atla": .skip, "Ikisi": .keepBoth])
+        let done = await RsyncEngine().run(job, context: try await engineContext()) { _ in }
+        #expect(done.kind == .succeeded, "\(done)")
+        #expect(w.read("Hedef/kok.txt") == "kök\n")
+        #expect(!w.exists("Hedef/Atla/yeni.txt") && w.read("Hedef/Atla/eski.txt") == "atla-eski\n")
+        #expect(!w.exists("Hedef/Ikisi/alt") && w.read("Hedef/Ikisi/eski.txt") == "ikisi-eski\n")
+        // "Ikisi 2" doluydu: Finder gibi "Ikisi 3" seçilir; kurala uymayan dosya gelmez.
+        #expect(w.read("Hedef/Ikisi 3/alt/derin.txt") == "derin\n" && !w.exists("Hedef/Ikisi 3/disari.log"))
+        #expect(w.read("Hedef/Ikisi 2/onceki.txt") == "önceki kopya\n")
+    }
 }

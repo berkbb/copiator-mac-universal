@@ -137,7 +137,7 @@ public struct RsyncEngine: TransferEngine {
         do {
             folderPlan = try await planFolderConflicts(
                 &job, environment: environment, runner: runner, context: context,
-                sourceIsDirectory: sourceIsDirectory, snapshot: preparation != nil, hasSelection: selection != nil,
+                sourceIsDirectory: sourceIsDirectory, snapshot: preparation != nil, selection: selection,
                 onEvent: onEvent
             )
         } catch EngineError.cancelled, is CancellationError {
@@ -306,7 +306,7 @@ public struct RsyncEngine: TransferEngine {
         var keepBothCreated: [String] = []
         if !folderPlan.keepBothSubfolders.isEmpty, result.kind.isSuccess || result.kind == .partial, !Task.isCancelled {
             let sub = await copyKeepingBothSubfolders(folderPlan.keepBothSubfolders, job: job, context: context,
-                                                      fileSystem: fileSystem, onEvent: onEvent)
+                                                      fileSystem: fileSystem, selection: selection, onEvent: onEvent)
             keepBothCreated = sub.created
             if sub.failures > 0, result.kind.isSuccess {
                 result.kind = .partial
@@ -452,7 +452,8 @@ public struct RsyncEngine: TransferEngine {
     /// Hedefte aynı adlı klasör varsa (ve karar verilmemişse) kopyalamadan önce durur; verilen kararları uygular.
     func planFolderConflicts(
         _ job: inout TransferJob, environment: RsyncCommand.Environment, runner: CommandRunner, context: EngineContext,
-        sourceIsDirectory: Bool, snapshot: Bool, hasSelection: Bool, onEvent: @escaping @Sendable (TransferEvent) -> Void
+        sourceIsDirectory: Bool, snapshot: Bool, selection: RuleSelection.Prepared?,
+        onEvent: @escaping @Sendable (TransferEvent) -> Void
     ) async throws -> FolderPlan {
         var plan = FolderPlan()
         let a = job.options.advanced
@@ -460,11 +461,15 @@ public struct RsyncEngine: TransferEngine {
         let alreadySettled = job.folderConflictResolution == nil && job.conflictResolution?.others != nil
         let mayAsk = job.options.folderConflictPolicy != .ask || job.options.conflictPolicy == .ask
             || !resolution.decisions.isEmpty || resolution.others != nil
-        guard mayAsk, !alreadySettled, sourceIsDirectory, !snapshot, !hasSelection, job.routineID == nil,
+        // Yerleşim şablonlu rotada dosyalar kaynaktaki klasörlere değil şablon klasörlerine gider: klasör çakışması yoktur.
+        guard mayAsk, !alreadySettled, sourceIsDirectory, !snapshot, selection?.staged != true,
               !a.ignoreExisting, a.batchMode != .onlyWrite else { return plan }
 
         let folders: [FolderConflict]
-        if job.options.copyMode == .folder {
+        if let selection {
+            // Kurallı iş (rutin): seçilen dosyaların üst düzey klasörlerinden hedefte aynı adla bulunanlar.
+            folders = Self.selectedTopFolders(selection.paths, existingAt: job.destination).map(FolderConflict.init(path:))
+        } else if job.options.copyMode == .folder {
             folders = ConflictDetector.existingTopFolder(source: job.source, destination: job.destination).map { [$0] } ?? []
         } else if ConflictDetector.topSubdirectoryExists(source: job.source, destination: job.destination) {
             let format = ItemizeParser.Format(engine: context.info)
@@ -482,10 +487,17 @@ public struct RsyncEngine: TransferEngine {
         plan.checked = true
         guard !folders.isEmpty else { return plan }
 
+        // Rutin rotası daha önce başarıyla çalıştıysa hedefteki aynı adlı klasörleri kendisi oluşturmuştur: "Sor" kipinde
+        // bunlar sessizce birleştirilir (zamanlanmış rutin her çalıştırmada durmasın). İlk çalıştırmada sorulur. Geri alınan
+        // çalıştırma sayılmaz: oluşturduğu klasörler kaldırılmıştır, hedefte kalan aynı adlı klasör rutinin değildir.
+        let routineRanBefore = job.routineID != nil && job.history.contains {
+            $0.undoneAt == nil && ($0.result.kind.isSuccess || $0.result.kind == .partial)
+        }
+        let fallback = job.options.folderConflictPolicy.decision ?? (routineRanBefore ? .merge : nil)
         var undecided: [FolderConflict] = []
         var decided: [(FolderConflict, FolderConflictDecision)] = []
         for folder in folders {
-            if let decision = resolution.decision(for: folder.path) ?? job.options.folderConflictPolicy.decision {
+            if let decision = resolution.decision(for: folder.path) ?? fallback {
                 decided.append((folder, decision))
             } else {
                 undecided.append(folder)
@@ -541,7 +553,13 @@ public struct RsyncEngine: TransferEngine {
             }
         }
 
-        if !plan.excludedSubfolders.isEmpty {
+        if let selection, !plan.excludedSubfolders.isEmpty, let list = job.options.advanced.filesFromFile {
+            // `--files-from` listesindeki dosyalara klasör dışlaması uygulanmaz: atlanan klasörler listeden çıkarılır.
+            let prefixes = plan.excludedSubfolders.map { $0 + "/" }
+            let kept = selection.paths.filter { path in !prefixes.contains { path.hasPrefix($0) } }
+            let separator = job.options.advanced.filesFromZeroTerminated ? "\u{0}" : "\n"
+            try Data(kept.map { $0 + separator }.joined().utf8).write(to: URL(fileURLWithPath: list))
+        } else if !plan.excludedSubfolders.isEmpty {
             plan.folder = try writeConflictExcludeList(plan.excludedSubfolders, to: &job, context: context)
         }
         return plan
@@ -662,7 +680,7 @@ public struct RsyncEngine: TransferEngine {
     /// "İkisini de sakla" (içerik kipinde klasör): dışlanan alt klasörleri numaralı adla kopyalar.
     private func copyKeepingBothSubfolders(
         _ subfolders: [(folder: String, newName: String)], job: TransferJob, context: EngineContext,
-        fileSystem: FileSystemKind, onEvent: @escaping @Sendable (TransferEvent) -> Void
+        fileSystem: FileSystemKind, selection: RuleSelection.Prepared? = nil, onEvent: @escaping @Sendable (TransferEvent) -> Void
     ) async -> (failures: Int, created: [String]) {
         var failures = 0
         var created: [String] = []
@@ -684,6 +702,19 @@ public struct RsyncEngine: TransferEngine {
             subJob.options.conflictPolicy = .replace
             subJob.options.folderConflictPolicy = .merge
             subJob.options.advanced.conflictExcludeFile = nil
+            if let selection {
+                // Kurallı işte yalnızca bu klasördeki seçilen dosyalar, klasöre göre göreli bir listeyle kopyalanır.
+                let prefix = entry.folder + "/"
+                let paths = selection.paths.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }
+                let zeroTerminated = subJob.options.advanced.filesFromZeroTerminated
+                let list = selection.folder.appendingPathComponent("secilenler-\(UUID().uuidString).txt")
+                let separator = zeroTerminated ? "\u{0}" : "\n"
+                guard !paths.isEmpty, (try? Data(paths.map { $0 + separator }.joined().utf8).write(to: list)) != nil else {
+                    failures += 1
+                    continue
+                }
+                subJob.options.advanced.filesFromFile = SandboxProfile.resolved(list).path
+            }
             let subProfile = context.sandboxed
                 ? SandboxProfile.forTransfer(
                     sources: [subSource], destination: subDest, home: context.home,
@@ -720,6 +751,19 @@ public struct RsyncEngine: TransferEngine {
             created += subCollector.undoRecord.created.map { entry.newName + "/" + $0 }
         }
         return (failures, created)
+    }
+
+    /// Seçilen göreli yolların üst düzey klasörlerinden hedefte klasör olarak bulunanlar (ilk görülme sırasıyla).
+    static func selectedTopFolders(_ paths: [String], existingAt destination: URL) -> [String] {
+        var seen = Set<String>()
+        var folders: [String] = []
+        for path in paths {
+            guard let slash = path.firstIndex(of: "/") else { continue }
+            let top = String(path[..<slash])
+            guard !top.isEmpty, seen.insert(top).inserted, isDirectory(destination.appendingPathComponent(top)) else { continue }
+            folders.append(top)
+        }
+        return folders
     }
 
     /// "İkisini de sakla": her dosya hedefte numaralı bir adla ("rapor 2.xlsx") ayrıca kopyalanır; hedefteki dosyaya
