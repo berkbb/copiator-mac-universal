@@ -5,6 +5,12 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+## [1.2.3] — 2026-11-18
+
+### Added
+
+- **Folder conflict protection for copy routines**: rule-based routine routes now pause before writing when a matching top-level folder already exists at the destination (Merge / Replace / Keep Both / Skip, applied only to rule-selected files via the `--files-from` list). The routine editor gains the folder conflict policy picker, and "Remember my choice" is saved to the routine. To keep scheduled routines from stopping on every run, a route that has already run successfully merges its own folders silently under "Ask". Placement-template routes and sync routines are unaffected. Tests: `ConflictTests.routineFolderConflicts*`, `ConflictAppTests.routineFolderConflictAsksFirstThenMerges`, `SystemRsyncTests.routineFolderConflictsWithMacOSRsync`.
+
 ## [1.2.2] — 2026-11-14
 
 ### Added
