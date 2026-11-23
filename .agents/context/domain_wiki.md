@@ -2,6 +2,7 @@
 
 > **Memory Category:** TencentDB LLM-Wiki Knowledge Asset
 > **Scope:** Domain workflows, the rsync CLI contract, security boundaries, job lifecycle and macOS integration.
+> **Quotes:** the user's instructions quoted in this file are English translations of the Turkish originals.
 
 ---
 
@@ -62,7 +63,7 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 
 ## Agent Tooling
 
-- Decided with the user on 2026-11-04 ("agents ler son sürüm yap. graphify yı ekle"): the `.agents/` rule files follow the current 42 Core Standards with their current names (nine files renamed, the invented reasoning-trace standard removed), and the documents link to each other and to Graphify.
+- Decided with the user on 2026-11-04 ("bring the agents files to the latest version; add graphify"): the `.agents/` rule files follow the current 42 Core Standards with their current names (nine files renamed, the invented reasoning-trace standard removed), and the documents link to each other and to Graphify.
 - Graphify builds a local, code-only knowledge graph without an LLM (`.graphifyrc`, `.graphifyignore`, git-ignored `graphify-out/`). The project-scoped Claude Code skill and pre-search reminder (`CLAUDE.md`, `.claude/`) are versioned; git hooks and the merge driver are per clone. The skill files keep their Apache-2.0 license and are listed under "Repository-only files" in `THIRD_PARTY_NOTICES.md`; they are not part of the app.
 
 ## Dock Tile
@@ -79,7 +80,7 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 
 ## Log Window (Console)
 
-- Added with the user on 2026-11-04 ("arhivar curatare gibi konsol"): the same three-way log as the sister archiver app (memory, private file under `~/Library/Logs/Copiator`, unified log with a public summary and private detail). Summaries never carry paths or file names; jobs appear as the first eight characters of their id. Tests keep the log in memory only.
+- Added with the user on 2026-11-04 ("a console like the ones in Arhivar and Curatare"): the same three-way log as the sister archiver app (memory, private file under `~/Library/Logs/Copiator`, unified log with a public summary and private detail). Summaries never carry paths or file names; jobs appear as the first eight characters of their id. Tests keep the log in memory only.
 
 ## Undo Last Run
 
@@ -99,14 +100,14 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 
 ## Archive Health and Portability
 
-- Decided with the user on 2026-10-23 ("Hepsi. Bildirim iyi fikir"): an old backup reminder, snapshot restore, an archive integrity check, a duplicate finder and routine export/import. A backup status widget was deferred until Developer ID signing (roadmap 9f).
+- Decided with the user on 2026-10-23 ("All of them. The notification is a good idea"): an old backup reminder, snapshot restore, an archive integrity check, a duplicate finder and routine export/import. A backup status widget was deferred until Developer ID signing (roadmap 9f).
 - The reminder is a notification, not a schedule (time-based jobs stay rejected): it fires when a disk is connected and once at launch, only for jobs and routines that copy to that disk and have had no successful run for the chosen number of days (default 30), at most once a day per item. Jobs that start on their own when the disk is connected are left out.
 - Restore never writes into a snapshot and never deletes: it queues an ordinary copy job to the original place or another folder, so same-name files are asked about.
 - The integrity check distinguishes silent corruption (same size and date, different contents; reported until fixed) from legitimate changes (size or date changed; recorded). Its list is the only file Copiator writes at a destination by itself.
 - Duplicates inside snapshot folders are intentional (hard links or kept history) and are not reported; extras go only to the Trash.
 - Imported routines are always new routines; nothing is merged or replaced.
 - Decided with the user on 2026-11-23: the sidebar has a Home row that always shows the welcome screen, with or without jobs, and the app opens on it (the job lists must not replace the main screen); routines are reordered by dragging them in the sidebar; several routine files can be chosen in one import, and an unreadable file is named without blocking the others.
-- Decided with the user on 2026-10-23 ("ilk üç yap diğerlerini roadmap a yaz"): repair damaged files from intact copies, eject the destination disk when done and buttons in notifications were built; snapshot search and compare, a fill forecast, low-priority I/O, moving jobs and settings, a diagnostic bundle and sleeping after the queue went to the roadmap (9g–9k, 7).
+- Decided with the user on 2026-10-23 ("do the first three and write the others to the roadmap"): repair damaged files from intact copies, eject the destination disk when done and buttons in notifications were built; snapshot search and compare, a fill forecast, low-priority I/O, moving jobs and settings, a diagnostic bundle and sleeping after the queue went to the roadmap (9g–9k, 7).
 - Repair rewrites a damaged file only with a copy whose SHA-256 equals the digest recorded in the integrity list; any such copy is acceptable whatever its name, because the list, not the name, defines the correct contents.
 - Eject is per job and routine and waits for everything that uses the disk (waiting, running or decision-waiting jobs, checks and repairs). A disk the user paused a job on can still be ejected.
 - Clicking a notification only shows Copiator; work starts only from an explicit button ("Back Up Now").
@@ -134,15 +135,15 @@ Version 1.0 scope: local disk → local disk. Remote rsync over SSH and schedule
 
 ## From the `ev` Scripts, Second Round (2026-11-07)
 
-- Decided with the user on 2026-11-07 ("Şu 6 yı yapalım önce"), after comparing the `ev` archive scripts with Copiator: undo of a moving run, archive search, a name per file in the decision sheet, a run report, Windows and Office leftovers, and the small ones (photo location criterion, folder tree export, Dock drop).
+- Decided with the user on 2026-11-07 ("let us do these six first"), after comparing the `ev` archive scripts with Copiator: undo of a moving run, archive search, a name per file in the decision sheet, a run report, Windows and Office leftovers, and the small ones (photo location criterion, folder tree export, Dock drop).
 - Undo of a moving run mirrors `ev`'s `perform_undo` (sources go back) but keeps Copiator's rules: the Trash is never emptied, nothing is restored over an existing file, and a copy whose source cannot come back stays.
 - Archive search follows `ev`'s `--search` (name, PDF/text contents, photo data; open, extract a copy, delete) with "delete" replaced by "move to the Trash after confirmation" and "open" refusing kinds that can run code. EXIF GPS is only a yes/no criterion: turning coordinates into place names needs the network.
 - The name per file follows `ev`'s `predict_standard_name` (imitate the names already in the chosen folder) through the existing rule-first template inference; the personal naming rules of the scripts (family names, plates, company prefixes) stay out of the app.
 - Rejected for good by the existing rules, not proposed again: cloud models such as Gemini (on-device AI only), a batch mode where the AI places files without asking, permanent deletion, renaming the source in place.
-- Decided with the user on 2026-11-07 ("Evet, ekle", after "OCR ı geç"): values from the contents go into names through route content fields (`{c:name}`, a regex with one capture group), not through AI and not through OCR. A missing value never yields a name with a gap: the file waits for a decision and only its name is asked. Content tokens are allowed in the name template only.
-- Decided with the user on 2026-11-07 ("Evet, kapat. Tarih için de yap."), closing the last gaps to `ev`'s `auto_renamer`: the content criterion accepts regular expressions (for `\bASI\b`-style word matches), and an explicitly chosen date source that finds no date asks for the date in the decision sheet instead of using the date modified, the way `auto_renamer` skips a file without a date. "Automatic" keeps the date modified as its documented last step.
-- Decided with the user on 2026-11-07 ("Evet, düzelt", for "disk ya da konum yoksa ekleme ve güncelleme yapılamıyor"): an unplugged disk is not an error. Jobs, routines and imports save; such jobs wait for the disk even without "start when connected", so a multi-destination routine copies to what is connected and catches up later. Missing folders on the Mac or a connected disk are offered to be created. Follow-up raised: with "Move to the Trash", the first route trashes the source, so later routes (or a route waiting for its disk) get nothing.
-- Decided with the user on 2026-11-07 ("Evet, öyle yap"): in a routine with several destinations, "Move to the Trash" moves a source only after every route of that run has copied it; a route waiting for its disk keeps the source. The user plans one routine with three destinations (Mac archive, Kopyalama Kutusu, YEDEK) the way `ev` files a bill.
-- Decided with the user on 2026-11-07 ("Evet, düzelt", after asking whether "Copiator Rutinine Gönder" works from folders other than İndirilenler): items sent to a routine follow the same disk rule as Run. The route to an unplugged disk queues a job that waits for it, and the other routes copy. The user now keeps two routines: "Çiçekli Ödeme Yerleştir" (İndirilenler → Mac archive and Kopyalama Kutusu, named from the contents) and "Diske Ödeme Kopyala" (Kopyalama Kutusu → YEDEK, copy only, sorted by name prefix).
-- Decided with the user on 2026-11-08 ("1 tane iş için neden 12 tane çıkıyor. Halbuki bulup onu yapması lazım."): a routine scans before it queues. Running "Çiçekli Ödeme Yerleştir" on one BESA invoice had queued all twelve route jobs, about five seconds each, and the queue was cleared before the Sıcak Su route ran. Now the rule routes are scanned together first and only the routes that found files are queued: the same invoice opens two jobs (Mac archive › Sıcak Su and Kopyalama Kutusu, `128820964_SS_2026_11.pdf`), and the pre-scan took 0.2 s.
+- Decided with the user on 2026-11-07 ("Yes, add it", after "skip OCR"): values from the contents go into names through route content fields (`{c:name}`, a regex with one capture group), not through AI and not through OCR. A missing value never yields a name with a gap: the file waits for a decision and only its name is asked. Content tokens are allowed in the name template only.
+- Decided with the user on 2026-11-07 ("Yes, close it. Do it for the date too."), closing the last gaps to `ev`'s `auto_renamer`: the content criterion accepts regular expressions (for `\bASI\b`-style word matches), and an explicitly chosen date source that finds no date asks for the date in the decision sheet instead of using the date modified, the way `auto_renamer` skips a file without a date. "Automatic" keeps the date modified as its documented last step.
+- Decided with the user on 2026-11-07 ("Yes, fix it", for "nothing can be added or updated when the disk or the location is missing"): an unplugged disk is not an error. Jobs, routines and imports save; such jobs wait for the disk even without "start when connected", so a multi-destination routine copies to what is connected and catches up later. Missing folders on the Mac or a connected disk are offered to be created. Follow-up raised: with "Move to the Trash", the first route trashes the source, so later routes (or a route waiting for its disk) get nothing.
+- Decided with the user on 2026-11-07 ("Yes, do it that way"): in a routine with several destinations, "Move to the Trash" moves a source only after every route of that run has copied it; a route waiting for its disk keeps the source. The user plans one routine with three destinations (Mac archive, Kopyalama Kutusu, YEDEK) the way `ev` files a bill.
+- Decided with the user on 2026-11-07 ("Yes, fix it", after asking whether "Send to a Copiator Routine" works from folders other than Downloads): items sent to a routine follow the same disk rule as Run. The route to an unplugged disk queues a job that waits for it, and the other routes copy. The user now keeps two routines: "Çiçekli Ödeme Yerleştir" (İndirilenler → Mac archive and Kopyalama Kutusu, named from the contents) and "Diske Ödeme Kopyala" (Kopyalama Kutusu → YEDEK, copy only, sorted by name prefix).
+- Decided with the user on 2026-11-08 ("Why do 12 jobs appear for one piece of work? It should find the right one and do that."): a routine scans before it queues. Running "Çiçekli Ödeme Yerleştir" on one BESA invoice had queued all twelve route jobs, about five seconds each, and the queue was cleared before the Sıcak Su route ran. Now the rule routes are scanned together first and only the routes that found files are queued: the same invoice opens two jobs (Mac archive › Sıcak Su and Kopyalama Kutusu, `128820964_SS_2026_11.pdf`), and the pre-scan took 0.2 s.
 
