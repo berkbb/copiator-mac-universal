@@ -19,9 +19,9 @@ private func rule(_ attribute: RuleAttribute, _ op: RuleOperator, value: String 
 }
 
 private func matches(_ rules: RuleGroup, _ path: String = "a/b.dat", metadata: RuleItem.Metadata = .init(),
-                     content: [UUID: Set<String>] = [:]) throws -> Bool {
+                     content: [String: Set<String>] = [:]) throws -> Bool {
     let item = RuleItem(relativePath: path, metadata: metadata)
-    return try RuleEvaluator(rules, now: now, calendar: calendar, contentMatches: content).matches(item)
+    return try RuleEvaluator(rules, now: now, calendar: calendar, contentLookup: { content[$0] ?? [] }).matches(item)
 }
 
 @Test func sizeAndDepthCompareWithUnits() throws {
@@ -87,9 +87,8 @@ private func matches(_ rules: RuleGroup, _ path: String = "a/b.dat", metadata: R
     #expect(try !matches(rule(.cameraModel, .contains, value: "x"), "v.mov", metadata: video))
 
     let content = rule(.content, .contains, value: "fatura")
-    let id = content.conditions[0].id
-    #expect(try matches(content, "2026/Ocak/belge.pdf", content: [id: ["2026/Ocak/belge.pdf"]]))
-    #expect(try !matches(content, "2026/Ocak/öteki.pdf", content: [id: ["2026/Ocak/belge.pdf"]]))
+    #expect(try matches(content, "2026/Ocak/belge.docx", content: ["fatura": ["2026/Ocak/belge.docx"]]))
+    #expect(try !matches(content, "2026/Ocak/öteki.docx", content: ["fatura": ["2026/Ocak/belge.docx"]]))
     #expect(Spotlight.query(for: #"a "b" \ *"#) == #"kMDItemTextContent == "*a \"b\" \\ \**"cd"#)
     // Türkçe bir Mac'te Spotlight "I"yı "ı" katlar: her i benzeri harf iki biçimde de aranır.
     #expect(Spotlight.query(for: "Isparta") == #"(kMDItemTextContent == "*isparta*"cd || kMDItemTextContent == "*ısparta*"cd)"#)
@@ -171,4 +170,47 @@ struct AdvancedRuleEngineTests {
         #expect(workspace.exists("B/yeni/buyuk.dat"))
         #expect(!workspace.exists("B/yeni/kucuk.dat") && !workspace.exists("B/eski"))
     }
+}
+
+/// Spotlight tembeldir: metni okunabilen dosyada (PDF, düz metin) hiç sorulmaz; uyan da uymayan da metinden karar verilir.
+/// Yalnızca metni okunamayan öğe Spotlight'a gider ve her metin bir taramada en çok bir kez sorulur.
+@Test func spotlightIsAskedOnlyForUnreadableItems() throws {
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var asked: [String] = []
+        func record(_ text: String) { lock.withLock { asked.append(text) } }
+    }
+    let counter = Counter()
+    let rules = RuleGroup(match: .all, conditions: [RuleCondition(attribute: .content, op: .contains, value: "ENERJİSA")], groups: [
+        RuleGroup(match: .none, conditions: [RuleCondition(attribute: .content, op: .contains, value: "Dekont Tarihi"),
+                                             RuleCondition(attribute: .content, op: .contains, value: "BESA PAY")]),
+    ])
+    let evaluator = try RuleEvaluator(rules, contentLookup: { counter.record($0); return $0 == "ENERJİSA" ? ["fatura.docx"] : [] })
+    #expect(evaluator.matches(RuleItem(relativePath: "fatura.pdf", metadata: .init(text: "Enerjisa Başkent\nkWh"))))
+    #expect(!evaluator.matches(RuleItem(relativePath: "dekont.pdf", metadata: .init(text: "enerjisa\nDekont Tarihi: 01.10.2026"))))
+    #expect(counter.asked.isEmpty)
+    #expect(evaluator.matches(RuleItem(relativePath: "fatura.docx")))
+    #expect(counter.asked == ["ENERJİSA", "Dekont Tarihi", "BESA PAY"])
+
+    // Taramanın önbelleği: aynı metin iki kümede geçse de Spotlight'a bir kez sorulur.
+    let shared = Counter()
+    let lookup = SpotlightLookup(root: URL(fileURLWithPath: "/kok")) { text, _ in shared.record(text); return [] }
+    for _ in 0..<3 { _ = lookup.relativePaths(containing: "AİDAT") }
+    _ = lookup.relativePaths(containing: "SICAK SU")
+    #expect(shared.asked == ["AİDAT", "SICAK SU"])
+}
+
+/// Taramada okunabilen dosyalar Spotlight'sız değerlendirilir: dizinlenmemiş bir klasörde içerik koşulu metinden uyar.
+@Test func scanMatchesReadableFilesWithoutSpotlight() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("tembel-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    try Data("ASKİ GENEL MÜDÜRLÜĞÜ\nKATI ATIK BERTARAF\n".utf8).write(to: root.appendingPathComponent("su.txt"))
+    try Data("Dekont Tarihi: 01.10.2026\nPOZİTİF PANORAMA\n".utf8).write(to: root.appendingPathComponent("dekont.txt"))
+    let su = RuleGroup(match: .all, conditions: [RuleCondition(attribute: .content, op: .contains, value: "katı atık")], groups: [
+        RuleGroup(match: .none, conditions: [RuleCondition(attribute: .content, op: .contains, value: "Dekont Tarihi")]),
+    ])
+    let dekont = RuleGroup(conditions: [RuleCondition(attribute: .content, op: .contains, value: "pozitif panorama")])
+    let results = try await RuleScanner.scan(root, sets: [.init(rules: su), .init(rules: dekont)])
+    #expect(results.map(\.paths) == [["su.txt"], ["dekont.txt"]])
 }

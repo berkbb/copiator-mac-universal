@@ -263,17 +263,18 @@ public struct RuleEvaluator: @unchecked Sendable {
     private let runaway = RunawayRecord()
     private let now: Date
     private let calendar: Calendar
-    /// İçerik koşullarına uyan öğelerin (NFC) göreli yolları (Spotlight'tan).
-    private let contentMatches: [UUID: Set<String>]
+    /// Metni okunamayan öğeler için içerik araması: metnin geçtiği öğelerin (NFC) göreli yolları (Spotlight; bkz.
+    /// `SpotlightLookup`). Yalnızca böyle bir öğe bir içerik koşuluna geldiğinde sorulur.
+    private let contentLookup: (@Sendable (String) -> Set<String>)?
     /// "Hedefte kopyası var" ölçütü için hedefin içerik dizini (hedef verilmediyse hiçbir dosya "var" sayılmaz).
     private let destinationIndex: DestinationIndex?
 
-    public init(_ rules: RuleGroup, now: Date = Date(), calendar: Calendar = .current, contentMatches: [UUID: Set<String>] = [:],
-                destinationIndex: DestinationIndex? = nil) throws {
+    public init(_ rules: RuleGroup, now: Date = Date(), calendar: Calendar = .current,
+                contentLookup: (@Sendable (String) -> Set<String>)? = nil, destinationIndex: DestinationIndex? = nil) throws {
         self.rules = rules
         self.now = now
         self.calendar = calendar
-        self.contentMatches = contentMatches
+        self.contentLookup = contentLookup
         self.destinationIndex = destinationIndex
         var regexes: [UUID: NSRegularExpression] = [:]
         for condition in rules.allConditions where condition.op == .matchesRegex && condition.op.input(for: condition.attribute) == .text {
@@ -340,11 +341,12 @@ public struct RuleEvaluator: @unchecked Sendable {
                 guard let text = item.textContent else { return false }
                 return compare(text.precomposedStringWithCanonicalMapping, condition)
             }
-            // Spotlight dizini bulduysa yeter; bulmadıysa (dizinlenmemiş birim, eski dizin) PDF ve metin dosyaları
-            // doğrudan okunur.
-            if contentMatches[condition.id]?.contains(item.relativePath) == true { return true }
-            guard let text = item.textContent else { return false }
-            return ContentReader.contains(text, condition.value)
+            // Metni okunabilen dosyada (PDF, düz metin) metin doğrudan aranır: dosya başına bir kez okunur, Spotlight'a
+            // sorulmaz. Türkçe I/ı/İ/i için katlanarak büyüyen Spotlight sorguları saniyeler sürer. Spotlight yalnızca
+            // metni okunamayan öğelerde (Office belgeleri, metin katmanı olmayan ya da şifreli PDF'ler) ve ilk
+            // gerektiğinde sorulur.
+            if let text = item.textContent { return ContentReader.contains(text, condition.value) }
+            return contentLookup?(condition.value).contains(item.relativePath) == true
         }
     }
 
@@ -476,31 +478,26 @@ public enum RuleScanner {
                        onlyItems: onlyItems, isCancelled: isCancelled)[0]
     }
 
-    /// Birden çok kural kümesini tek geçişte değerlendirir: kök bir kez gezilir, aynı içerik metni Spotlight'a bir kez
-    /// sorulur, her dosyanın metni ve özellikleri bir kez okunur ve bütün kümelerde kullanılır. Sonuçlar `sets` sırasıyla
+    /// Birden çok kural kümesini tek geçişte değerlendirir: kök bir kez gezilir, aynı içerik metni Spotlight'a en çok bir
+    /// kez ve yalnızca metni okunamayan bir öğe için sorulur, her dosyanın metni ve özellikleri bir kez okunur ve bütün kümelerde kullanılır. Sonuçlar `sets` sırasıyla
     /// döner; bir kümedeki kaçak düzenli ifade bütün taramayı hatayla bitirir (tek kümeli taramadaki gibi).
     public static func scan(
         _ root: URL, sets: [RuleSet], skippedPaths: Set<String> = [], skippedNames: Set<String> = [],
         skipsWindowsLeftovers: Bool = false, now: Date = Date(), onlyItems: Set<String>? = nil, isCancelled: () -> Bool = { false }
     ) async throws -> [Result] {
         guard !sets.isEmpty else { return [] }
-        // İçerik koşulları taramadan önce Spotlight'a sorulur; aynı metin birden çok kümede geçse de bir kez.
-        var spotlight: [String: Set<String>] = [:]
+        // İçerik koşulları Spotlight'a önceden sorulmaz (bkz. `SpotlightLookup`); bütün kümeler aynı önbelleği paylaşır.
+        let spotlight = SpotlightLookup(root: root)
         var indexes: [String: DestinationIndex] = [:]
         var evaluators: [RuleEvaluator] = []
         for set in sets {
-            var contentMatches: [UUID: Set<String>] = [:]
-            for condition in set.rules.allConditions where condition.attribute == .content && condition.op != .matchesRegex {
-                let found = spotlight[condition.value] ?? Spotlight.relativePaths(containing: condition.value, in: root)
-                spotlight[condition.value] = found
-                contentMatches[condition.id] = found
-            }
             var index: DestinationIndex?
             if let destination = set.destination, set.rules.allConditions.contains(where: { $0.attribute == .inDestination }) {
                 index = try indexes[destination.path] ?? DestinationIndex(root: destination, isCancelled: isCancelled)
                 indexes[destination.path] = index
             }
-            evaluators.append(try RuleEvaluator(set.rules, now: now, contentMatches: contentMatches, destinationIndex: index))
+            evaluators.append(try RuleEvaluator(set.rules, now: now, contentLookup: { spotlight.relativePaths(containing: $0) },
+                                                destinationIndex: index))
         }
         let onlyItems = onlyItems.map { Set($0.map(\.precomposedStringWithCanonicalMapping)) }
         let needsMedia = sets.contains { $0.rules.allConditions.contains { $0.attribute.needsMedia } }
@@ -542,6 +539,26 @@ public enum RuleScanner {
         }
         for position in results.indices { results[position].scanned = scanned }
         return results
+    }
+}
+
+/// Bir taramanın Spotlight önbelleği: her metin ilk gerektiğinde bir kez sorulur, sonucu bütün kural kümelerinde kullanılır.
+final class SpotlightLookup: @unchecked Sendable {
+    private let root: URL
+    private let query: @Sendable (String, URL) -> Set<String>
+    private let lock = NSLock()
+    private var found: [String: Set<String>] = [:]
+
+    init(root: URL, query: @escaping @Sendable (String, URL) -> Set<String> = Spotlight.relativePaths(containing:in:)) {
+        self.root = root
+        self.query = query
+    }
+
+    func relativePaths(containing text: String) -> Set<String> {
+        if let known = lock.withLock({ found[text] }) { return known }
+        let paths = query(text, root)
+        lock.withLock { found[text] = paths }
+        return paths
     }
 }
 
