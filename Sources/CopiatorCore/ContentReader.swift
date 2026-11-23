@@ -55,6 +55,13 @@ public enum ContentReader {
         return fold(text).range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
     }
 
+    /// `contains` ile aynı sonuç; metin önceden katlanmıştır (bkz. `fold`), böylece birçok değer aranırken bir kez katlanır.
+    public static func containsFolded(_ foldedText: String, _ value: String) -> Bool {
+        let needle = fold(value.precomposedStringWithCanonicalMapping.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard !needle.isEmpty else { return false }
+        return foldedText.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+
     /// Küçük harfe, aksansız biçime ve noktalı i'ye indirir (ş → s, ğ → g, İ/ı → i, ș → s).
     static func fold(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))

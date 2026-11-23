@@ -214,3 +214,34 @@ struct AdvancedRuleEngineTests {
     let results = try await RuleScanner.scan(root, sets: [.init(rules: su), .init(rules: dekont)])
     #expect(results.map(\.paths) == [["su.txt"], ["dekont.txt"]])
 }
+
+/// "Yalnızca kökteki dosyalar" gibi bir derinlik sınırı varsa tarama daha derindeki klasörlere girmez; sonuç değişmez.
+/// Sınırı olmayan tek bir küme bile varsa bütün ağaç gezilir.
+@Test func depthLimitPrunesDeeperFolders() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("derinlik-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root.appendingPathComponent("alt/derin"), withIntermediateDirectories: true)
+    for path in ["a.txt", "alt/b.txt", "alt/derin/c.txt"] { try Data("x\n".utf8).write(to: root.appendingPathComponent(path)) }
+    func depth(_ op: RuleOperator, _ number: Double) -> RuleCondition { RuleCondition(attribute: .depth, op: op, number: number) }
+    let rootOnly = RuleGroup(conditions: [depth(.atMost, 0)])
+    let oneLevel = RuleGroup(conditions: [depth(.equals, 1)])
+    let unlimited = RuleGroup(conditions: [RuleCondition(attribute: .name, op: .endsWith, value: ".txt")])
+
+    #expect(try RuleEvaluator(rootOnly).maxDepth == 0)
+    #expect(try RuleEvaluator(oneLevel).maxDepth == 1)
+    #expect(try RuleEvaluator(unlimited).maxDepth == nil)
+    // "En az" alt sınırdır; "herhangi biri" grubundaki koşul tek başına bağlayıcı değildir.
+    #expect(try RuleEvaluator(RuleGroup(conditions: [depth(.atLeast, 1)])).maxDepth == nil)
+    #expect(try RuleEvaluator(RuleGroup(match: .any, conditions: [depth(.atMost, 0)])).maxDepth == nil)
+
+    let pruned = try await RuleScanner.scan(root, rules: rootOnly)
+    #expect(pruned.paths == ["a.txt"])
+    #expect(pruned.scanned == 2)
+    let two = try await RuleScanner.scan(root, sets: [.init(rules: rootOnly), .init(rules: oneLevel)])
+    #expect(two.map(\.paths) == [["a.txt"], ["alt/b.txt"]])
+    #expect(two[0].scanned == 4)
+    let mixed = try await RuleScanner.scan(root, sets: [.init(rules: rootOnly), .init(rules: unlimited)])
+    #expect(mixed[0].paths == ["a.txt"])
+    #expect(Set(mixed[1].paths) == ["a.txt", "alt/b.txt", "alt/derin/c.txt"])
+    #expect(mixed[0].scanned == 5)
+}

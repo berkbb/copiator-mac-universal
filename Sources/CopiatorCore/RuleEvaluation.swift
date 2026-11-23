@@ -234,6 +234,17 @@ public final class RuleItem: @unchecked Sendable {
         }
     }
 
+    /// Aramaya hazır (katlanmış) metin: dosya başına bir kez hesaplanır, bütün içerik koşullarında kullanılır.
+    public var foldedTextContent: String? {
+        if let folded { return folded }
+        guard let text = textContent else { return nil }
+        let value = ContentReader.fold(text)
+        folded = value
+        return value
+    }
+
+    private var folded: String?
+
     public var media: MediaInfo? {
         get { metadata.media }
         set { metadata.media = newValue }
@@ -284,6 +295,18 @@ public struct RuleEvaluator: @unchecked Sendable {
     }
 
     public func matches(_ item: RuleItem) -> Bool { matches(item, rules, depth: 0) }
+
+    /// Kurallara uyabilecek en derin dosyanın klasör derinliği; sınır yoksa nil. Yalnızca kökteki "tümü" grubunun
+    /// "en çok" ve "eşittir" derinlik koşullarından çıkar: öteki gruplarda koşul tek başına bağlayıcı değildir.
+    public var maxDepth: Int? {
+        guard rules.match == .all else { return nil }
+        let limits = rules.conditions.compactMap { condition -> Int? in
+            guard condition.attribute == .depth, condition.op == .atMost || condition.op == .equals,
+                  condition.number.isFinite, condition.number >= 0, condition.number < 1_000_000 else { return nil }
+            return Int(condition.number.rounded(.down))
+        }
+        return limits.min()
+    }
 
     /// Adım sınırını aşan ilk düzenli ifade (varsa o eşleşme "uymaz" sayıldı; tarama hatayla bitmeli).
     public var runawayPattern: String? { runaway.pattern }
@@ -345,7 +368,7 @@ public struct RuleEvaluator: @unchecked Sendable {
             // sorulmaz. Türkçe I/ı/İ/i için katlanarak büyüyen Spotlight sorguları saniyeler sürer. Spotlight yalnızca
             // metni okunamayan öğelerde (Office belgeleri, metin katmanı olmayan ya da şifreli PDF'ler) ve ilk
             // gerektiğinde sorulur.
-            if let text = item.textContent { return ContentReader.contains(text, condition.value) }
+            if let folded = item.foldedTextContent { return ContentReader.containsFolded(folded, condition.value) }
             return contentLookup?(condition.value).contains(item.relativePath) == true
         }
     }
@@ -503,6 +526,9 @@ public enum RuleScanner {
         let needsMedia = sets.contains { $0.rules.allConditions.contains { $0.attribute.needsMedia } }
         var results = Array(repeating: Result(), count: sets.count)
         var scanned = 0
+        // Bütün kümelerin derinlik sınırı varsa daha derindeki klasörlere girilmez (ör. "yalnızca kökteki dosyalar").
+        let limits = evaluators.map(\.maxDepth)
+        let depthLimit = limits.contains(nil) ? nil : limits.compactMap { $0 }.max()
         guard let enumerator = FileManager.default.enumerator(atPath: root.path) else { return results }
         while let relative = enumerator.nextObject() as? String {
             if scanned % 256 == 0, isCancelled() || Task.isCancelled { throw CancellationError() }
@@ -522,6 +548,8 @@ public enum RuleScanner {
             if isDirectory {
                 let ext = (name as NSString).pathExtension
                 guard !ext.isEmpty, let type = UTType(filenameExtension: ext, conformingTo: .package), type.conforms(to: .package) else {
+                    // İçindeki dosyaların derinliği klasörün yol bileşeni sayısıdır.
+                    if let depthLimit, relative.split(separator: "/").count > depthLimit { enumerator.skipDescendants() }
                     continue
                 }
                 enumerator.skipDescendants()
