@@ -632,6 +632,7 @@
 "toastRoutineQueued" = "Routine queued";
 "toastRoutineScanning" = "Scanning “%@”…";
 "toastRoutineNothingMatched" = "“%@”: no files match any route";
+"toastRoutineAlreadyInDestination" = "“%@”: the matching files are already in the destination";
 "toastRoutineSaved" = "Routine saved";
 "logRoutineRun" = "Routine “%@” was run.";
 "routineSampleTitle" = "Try";

@@ -632,6 +632,7 @@
 "toastRoutineQueued" = "Rutin sıraya alındı";
 "toastRoutineScanning" = "“%@” taranıyor…";
 "toastRoutineNothingMatched" = "“%@”: hiçbir rotaya uyan dosya yok";
+"toastRoutineAlreadyInDestination" = "“%@”: uyan dosyaların kopyası zaten hedefte";
 "toastRoutineSaved" = "Rutin kaydedildi";
 "logRoutineRun" = "“%@” rutini çalıştırıldı.";
 "routineSampleTitle" = "Dene";

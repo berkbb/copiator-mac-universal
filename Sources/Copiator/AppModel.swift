@@ -993,33 +993,41 @@ final class AppModel {
             return nil
         }
         showToast(t(.toastRoutineScanning, routine.name), systemImage: "magnifyingglass")
-        scanRoutine(id, candidates.map(\.candidate)) { [weak self] work in
+        scanRoutine(id, candidates.map(\.candidate)) { [weak self] work, alreadyInDestination in
             let idle = Set(candidates.indices.filter { !work.contains($0) }.map { candidates[$0].route })
-            self?.queueRoutineRun(id, routes: all.subtracting(idle))
+            self?.queueRoutineRun(id, routes: all.subtracting(idle), alreadyInDestination: alreadyInDestination)
         }
         return nil
     }
 
     /// Kurallı adayları arka planda tarar; bitince `finish` işi olan adayların indeksleriyle ana iş parçacığında çağrılır.
-    private func scanRoutine(_ id: Routine.ID, _ candidates: [RoutineScan.Candidate], finish: @escaping (Set<Int>) -> Void) {
+    /// Hiçbir adayın işi yoksa nedeni de bildirir: öğeler kurallara uyuyor ama kopyaları zaten hedefte mi
+    /// (bkz. `RoutineScan.matchesAlreadyInDestination`).
+    private func scanRoutine(
+        _ id: Routine.ID, _ candidates: [RoutineScan.Candidate],
+        finish: @escaping (_ work: Set<Int>, _ alreadyInDestination: Bool) -> Void
+    ) {
         let token = UUID()
         let sandboxHome = settings.sandboxEngine ? FileManager.default.homeDirectoryForCurrentUser : nil
         scanningRoutines.insert(id)
         let task = Task { [weak self] in
-            let work = try? await Task.detached(priority: .userInitiated) {
-                try await RoutineScan.candidatesWithWork(candidates, sandboxHome: sandboxHome)
+            let result = try? await Task.detached(priority: .userInitiated) { () -> (work: Set<Int>, alreadyInDestination: Bool) in
+                let work = try await RoutineScan.candidatesWithWork(candidates, sandboxHome: sandboxHome)
+                guard work.isEmpty else { return (work, false) }
+                return (work, try await RoutineScan.matchesAlreadyInDestination(candidates, sandboxHome: sandboxHome))
             }.value
             guard let self else { return }
             routineScans[token] = nil
             if !routineScans.values.contains(where: { $0.routine == id }) { scanningRoutines.remove(id) }
-            AppLog.shared.info(.job, "Routine \(AppLog.short(id)) scanned: \(work?.count ?? 0) of \(candidates.count) candidates have work")
-            if let work { finish(work) }
+            AppLog.shared.info(.job, "Routine \(AppLog.short(id)) scanned: \(result?.work.count ?? 0) of \(candidates.count) candidates have work")
+            if let result { finish(result.work, result.alreadyInDestination) }
         }
         routineScans[token] = (id, task)
     }
 
-    /// Rutinin verilen rotalarını kuyruğa alır; hiçbiri yoksa (taramada hiçbir rota öğe bulamadı) yalnızca bildirir.
-    private func queueRoutineRun(_ id: Routine.ID, routes selected: Set<RoutineRoute.ID>) {
+    /// Rutinin verilen rotalarını kuyruğa alır; hiçbiri yoksa (taramada hiçbir rota öğe bulamadı) yalnızca bildirir:
+    /// kurallara uyan öğelerin kopyası zaten hedefteyse bunu, değilse hiçbir rotaya uyan dosya olmadığını söyler.
+    private func queueRoutineRun(_ id: Routine.ID, routes selected: Set<RoutineRoute.ID>, alreadyInDestination: Bool = false) {
         guard var routine = routine(id) else { return }
         let routes = routine.routes.filter { selected.contains($0.id) }
         for route in routes {
@@ -1049,7 +1057,7 @@ final class AppModel {
         saveRoutines()
         save()
         if routes.isEmpty {
-            showToast(t(.toastRoutineNothingMatched, routine.name), systemImage: "tray")
+            showNothingToDo(routine.name, alreadyInDestination: alreadyInDestination)
         } else {
             showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
         }
@@ -1374,14 +1382,15 @@ final class AppModel {
         }
         showToast(t(.toastRoutineScanning, routine.name), systemImage: "magnifyingglass")
         let sent = added, routineID = routine.id, routineName = routine.name
-        scanRoutine(routineID, candidates) { [weak self] work in
-            self?.queueSentItems(sent.indices.filter(work.contains).map { sent[$0] }, routineID: routineID, routineName: routineName)
+        scanRoutine(routineID, candidates) { [weak self] work, alreadyInDestination in
+            self?.queueSentItems(sent.indices.filter(work.contains).map { sent[$0] }, routineID: routineID, routineName: routineName,
+                                 alreadyInDestination: alreadyInDestination)
         }
         return nil
     }
 
     /// Rutine gönderilen öğelerin işlerini kuyruğa alır; iş yoksa (seçilenlerden hiçbiri bir rotaya uymadı) yalnızca bildirir.
-    private func queueSentItems(_ added: [TransferJob], routineID: Routine.ID, routineName: String) {
+    private func queueSentItems(_ added: [TransferJob], routineID: Routine.ID, routineName: String, alreadyInDestination: Bool = false) {
         guard routine(routineID) != nil else { return }
         var added = added
         // Birden çok iş (rota ya da klasör) varsa "Taşı" hepsi bitince taşır.
@@ -1392,11 +1401,20 @@ final class AppModel {
         jobs += added
         save()
         if added.isEmpty {
-            showToast(t(.toastRoutineNothingMatched, routineName), systemImage: "tray")
+            showNothingToDo(routineName, alreadyInDestination: alreadyInDestination)
         } else {
             showToast(t(.toastRoutineQueued), systemImage: "play.circle.fill")
         }
         scheduleNext()
+    }
+
+    /// İş açmayan rutin çalıştırmasının bildirimi: kopyaları zaten hedefte olan öğeler "uymuyor" diye bildirilmez.
+    private func showNothingToDo(_ routineName: String, alreadyInDestination: Bool) {
+        if alreadyInDestination {
+            showToast(t(.toastRoutineAlreadyInDestination, routineName), systemImage: "checkmark.circle")
+        } else {
+            showToast(t(.toastRoutineNothingMatched, routineName), systemImage: "tray")
+        }
     }
 
     /// Çakışma kararlarını kaydeder ve işi yeniden sıraya alır. `remember` verilirse karar işin (rutin işinde rutinin)

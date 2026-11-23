@@ -169,6 +169,43 @@ struct RoutineAppTests {
         #expect(fixture.read("Foto/foto.heic") == "foto")
     }
 
+    /// Kurallara uyan öğenin birebir kopyası hedeflerde duruyorsa rutin iş açmaz ve bunu "uymuyor" diye değil "zaten
+    /// hedefte" diye bildirir (çalıştırmada da, Finder'dan gönderilen öğede de); kopya bir hedeften kalkınca yalnızca o
+    /// rotanın işi açılır.
+    @Test func copiesAlreadyInDestinationAreNamed() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        await model.refreshEngine()
+        try fixture.write("Gelen/fatura.txt", "fatura")
+        try fixture.write("Arsiv/El_11_26.txt", "fatura")
+        try fixture.write("Kutu/El_11_26.txt", "fatura")
+        func route(_ folder: String) -> RoutineRoute {
+            RoutineRoute(source: fixture.url("Gelen"), destination: fixture.url(folder), rules: RuleGroup(conditions: [
+                RuleCondition(attribute: .fileExtension, op: .equals, value: "txt"),
+                RuleCondition(attribute: .inDestination, op: .isFalse),
+            ]))
+        }
+        let routine = Routine(name: "Gelen", routes: [route("Arsiv"), route("Kutu")])
+        #expect(model.saveRoutine(routine) == nil)
+        let already = fixture.settings.t(.toastRoutineAlreadyInDestination, "Gelen")
+        #expect(already != fixture.settings.t(.toastRoutineNothingMatched, "Gelen"))
+        #expect(model.runRoutine(routine.id) == nil)
+        await model.waitUntilIdle()
+        #expect(model.toast?.message == already && model.jobs(for: routine.id).isEmpty)
+        model.toast = nil
+        #expect(model.runRoutine(routine.id, on: [fixture.url("Gelen/fatura.txt")]) == nil)
+        await model.waitUntilIdle()
+        #expect(model.toast?.message == already && model.jobs(for: routine.id).isEmpty)
+
+        try FileManager.default.removeItem(at: fixture.url("Kutu/El_11_26.txt"))
+        #expect(model.runRoutine(routine.id) == nil)
+        await model.waitUntilIdle()
+        let jobs = model.jobs(for: routine.id)
+        #expect(jobs.count == 1 && jobs.first?.destination == fixture.url("Kutu") && jobs.first?.status == .finished)
+        #expect(fixture.read("Kutu/fatura.txt") == "fatura")
+    }
+
     @Test func previewRouteAndShortcuts() async throws {
         let fixture = try makeFixture()
         defer { fixture.cleanUp() }

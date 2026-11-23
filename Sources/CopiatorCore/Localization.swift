@@ -360,7 +360,7 @@ public enum LKey: String, CaseIterable, Sendable {
     case routineSave, routineSaveRun, routineRun, routineCopyName, routineDelete
     case routineDeleteConfirmTitle, routineDeleteConfirmMessage, routineDeleteButton
     case routineLastRun, routineNeverRun, routineJobs, routineNoJobs, toastRoutineQueued, toastRoutineSaved, logRoutineRun
-    case toastRoutineScanning, toastRoutineNothingMatched
+    case toastRoutineScanning, toastRoutineNothingMatched, toastRoutineAlreadyInDestination
     case routineSampleTitle, routineSamplePlaceholder, routineSampleMatches, routineSampleNoMatch, routineSampleNote
     case detailRoutine, detailRules
     case intentRunRoutineTitle, intentRunRoutineDescription, intentRoutineParameter, intentRoutineTypeName

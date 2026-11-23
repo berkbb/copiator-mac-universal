@@ -632,6 +632,7 @@
 "toastRoutineQueued" = "Rutină pusă în coadă";
 "toastRoutineScanning" = "Se scanează „%@”…";
 "toastRoutineNothingMatched" = "„%@”: niciun fișier nu se potrivește cu vreo rută";
+"toastRoutineAlreadyInDestination" = "„%@”: fișierele care se potrivesc sunt deja în destinație";
 "toastRoutineSaved" = "Rutină salvată";
 "logRoutineRun" = "Rutina „%@” a fost rulată.";
 "routineSampleTitle" = "Încearcă";
