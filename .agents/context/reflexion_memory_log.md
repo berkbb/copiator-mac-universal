@@ -292,3 +292,10 @@
 - **Solution:** the binary was replaced by a fresh copy of itself (`cp` to a new file, then `mv` over the old one): same SHA-256 as `Vendor/rsync/SOURCE.txt`, valid ad-hoc signature, nothing for git to record. The three tests passed and the full suite passed (374 and 150 tests).
 - **Decision:** the user found the `-x com.apple.provenance` filter too much for a problem seen only in the test environment, so the engine's arguments are unchanged (deferred, not rejected). Reconsider it if the stamp returns or a user reports snapshots that take the space of full copies.
 - **Not known:** why this file became tracked while the installed app's rsync, which carries the same attribute, does not stamp; and how a copy installed from a downloaded disk image behaves.
+
+## Episode 67: Measure Before Optimizing the Rule Scan
+- **Context:** after Episode 65 three more scan costs were read from the code (folding the whole text for every content condition, walking subfolders a depth rule excludes, hashing the source once per route for "copy at the destination") and the user asked for them to be handled (2026-11-23).
+- **Evidence:** a probe built from the core sources ran the 16-route bill routine (252 content conditions) over 75 archived PDFs: 4.58 s; with the text folded once per file 3.18 s; the matched files were identical in both runs and identical to the engine before Episode 65. SHA-256 of all 75 PDFs (37 MB) took 63 ms.
+- **Solution & Guardrail:** `RuleItem.foldedTextContent` and `ContentReader.containsFolded`; `RuleEvaluator.maxDepth` with pruning in `RuleScanner` only when every rule set has a limit (`depthLimitPrunesDeeperFolders`). The source hash was left alone because it does not matter at that size.
+- **Left as designed:** `ArchiveSearch` asks Spotlight once per search before walking the archive; on an indexed volume that replaces reading every file, so it is not made lazy. A search text with many I/ı/İ/i letters still pays for the expanded query (Episode 21).
+- **Not measured:** the depth pruning was tested for correctness, not timed on a large Downloads tree.

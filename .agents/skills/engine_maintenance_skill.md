@@ -15,7 +15,7 @@ Keeps the bundled rsync reproducible, dependency-free and compatible with the pa
 ```bash
 ./Scripts/update-rsync.sh check
 ./Scripts/update-rsync.sh install            # → Vendor/rsync (downloads tarball, SHA-256, builds, verifies)
-./Scripts/build-rsync.sh --tag v3.5.1        # rebuild from the git tag (needs autoconf)
+./Scripts/build-rsync.sh --tag v3.5.2        # rebuild from the git tag (needs autoconf)
 ```
 - `Vendor/rsync/SOURCE.txt` must record version, tag, commit (or tarball SHA-256), URL, binary SHA-256, archs, configure flags and dependencies.
 - Dependencies must be `/usr/lib` only (`otool -L -arch all`). Capabilities must include `ACLs`, `xattrs` and `iconv`.

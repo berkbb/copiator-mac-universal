@@ -66,7 +66,7 @@ Before changing a hub, run `graphify affected "<node>"` to see what depends on i
 | `Localization.swift` | `AppLanguage`, `StringTable` (`resultMessage`, `logText`), `LKey` | Localization engine and keys |
 | `Snapshots.swift` | `SnapshotOptions`, `SnapshotStore` (`prepare`, `plan`, `apply`, `finalize`, `updateLatestLink`, `retained`, `prune`, `removeTree`) | Dated snapshot folders, `.partial` resume, `Latest` link, retention and pruning |
 | `Rules.swift` | `RuleMatch`, `RuleAttribute` (basic/advanced, `valueKind`, `operators`, `units`), `RuleOperator` (`input(for:)`), `RuleUnit`, `FileKind`, `RuleCondition` (`starting`), `RuleGroup` (`problems`, `allConditions`, `maxDepth`) | Finder-style rule model |
-| `RuleEvaluation.swift` | `RuleItem` (lazy metadata), `MediaInfo` (`pixels`), `RuleEvaluator` (`regexStepBudget`, `RunawayRegex`, `runawayPattern`), `RuleScanner` (async), `Spotlight` | Evaluation, metadata reading, source scanning |
+| `RuleEvaluation.swift` | `RuleItem` (lazy metadata), `MediaInfo` (`pixels`), `RuleEvaluator` (`regexStepBudget`, `RunawayRegex`, `runawayPattern`), `RuleScanner` (async), `SpotlightLookup` (per-scan lazy cache), `Spotlight` | Evaluation, metadata reading, source scanning |
 | `Placement.swift` | `RoutePlacement` (`target(for:date:destination:folder:)`, `renderName`, `component`, `folderPresets`, `nameFixes`, `askFolder`, `learnedFolders`), `NameFix` (`pieces`, `apply`, `presets`), `PlacementDateSource`, `PlacementToken` (`addTarget`), `PlacementStaging`, `PlacementDate`, `ExtendedAttributes` | Folder and name templates, naming modes, link staging tree |
 | `PlacementDecisions.swift` | `PlacementReport`, `PlacementResolution` (`clean`), `PlacementMemory` (`key`), `PlacementQuestions` (`plan`, `DecisionNeeded`) | Suggested placement: ask, remember, resolve |
 | `ContentReader.swift` | `ContentReader` (`text`, `contains`, `fold`), `TextDate` (`find`) | PDF and plain-text reading, dates in text |
@@ -93,7 +93,7 @@ Before changing a hub, run `graphify affected "<node>"` to see what depends on i
 | File | Primary Symbols |
 | :--- | :--- |
 | `CopiatorApp.swift` | `CopiatorApp`, `AppDelegate`, `AppCommands` |
-| `AppModel.swift` | `AppModel`, `EngineStatus`, `UpdateState`, `AppUpdateState`, `OperationState`, `JobFilter`, `NewJobRequest`, `VerifyPresentation`, `AppLinks`, `AppInfo`, `WindowID`, `SnapshotBrowserRequest`, `IntegrityRequest`, `IntegrityProgress`, `IntegrityOutcome`, `CancelFlag`, `DuplicatesRequest`, `RoutineImportRequest`, `handleNotice`, `backUpNow`, `repairCorrupted`, `ejectIdleDisks` |
+| `AppModel.swift` | `AppModel`, `SidebarItem` (`home`, filter, routine), `EngineStatus`, `UpdateState`, `AppUpdateState`, `OperationState`, `JobFilter`, `NewJobRequest`, `VerifyPresentation`, `AppLinks`, `AppInfo`, `WindowID`, `SnapshotBrowserRequest`, `IntegrityRequest`, `IntegrityProgress`, `IntegrityOutcome`, `CancelFlag`, `DuplicatesRequest`, `RoutineImportRequest`, `handleNotice`, `backUpNow`, `repairCorrupted`, `ejectIdleDisks` |
 | `AppSettings.swift` | `AppSettings`, `AppAppearance`, `KeyboardShortcutData`, `ShortcutAction` |
 | `FinderServices.swift` | `FinderServices.backUp` |
 | `Intents.swift` | `IntentTarget`, `JobEntity`, `JobEntityQuery`, `RunJobIntent`, `PauseAllJobsIntent`, `ResumeAllJobsIntent`, `CopiatorShortcuts`, `AppModel.runFromShortcut` |
