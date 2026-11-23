@@ -38,8 +38,11 @@ public enum RoutineScan {
     /// okunamayan klasör) da döner: hatayı iş kendi çalıştırmasında bildirir. İptal edilirse `CancellationError` atılır.
     /// - Parameter sandboxHome: Motor kum havuzunda çalışıyorsa ev klasörü; kum havuzunun okutmadığı kişisel klasörler
     ///   motordaki gibi taranmaz (bkz. `RsyncEngine.prepareRules`).
+    /// - Parameter ignoringDestinationCopies: "Hedefte kopyası var" ölçütü hedefte hiç kopya yokmuş gibi değerlendirilir
+    ///   (bkz. `matchesAlreadyInDestination`).
     public static func candidatesWithWork(
-        _ candidates: [Candidate], sandboxHome: URL?, now: Date = Date(), isCancelled: () -> Bool = { false }
+        _ candidates: [Candidate], sandboxHome: URL?, now: Date = Date(), ignoringDestinationCopies: Bool = false,
+        isCancelled: () -> Bool = { false }
     ) async throws -> Set<Int> {
         var work = Set(candidates.indices.filter { !canScan(candidates[$0]) })
         // Aynı kök, aynı atlananlar ve aynı seçili öğeler tek geçişte taranır; sıra korunur.
@@ -69,7 +72,9 @@ public enum RoutineScan {
             let indices = members[walk] ?? []
             guard let first = indices.first else { continue }
             let sets = indices.compactMap { index in
-                candidates[index].options.rules.map { RuleScanner.RuleSet(rules: $0, destination: candidates[index].destination) }
+                candidates[index].options.rules.map {
+                    RuleScanner.RuleSet(rules: $0, destination: ignoringDestinationCopies ? nil : candidates[index].destination)
+                }
             }
             do {
                 let results = try await RuleScanner.scan(
@@ -86,5 +91,19 @@ public enum RoutineScan {
             }
         }
         return work
+    }
+
+    /// Hiçbir adayın işi çıkmadığında nedeni ayırt eder: kurallara uyan ama birebir kopyası hedefte durduğu için alınmayan
+    /// öğe var mı? "Hedefte kopyası var" ölçütünü kullanan taranabilir adaylar, hedefte hiç kopya yokmuş gibi yeniden
+    /// taranır; o zaman işi çıkan aday varsa öğeleri eleyen yalnızca hedefteki kopyalarıdır.
+    public static func matchesAlreadyInDestination(
+        _ candidates: [Candidate], sandboxHome: URL?, now: Date = Date(), isCancelled: () -> Bool = { false }
+    ) async throws -> Bool {
+        let checked = candidates.filter { candidate in
+            canScan(candidate) && candidate.options.rules?.allConditions.contains { $0.attribute == .inDestination } == true
+        }
+        guard !checked.isEmpty else { return false }
+        return try await !candidatesWithWork(checked, sandboxHome: sandboxHome, now: now, ignoringDestinationCopies: true,
+                                             isCancelled: isCancelled).isEmpty
     }
 }

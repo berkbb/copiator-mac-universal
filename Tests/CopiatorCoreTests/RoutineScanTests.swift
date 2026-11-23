@@ -46,3 +46,35 @@ import Testing
     #expect(candidates.map(RoutineScan.canScan) == [true, true, false, false, false, true, true, true])
     #expect(try await RoutineScan.candidatesWithWork(candidates, sandboxHome: nil) == [0, 2, 3, 4, 7])
 }
+
+/// İş çıkmayan taramanın nedeni ayırt edilir: kurallara uyan ama birebir kopyası hedefte duran öğe "zaten hedefte"
+/// sayılır; kurallara hiç uymayan öğe ve "hedefte kopyası var" ölçütünü kullanmayan aday sayılmaz.
+@Test func matchesWhoseCopiesAreInTheDestinationAreToldApart() async throws {
+    let w = try Workspace("CopiatorRoutineScan")
+    try w.write("Gelen/fatura.txt", "ENERJİSA fatura")
+    try w.write("Gelen/not.txt", "not")
+    try w.write("Arsiv/2026/El_11_26.txt", "ENERJİSA fatura")
+    try w.mkdir("Bos")
+    func candidate(_ text: String, destination: String, notInDestination: Bool = true, selected: String) -> RoutineScan.Candidate {
+        var options = CopyOptions()
+        var conditions = [RuleCondition(attribute: .content, op: .contains, value: text)]
+        if notInDestination { conditions.append(RuleCondition(attribute: .inDestination, op: .isFalse)) }
+        options.rules = RuleGroup(conditions: conditions)
+        options.selectedItems = [selected]
+        return RoutineScan.Candidate(source: w.url("Gelen"), destination: w.url(destination), options: options)
+    }
+    // Kopyası arşivde (başka adla, alt klasörde): iş yok, neden "zaten hedefte".
+    let archived = [candidate("ENERJİSA", destination: "Arsiv", selected: "fatura.txt")]
+    #expect(try await RoutineScan.candidatesWithWork(archived, sandboxHome: nil).isEmpty)
+    #expect(try await RoutineScan.matchesAlreadyInDestination(archived, sandboxHome: nil))
+    // Kopyası olmayan hedef: iş var.
+    let fresh = [candidate("ENERJİSA", destination: "Bos", selected: "fatura.txt")]
+    #expect(try await RoutineScan.candidatesWithWork(fresh, sandboxHome: nil) == [0])
+    // Kurallara uymayan öğe ve ölçütü kullanmayan aday "zaten hedefte" değildir.
+    let unrelated = [
+        candidate("ENERJİSA", destination: "Arsiv", selected: "not.txt"),
+        candidate("ASKİ", destination: "Arsiv", notInDestination: false, selected: "fatura.txt"),
+    ]
+    #expect(try await RoutineScan.candidatesWithWork(unrelated, sandboxHome: nil).isEmpty)
+    #expect(try await RoutineScan.matchesAlreadyInDestination(unrelated, sandboxHome: nil) == false)
+}
