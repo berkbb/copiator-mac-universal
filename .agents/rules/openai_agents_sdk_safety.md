@@ -1,9 +1,9 @@
 # OpenAI Agents SDK Guardrails & Tool Safety Standard (`openai_agents_sdk_safety.md`)
 
 > **Upstream Source:** <https://github.com/openai/openai-agents-python>
-> **Version / Date:** 2026 Stable
-> **Last Reviewed:** 2026-11-04
-> **Change Summary:** 2026-11-04: rewritten from the 2026-11-03 standards set (formerly `openai_tool_calling_safety.md`), whose file for this standard was last checked upstream on 2026-10-31 and carries no upstream summary; no new fetch, so none is added; Copiator requirements rewritten; the missing fail-closed check for `sandbox-exec` was recorded as a known gap and closed the same day (roadmap 9l, by the user's decision).
+> **Version / Date:** GitHub release `v0.25.0` (2026-11-18); newest pre-release `v1.0.0-alpha.1` (2026-11-20)
+> **Last Reviewed:** 2026-11-04 (version line checked upstream on 2026-11-23)
+> **Change Summary:** 2026-11-23: the placeholder "2026 Stable" replaced by the releases read on 2026-11-23; versions only, the upstream summary is still to be added. 2026-11-04: rewritten from the 2026-11-03 standards set (formerly `openai_tool_calling_safety.md`), whose file for this standard was last checked upstream on 2026-10-31 and carries no upstream summary; no new fetch, so none is added; Copiator requirements rewritten; the missing fail-closed check for `sandbox-exec` was recorded as a known gap and closed the same day (roadmap 9l, by the user's decision).
 
 ---
 
