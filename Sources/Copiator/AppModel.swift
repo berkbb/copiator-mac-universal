@@ -168,8 +168,9 @@ struct CleanupRequest: Identifiable {
     var destination: URL?
 }
 
-/// Kenar çubuğunun seçimi: bir iş süzgeci ya da bir rutin.
+/// Kenar çubuğunun seçimi: ana ekran, bir iş süzgeci ya da bir rutin.
 enum SidebarItem: Hashable {
+    case home
     case filter(JobFilter)
     case routine(Routine.ID)
 }
@@ -237,7 +238,12 @@ final class AppModel {
 
     private(set) var jobs: [TransferJob] = []
     var selection: Set<TransferJob.ID> = []
-    var filter: JobFilter = .all
+    /// Bir süzgeç seçmek iş listesini gösterir.
+    var filter: JobFilter = .all { didSet { showsHome = false } }
+    /// Kenar çubuğunda Ana Ekran seçili: uygulama onunla açılır ve iş olsa da olmasa da karşılama ekranı gösterilir.
+    var showsHome = true
+    /// Karşılama ekranı görünüyor (bir rutin seçiliyken onun ayrıntısı görünür).
+    var isHomeVisible: Bool { showsHome && selectedRoutineID == nil }
     /// Kopyalama rutinleri (kenar çubuğundaki kütüphane).
     private(set) var routines: [Routine] = []
     /// Kenar çubuğunda seçili rutin (yoksa iş listesi görünür).
@@ -291,13 +297,17 @@ final class AppModel {
     var integrityRepairResults: [String: ArchiveIntegrity.RepairReport] = [:]
     @ObservationIgnored private var repairFlags: [String: CancelFlag] = [:]
 
-    /// Kenar çubuğunun seçimi: süzgeç ya da rutin.
+    /// Kenar çubuğunun seçimi: ana ekran, süzgeç ya da rutin.
     var sidebarSelection: SidebarItem {
-        get { selectedRoutineID.map(SidebarItem.routine) ?? .filter(filter) }
+        get { selectedRoutineID.map(SidebarItem.routine) ?? (showsHome ? .home : .filter(filter)) }
         set {
             switch newValue {
+            case .home:
+                showsHome = true
+                selectedRoutineID = nil
             case .filter(let filter):
                 self.filter = filter
+                showsHome = false
                 selectedRoutineID = nil
             case .routine(let id):
                 selectedRoutineID = id
@@ -1644,6 +1654,8 @@ final class AppModel {
         let job = TransferJob(source: source, destination: destination, options: options)
         jobs.append(job)
         selection = [job.id]
+        // Eklenen iş görünsün: ana ekrandan iş listesine geçilir (Ana Ekran kenar çubuğunda kalır).
+        showsHome = false
         save()
         showToast(t(.toastJobAdded), systemImage: "plus.circle.fill")
         refreshShortcutParameters()

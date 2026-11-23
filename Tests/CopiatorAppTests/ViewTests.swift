@@ -136,6 +136,9 @@ struct ViewRenderTests {
             model.filter = filter
             render(ContentView().environment(model).environment(fixture.settings))
         }
+        // İş varken de Ana Ekran: karşılama ekranı iş listesinin yerine çizilir.
+        model.sidebarSelection = .home
+        render(ContentView().environment(model).environment(fixture.settings), name: "home-with-jobs")
     }
 
     @Test func sheetsAndSettingsRender() throws {

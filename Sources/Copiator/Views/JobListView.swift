@@ -9,7 +9,10 @@ struct SidebarView: View {
 
     var body: some View {
         @Bindable var model = model
-        List(selection: Binding<SidebarItem?>(get: { model.sidebarSelection }, set: { model.sidebarSelection = $0 ?? .filter(.all) })) {
+        List(selection: Binding<SidebarItem?>(get: { model.sidebarSelection }, set: { model.sidebarSelection = $0 ?? .home })) {
+            // Ana ekran her zaman erişilebilir: iş olsa da olmasa da karşılama ekranını gösterir.
+            Label(settings.t(.sidebarHome), systemImage: "house")
+                .tag(SidebarItem.home)
             Section(settings.t(.sidebarQueue)) {
                 ForEach(JobFilter.allCases) { filter in
                     Label(settings.t(filter.titleKey), systemImage: filter.systemImage)
@@ -59,7 +62,7 @@ struct SidebarView: View {
         .safeAreaInset(edge: .bottom) {
             // "rsync hazır" yalnızca karşılama ekranında görünür; kenar çubuğu yalnızca bir sorun (bulunamadı, yanıt
             // vermiyor, kısıtlı kip) olduğunda ve karşılama ekranı görünmüyorken uyarır.
-            if !model.jobs.isEmpty, needsAttention {
+            if !model.isHomeVisible, needsAttention {
                 EngineStatusView()
                     .font(.caption)
                     .padding(10)

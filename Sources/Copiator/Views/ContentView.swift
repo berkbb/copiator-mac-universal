@@ -22,7 +22,7 @@ struct ContentView: View {
             ZStack {
                 if let id = model.selectedRoutineID, let routine = model.routine(id) {
                     RoutineDetailView(routine: routine)
-                } else if model.jobs.isEmpty {
+                } else if model.isHomeVisible {
                     WelcomeView()
                         .transition(.opacity)
                 } else {
@@ -30,7 +30,7 @@ struct ContentView: View {
                         .transition(.opacity)
                 }
             }
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: model.jobs.isEmpty)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: model.isHomeVisible)
             // Bildirim ya da Tam Disk Erişimi izni gerekiyorsa: neden ve Sistem Ayarları düğmesi.
             .safeAreaInset(edge: .top, spacing: 0) { PermissionBanners() }
             .inspector(isPresented: $model.isInspectorVisible) {

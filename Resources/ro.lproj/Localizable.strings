@@ -40,6 +40,7 @@
 "toolbarHoldQueue" = "Pune coada în așteptare";
 "toolbarReleaseQueue" = "Pornește coada";
 "queueHeldNotice" = "Coada este în așteptare: lucrările în așteptare nu pornesc.";
+"sidebarHome" = "Acasă";
 "sidebarQueue" = "Coadă";
 "filterAll" = "Toate lucrările";
 "filterActive" = "Active";

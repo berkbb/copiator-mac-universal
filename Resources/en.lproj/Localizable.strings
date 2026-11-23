@@ -40,6 +40,7 @@
 "toolbarHoldQueue" = "Hold Queue";
 "toolbarReleaseQueue" = "Start Queue";
 "queueHeldNotice" = "The queue is on hold: waiting jobs will not start.";
+"sidebarHome" = "Home";
 "sidebarQueue" = "Queue";
 "filterAll" = "All Jobs";
 "filterActive" = "Active";

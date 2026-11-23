@@ -40,6 +40,7 @@
 "toolbarHoldQueue" = "Kuyruğu Beklet";
 "toolbarReleaseQueue" = "Kuyruğu Başlat";
 "queueHeldNotice" = "Kuyruk bekletiliyor: bekleyen işler başlamaz.";
+"sidebarHome" = "Ana Ekran";
 "sidebarQueue" = "Kuyruk";
 "filterAll" = "Tüm İşler";
 "filterActive" = "Etkin";

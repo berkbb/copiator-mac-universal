@@ -84,7 +84,7 @@ public enum LKey: String, CaseIterable, Sendable {
     case toolbarNewJob, toolbarResume, toolbarPause, toolbarVerify, toolbarRemove, toolbarInspector
     case toolbarHoldQueue, toolbarReleaseQueue, queueHeldNotice
     // Kenar çubuğu
-    case sidebarQueue, filterAll, filterActive, filterPaused, filterFinished, filterFailed, emptyFilter
+    case sidebarHome, sidebarQueue, filterAll, filterActive, filterPaused, filterFinished, filterFailed, emptyFilter
     // Karşılama
     case welcomeTitle, welcomeSubtitle, welcomeDropHint, welcomeFootnote
     // Motor durumu
