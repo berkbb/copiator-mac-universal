@@ -5,7 +5,7 @@ A native backup and sync app for macOS 26+, built with SwiftUI and Liquid Glass 
 Copiator copies from a local disk to a local disk (internal, external, USB or network-mounted volumes). The job model and the engine layer are engine-independent, so other engines can be added as new job kinds.
 
 <p align="center">
-  <img src="docs/screenshots/welcome-dark.png" width="800" alt="Copiator welcome screen in English and dark mode, with New Job and New Routine buttons, a drop zone and the rsync 3.5.1 engine status">
+  <img src="docs/screenshots/welcome-dark.png" width="800" alt="Copiator welcome screen in English and dark mode, with New Job and New Routine buttons, a drop zone and the rsync engine status">
 </p>
 
 ## Features
