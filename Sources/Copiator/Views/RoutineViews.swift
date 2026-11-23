@@ -700,9 +700,10 @@ enum RoutineTransferPanels {
     static func chooseImport(model: AppModel, settings: AppSettings) {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
-        panel.allowsMultipleSelection = false
+        // Birden çok rutin dosyası birlikte seçilebilir; hepsi tek sayfada listelenir.
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
-        if panel.runModal() == .OK, let url = panel.url { model.beginRoutineImport(from: url) }
+        if panel.runModal() == .OK, !panel.urls.isEmpty { model.beginRoutineImport(from: panel.urls) }
     }
 }
 
@@ -773,6 +774,14 @@ struct RoutineImportSheet: View {
                         }
                     }
                 }
+            }
+            if !request.unreadable.isEmpty {
+                Label(settings.t(.importUnreadable, request.unreadable.map(OpenSafety.visibleName).joined(separator: ", ")),
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
             }
             ForEach(routines.filter { failures[$0.id] != nil }) { routine in
                 Label(OpenSafety.visibleName(routine.name) + ": " + (failures[routine.id] ?? ""), systemImage: "exclamationmark.triangle.fill")

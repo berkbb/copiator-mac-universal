@@ -1049,6 +1049,7 @@
 "importButton" = "Importă";
 "importDone" = "%ld rutine importate";
 "importInvalid" = "Acest fișier nu este un fișier de rutine Copiator sau este deteriorat.";
+"importUnreadable" = "Fișiere care nu au putut fi citite și au fost lăsate deoparte: %@";
 "importNewer" = "Acest fișier a fost creat de o versiune mai nouă a Copiator; actualizați mai întâi Copiator.";
 "importTooLarge" = "Fișierul este prea mare pentru un fișier de rutine.";
 "importFailedTitle" = "Rutinele nu au putut fi importate";

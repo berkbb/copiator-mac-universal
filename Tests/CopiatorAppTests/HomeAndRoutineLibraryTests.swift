@@ -58,4 +58,31 @@ struct HomeAndRoutineLibraryTests {
         model = fixture.relaunch()
         #expect(model.routines.map(\.name) == ["C", "A", "B"])
     }
+
+    /// Birden çok rutin dosyası birlikte seçilir: hepsi tek sayfada toplanır, aynı adlar sıra numarası alır, okunamayan
+    /// dosya adıyla bildirilir ve ötekilere engel olmaz.
+    @Test func severalRoutineFilesImportTogether() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        #expect(model.saveRoutine(routine("Belgeler", fixture)) == nil)
+        let first = fixture.url("bir.json"), second = fixture.url("iki.json"), broken = fixture.url("bozuk.json")
+        model.exportRoutines(to: first)
+        model.exportRoutines(to: second)
+        try Data("bozuk".utf8).write(to: broken)
+
+        model.beginRoutineImport(from: [first, broken, second])
+        let request = try #require(model.routineImport)
+        #expect(request.routines.map(\.name) == ["Belgeler (2)", "Belgeler (3)"])
+        #expect(request.unreadable == ["bozuk.json"])
+        #expect(model.alert == nil)
+        #expect(model.importRoutines(request.routines).isEmpty)
+        #expect(model.routines.map(\.name) == ["Belgeler", "Belgeler (2)", "Belgeler (3)"])
+        #expect(Set(model.routines.map(\.id)).count == 3)
+
+        // Hiçbiri okunamazsa sayfa açılmaz, nedeni bildirilir.
+        model.routineImport = nil
+        model.beginRoutineImport(from: [broken, broken])
+        #expect(model.routineImport == nil && model.alert?.message == fixture.settings.t(.importInvalid))
+    }
 }

@@ -118,10 +118,12 @@ struct IntegrityRequest: Identifiable {
     var destination: URL
 }
 
-/// İçe aktarılacak rutinler (dosyadan okunmuş, yeni kimlikli).
+/// İçe aktarılacak rutinler (dosyalardan okunmuş, yeni kimlikli).
 struct RoutineImportRequest: Identifiable {
     let id = UUID()
     var routines: [Routine]
+    /// Seçilen dosyalardan okunamayanların adları (ötekiler yine içe aktarılabilir).
+    var unreadable: [String] = []
 }
 
 /// Bir hedefte yinelenen dosyalar sayfası.
@@ -1146,19 +1148,36 @@ final class AppModel {
     }
 
     /// Bir rutin dosyasını okur ve içe aktarma sayfasını açar; okunamazsa nedenini bildirir.
-    func beginRoutineImport(from url: URL) {
-        do {
-            let data = try Data(contentsOf: url)
-            let read = try RoutineTransfer.read(data, existingNames: Set(routines.map(\.name)))
-            guard !read.isEmpty else { throw RoutineTransfer.Failure.notRoutines }
-            routineImport = RoutineImportRequest(routines: read)
-        } catch RoutineTransfer.Failure.newerVersion {
-            alert = AlertItem(title: t(.importFailedTitle), message: t(.importNewer))
-        } catch RoutineTransfer.Failure.tooLarge {
-            alert = AlertItem(title: t(.importFailedTitle), message: t(.importTooLarge))
-        } catch {
-            alert = AlertItem(title: t(.importFailedTitle), message: t(.importInvalid))
+    func beginRoutineImport(from url: URL) { beginRoutineImport(from: [url]) }
+
+    /// Seçilen rutin dosyalarını okur ve hepsinin rutinlerini tek içe aktarma sayfasında açar. Aynı ad iki dosyada geçse
+    /// de sıra numarası alır. Okunamayan dosyalar sayfada adlarıyla bildirilir; hiçbiri okunamazsa ilkinin nedeni bildirilir.
+    func beginRoutineImport(from urls: [URL]) {
+        var read: [Routine] = []
+        var names = Set(routines.map(\.name))
+        var unreadable: [String] = []
+        var firstFailure: LKey?
+        for url in urls {
+            do {
+                let found = try RoutineTransfer.read(try Data(contentsOf: url), existingNames: names)
+                guard !found.isEmpty else { throw RoutineTransfer.Failure.notRoutines }
+                read += found
+                names.formUnion(found.map(\.name))
+            } catch {
+                unreadable.append(url.lastPathComponent)
+                guard firstFailure == nil else { continue }
+                firstFailure = switch error as? RoutineTransfer.Failure {
+                case .newerVersion: .importNewer
+                case .tooLarge: .importTooLarge
+                default: .importInvalid
+                }
+            }
         }
+        guard !read.isEmpty else {
+            alert = AlertItem(title: t(.importFailedTitle), message: t(firstFailure ?? .importInvalid))
+            return
+        }
+        routineImport = RoutineImportRequest(routines: read, unreadable: unreadable)
     }
 
     /// Rutinleri kaydeder; kaydedilemeyenlerin nedeni (rutin kimliğine göre) döner.

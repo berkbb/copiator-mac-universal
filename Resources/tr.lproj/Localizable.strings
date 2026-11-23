@@ -1049,6 +1049,7 @@
 "importButton" = "İçe Aktar";
 "importDone" = "%ld rutin içe aktarıldı";
 "importInvalid" = "Bu dosya bir Copiator rutin dosyası değil ya da bozuk.";
+"importUnreadable" = "Okunamadığı için dışarıda bırakılan dosyalar: %@";
 "importNewer" = "Bu dosya Copiator'ın daha yeni bir sürümüyle oluşturulmuş; önce Copiator'ı güncelleyin.";
 "importTooLarge" = "Dosya bir rutin dosyası için fazla büyük.";
 "importFailedTitle" = "Rutinler içe aktarılamadı";

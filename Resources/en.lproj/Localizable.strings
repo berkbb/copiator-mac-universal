@@ -1049,6 +1049,7 @@
 "importButton" = "Import";
 "importDone" = "%ld routines imported";
 "importInvalid" = "This file is not a Copiator routines file, or it is damaged.";
+"importUnreadable" = "Files that could not be read and were left out: %@";
 "importNewer" = "This file was made by a newer version of Copiator; update Copiator first.";
 "importTooLarge" = "The file is too large for a routines file.";
 "importFailedTitle" = "Routines could not be imported";

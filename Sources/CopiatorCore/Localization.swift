@@ -338,7 +338,7 @@ public enum LKey: String, CaseIterable, Sendable {
     case duplicatesMore, duplicatesFailed
     // Rutinleri dışa ve içe aktarma
     case menuExportRoutines, menuImportRoutines, menuExportRoutine, exportRoutinesName, exportRoutinesFailed, toastRoutinesExported
-    case importTitle, importNote, importSourceMissing, importDestinationMissing, importRoutes, importButton, importDone, importInvalid
+    case importTitle, importNote, importSourceMissing, importDestinationMissing, importRoutes, importButton, importDone, importInvalid, importUnreadable
     case importNewer, importTooLarge, importFailedTitle
     // Eşitleme rutini (iki yönlü)
     case logSyncPlanned, logSyncDirection, logSyncDone, routineKind, routineKindCopy, routineKindSync, routineKindSyncNote
