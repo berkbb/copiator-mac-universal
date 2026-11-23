@@ -78,3 +78,20 @@ import Testing
     #expect(try await RoutineScan.candidatesWithWork(unrelated, sandboxHome: nil).isEmpty)
     #expect(try await RoutineScan.matchesAlreadyInDestination(unrelated, sandboxHome: nil) == false)
 }
+
+/// Hedefte kopya yokmuş gibi yapılan ikinci tarama hatayla biterse hiçbir şey kanıtlanmış olmaz: "zaten hedefte" denmez.
+/// İlk taramada "hedefte kopyası var" koşulu öğeyi eler ve kaçak düzenli ifadeye sıra gelmez; ikincisinde gelir.
+@Test func aFailedSecondScanDoesNotClaimCopiesInTheDestination() async throws {
+    let w = try Workspace("CopiatorRoutineScan")
+    let text = String(repeating: "a", count: 40) + "b"
+    try w.write("Gelen/uzun.txt", text)
+    try w.write("Arsiv/uzun.txt", text)
+    var options = CopyOptions()
+    options.rules = RuleGroup(conditions: [
+        RuleCondition(attribute: .inDestination, op: .isFalse),
+        RuleCondition(attribute: .content, op: .matchesRegex, value: #"^(a+)+$"#),
+    ])
+    let candidates = [RoutineScan.Candidate(source: w.url("Gelen"), destination: w.url("Arsiv"), options: options)]
+    #expect(try await RoutineScan.candidatesWithWork(candidates, sandboxHome: nil).isEmpty)
+    #expect(try await RoutineScan.matchesAlreadyInDestination(candidates, sandboxHome: nil) == false)
+}

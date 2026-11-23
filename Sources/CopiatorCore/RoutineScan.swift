@@ -87,7 +87,9 @@ public enum RoutineScan {
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                work.formUnion(indices)
+                // Hatayı iş kendi çalıştırmasında bildirir. Hedefte kopya yokmuş gibi yapılan taramada ise hata hiçbir şey
+                // kanıtlamaz: öğelerin kurallara uyduğu bilinmeden "zaten hedefte" denmez.
+                if !ignoringDestinationCopies { work.formUnion(indices) }
             }
         }
         return work
@@ -95,7 +97,8 @@ public enum RoutineScan {
 
     /// Hiçbir adayın işi çıkmadığında nedeni ayırt eder: kurallara uyan ama birebir kopyası hedefte durduğu için alınmayan
     /// öğe var mı? "Hedefte kopyası var" ölçütünü kullanan taranabilir adaylar, hedefte hiç kopya yokmuş gibi yeniden
-    /// taranır; o zaman işi çıkan aday varsa öğeleri eleyen yalnızca hedefteki kopyalarıdır.
+    /// taranır; o zaman işi çıkan aday varsa öğeleri eleyen yalnızca hedefteki kopyalarıdır. Bu ikinci taraması hatayla
+    /// biten aday (ör. ilk taramada sırası gelmeyen kaçak düzenli ifade) sayılmaz.
     public static func matchesAlreadyInDestination(
         _ candidates: [Candidate], sandboxHome: URL?, now: Date = Date(), isCancelled: () -> Bool = { false }
     ) async throws -> Bool {
