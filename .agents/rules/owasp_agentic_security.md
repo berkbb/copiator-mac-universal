@@ -1,9 +1,9 @@
 # OWASP Top 10 for Agentic Applications Standard (`owasp_agentic_security.md`)
 
-> **Upstream Source:** <https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/> (ASI 2026 Edition, published 2025-12-09)
-> **Version / Date:** ASI 2026
-> **Last Reviewed:** 2026-11-04
-> **Change Summary:** 2026-11-04: rewritten from the 2026-11-03 standards set, whose file for this standard was last checked upstream on 2026-10-31 and carries no upstream summary; no new fetch, so none is added; the earlier ASI list, whose names did not match the 2026 edition, was replaced by Copiator safeguards under the category names given in the global `CLAUDE.md`.
+> **Upstream Source:** <https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/> ("OWASP Top 10 for Agentic Applications for 2026", dated 2025-12-09)
+> **Version / Date:** The canonical page shows no version number; the edition is named by its title, "for 2026", and dated December 9, 2025
+> **Last Reviewed:** 2026-11-04 (version line checked upstream on 2026-11-23)
+> **Change Summary:** 2026-11-23: the label "ASI 2026" replaced by the title and date the canonical page shows, read on 2026-11-23; the page itself does not list the ASI01–ASI10 names, which stay as given in the global `CLAUDE.md`; the upstream summary is still to be added. 2026-11-04: rewritten from the 2026-11-03 standards set, whose file for this standard was last checked upstream on 2026-10-31 and carries no upstream summary; no new fetch, so none is added; the earlier ASI list, whose names did not match the 2026 edition, was replaced by Copiator safeguards under the category names given in the global `CLAUDE.md`.
 
 ---
 
