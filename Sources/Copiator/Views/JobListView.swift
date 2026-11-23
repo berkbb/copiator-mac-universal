@@ -43,6 +43,8 @@ struct SidebarView: View {
                             Button(settings.t(.routineDelete), systemImage: "trash", role: .destructive) { model.requestDeleteRoutine(routine.id) }
                         }
                 }
+                // Rutinler sürükleyip bırakarak sıralanır; sıra kaydedilir.
+                .onMove { model.moveRoutines(from: $0, to: $1) }
                 Button {
                     model.beginNewRoutine()
                 } label: {

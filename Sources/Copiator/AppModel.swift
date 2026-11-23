@@ -866,6 +866,12 @@ final class AppModel {
         }
     }
 
+    /// Kenar çubuğunda rutinlerin sırasını değiştirir (sürükle bırak) ve kaydeder.
+    func moveRoutines(from source: IndexSet, to destination: Int) {
+        routines.move(fromOffsets: source, toOffset: destination)
+        saveRoutines()
+    }
+
     func routine(_ id: Routine.ID) -> Routine? { routines.first { $0.id == id } }
 
     /// Bir rutinin kuyruktaki işleri (rota sırasıyla).

@@ -41,4 +41,21 @@ struct HomeAndRoutineLibraryTests {
         model = fixture.relaunch()
         #expect(model.jobs.count == 1 && model.sidebarSelection == .home && model.isHomeVisible)
     }
+
+    /// Rutinler kenar çubuğunda sürüklenerek sıralanır; sıra kaydedilir.
+    @Test func routinesReorderAndKeepTheirOrder() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        var model = fixture.model
+        for name in ["A", "B", "C"] { #expect(model.saveRoutine(routine(name, fixture)) == nil) }
+        #expect(model.routines.map(\.name) == ["A", "B", "C"])
+        model.moveRoutines(from: IndexSet(integer: 2), to: 0)
+        #expect(model.routines.map(\.name) == ["C", "A", "B"])
+        model.moveRoutines(from: IndexSet(integer: 0), to: 3)
+        #expect(model.routines.map(\.name) == ["A", "B", "C"])
+        model.moveRoutines(from: IndexSet([0, 1]), to: 3)
+        #expect(model.routines.map(\.name) == ["C", "A", "B"])
+        model = fixture.relaunch()
+        #expect(model.routines.map(\.name) == ["C", "A", "B"])
+    }
 }
