@@ -7,7 +7,7 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ### Changed
 
-- **A routine says when the matching files are already in the destination.** A run, or a send to the routine, that queues nothing because every matching file has an identical copy in its destination ("a copy exists in the destination" is false) used to report "no files match any route", which read like broken rules. It now reports "the matching files are already in the destination" (`toastRoutineAlreadyInDestination`, `tr`/`en`/`ro`); files that match no route keep the old message. The reason comes from a second pre-scan that treats the destination as holding no copies (`RoutineScan.matchesAlreadyInDestination`) and runs only when nothing was queued. Tests: `matchesWhoseCopiesAreInTheDestinationAreToldApart`, `copiesAlreadyInDestinationAreNamed`.
+- **A routine says when the matching files are already in the destination.** A run, or a send to the routine, that queues nothing because every matching file has an identical copy in its destination ("a copy exists in the destination" is false) used to report "no files match any route", which read like broken rules. It now reports "the matching files are already in the destination" (`toastRoutineAlreadyInDestination`, `tr`/`en`/`ro`); files that match no route keep the old message. The reason comes from a second pre-scan that treats the destination as holding no copies (`RoutineScan.matchesAlreadyInDestination`) and runs only when nothing was queued; if that second scan fails, the old message is kept, because nothing was proven. Tests: `matchesWhoseCopiesAreInTheDestinationAreToldApart`, `aFailedSecondScanDoesNotClaimCopiesInTheDestination`, `copiesAlreadyInDestinationAreNamed`.
 
 ## [1.2.4] — 2026-11-23
 
