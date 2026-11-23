@@ -1,8 +1,10 @@
 # Domain Rules Index & Governance Structure Standard (`about_rules.md`)
 
 > **Scope:** Index of the domain rules and the 42 Core Standards in `.agents/rules/` for Copiator. Every standard has a rule file, except Reflexion, which is served by `.agents/context/reflexion_memory_log.md`. Each file states plainly which parts apply to the app and which apply only to coding agents working on this repository.
-> **Last Reviewed:** 2026-11-07
-> **Change Summary:** 2026-11-07: A2UI v1.0 recorded as current (since 2026-11-06; formerly a release candidate) and the Mistral row updated to the Agents SDK and Managed Agents (public preview), in line with Descarcator's 2026-11-06 source check; Section 5 gets the A2UI and Mistral lines. 2026-11-04: rewritten as the index of every rule file after the standard files were rewritten from the 2026-11-03 standards review; nine outdated file names replaced (see Section 6), the invented reasoning-trace standard removed, and `graphify_knowledge_graph.md` added. 2026-10-21: adopted for `copiator-mac-universal`.
+> **Source:** Project governance index of this repository; the list of standards follows the user's global `CLAUDE.md`.
+> **Version / Date:** No version number; revisions are dated in the change summary (current: 2026-11-23)
+> **Last Reviewed:** 2026-11-23
+> **Change Summary:** 2026-11-23: source and version lines added to this file; the OpenAI Agents SDK, Purple Llama and OWASP rows carry what their upstream pages showed on 2026-11-23. 2026-11-07: A2UI v1.0 recorded as current (since 2026-11-06; formerly a release candidate) and the Mistral row updated to the Agents SDK and Managed Agents (public preview), in line with Descarcator's 2026-11-06 source check; Section 5 gets the A2UI and Mistral lines. 2026-11-04: rewritten as the index of every rule file after the standard files were rewritten from the 2026-11-03 standards review; nine outdated file names replaced (see Section 6), the invented reasoning-trace standard removed, and `graphify_knowledge_graph.md` added. 2026-10-21: adopted for `copiator-mac-universal`.
 
 ---
 
@@ -22,9 +24,9 @@
 | [`github_spec_kit.md`](github_spec_kit.md) | GitHub Spec Kit 1.2.6 (`specify-cli`) | Spec-Driven Development lifecycle and verification gates. |
 | [`graphify_knowledge_graph.md`](graphify_knowledge_graph.md) | Graphify Labs (`graphifyy` 0.9.101) | Local AST knowledge graph (`.graphifyrc`, `.graphifyignore`, `graphify-out/`, `code_graph_wiki.md`), project skill and hooks. |
 | [`constitutional_principles.md`](constitutional_principles.md) | Anthropic Claude Constitution (January 2026 revision) | Source never modified by rsync, confirmed `--delete`, same-name decisions, verified moves to the Trash, no bypass of security controls. |
-| [`openai_agents_sdk_safety.md`](openai_agents_sdk_safety.md) | OpenAI Agents SDK Guardrails & Tool Safety | Pre-execution tripwires (`RsyncCommand`, `assertSafe`, overlap and space checks, same-name dry run, sandbox) and post-execution validation (`RsyncOutcome`, verify after copy); the sandbox fails closed without `sandbox-exec`. |
-| [`meta_purple_llama_safety.md`](meta_purple_llama_safety.md) | Meta Purple Llama Agentic Safety | Personal-data read blocks, prompt injection through files, deceptive names, resource limits. |
-| [`owasp_agentic_security.md`](owasp_agentic_security.md) | OWASP Top 10 for Agentic Applications (ASI 2026) | Argument-array processes, sandbox exec and network limits, `update-rsync.sh` supply-chain checks, Ed25519 release signing. |
+| [`openai_agents_sdk_safety.md`](openai_agents_sdk_safety.md) | OpenAI Agents SDK `v0.25.0` (guardrails and tool safety) | Pre-execution tripwires (`RsyncCommand`, `assertSafe`, overlap and space checks, same-name dry run, sandbox) and post-execution validation (`RsyncOutcome`, verify after copy); the sandbox fails closed without `sandbox-exec`. |
+| [`meta_purple_llama_safety.md`](meta_purple_llama_safety.md) | Meta Purple Llama (no releases; `main` as of 2026-11-20) | Personal-data read blocks, prompt injection through files, deceptive names, resource limits. |
+| [`owasp_agentic_security.md`](owasp_agentic_security.md) | OWASP Top 10 for Agentic Applications for 2026 (2025-12-09) | Argument-array processes, sandbox exec and network limits, `update-rsync.sh` supply-chain checks, Ed25519 release signing. |
 | [`apple_app_intents_agent.md`](apple_app_intents_agent.md) | Apple App Intents & Native macOS Integration | On-device execution and AI, consented update checks, loopback-only local models, thin App Intents and Finder services. |
 
 ## 3. Core Standards Applied to Coding Agents Only
