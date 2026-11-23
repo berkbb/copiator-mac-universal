@@ -1,9 +1,9 @@
 # Meta Purple Llama Agentic Safety Standard (`meta_purple_llama_safety.md`)
 
 > **Upstream Source:** <https://github.com/meta-llama/PurpleLlama> (Llama Guard 4, LlamaFirewall, Prompt Guard 2, CyberSecEval 4)
-> **Version / Date:** 2026 Stable
-> **Last Reviewed:** 2026-11-04
-> **Change Summary:** 2026-11-04: rewritten from the 2026-11-03 standards set (formerly `meta_fair_safety.md`), whose file for this standard was last checked upstream on 2026-10-31 and carries no upstream summary; no new fetch, so none is added; Copiator requirements rewritten.
+> **Version / Date:** The repository has no releases and no tags; default branch `main` at commit `87219c6` (2026-11-20). It holds `Llama-Guard4`, `Llama-Prompt-Guard-2`, `LlamaFirewall`, `CodeShield` and `CybersecurityBenchmarks` (whose README names CyberSecEval 4); the top-level README still describes Llama Guard 3 and CyberSec Eval 2.
+> **Last Reviewed:** 2026-11-04 (version line checked upstream on 2026-11-23)
+> **Change Summary:** 2026-11-23: the placeholder "2026 Stable" replaced by the repository state read on 2026-11-23; versions only, the upstream summary is still to be added. 2026-11-04: rewritten from the 2026-11-03 standards set (formerly `meta_fair_safety.md`), whose file for this standard was last checked upstream on 2026-10-31 and carries no upstream summary; no new fetch, so none is added; Copiator requirements rewritten.
 
 ---
 
