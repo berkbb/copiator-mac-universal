@@ -5,6 +5,10 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+### Changed
+
+- **Routines with "text inside files" rules scan much faster.** The rule scanner no longer asks Spotlight for every content text of every route before it looks at a single file. A file whose text can be read directly (PDF, plain text) is decided from that text alone; Spotlight is asked only for an item whose text cannot be read (Office documents, PDFs without a text layer, locked PDFs), on first need and once per text per scan (`SpotlightLookup`). Measured with a 16-route bill routine (252 content conditions, 26 different texts) on an almost empty Downloads folder: the pre-scan took 52 s before and 0.02 s after; the cost was Spotlight's wildcard queries, which double for every Turkish I/ı/İ/i letter in the text (up to 64 variants). Behavior change: a PDF that has a text layer no longer matches through a word that only Spotlight's index holds. Tests: `spotlightIsAskedOnlyForUnreadableItems`, `scanMatchesReadableFilesWithoutSpotlight`.
+
 ## [1.2.3] — 2026-11-18
 
 ### Added
