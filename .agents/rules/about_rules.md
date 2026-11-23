@@ -4,7 +4,7 @@
 > **Source:** Project governance index of this repository; the list of standards follows the user's global `CLAUDE.md`.
 > **Version / Date:** No version number; revisions are dated in the change summary (current: 2026-11-23)
 > **Last Reviewed:** 2026-11-23
-> **Change Summary:** 2026-11-23: source and version lines added to this file; the OpenAI Agents SDK, Purple Llama and OWASP rows carry what their upstream pages showed on 2026-11-23. 2026-11-07: A2UI v1.0 recorded as current (since 2026-11-06; formerly a release candidate) and the Mistral row updated to the Agents SDK and Managed Agents (public preview), in line with Descarcator's 2026-11-06 source check; Section 5 gets the A2UI and Mistral lines. 2026-11-04: rewritten as the index of every rule file after the standard files were rewritten from the 2026-11-03 standards review; nine outdated file names replaced (see Section 6), the invented reasoning-trace standard removed, and `graphify_knowledge_graph.md` added. 2026-10-21: adopted for `copiator-mac-universal`.
+> **Change Summary:** 2026-11-23: source and version lines added to this file; the OpenAI Agents SDK, Purple Llama and OWASP rows carry what their upstream pages showed on 2026-11-23; Section 7 records why this repository has `engine_maintenance_skill.md` and no `model_trainer_skill.md`. 2026-11-07: A2UI v1.0 recorded as current (since 2026-11-06; formerly a release candidate) and the Mistral row updated to the Agents SDK and Managed Agents (public preview), in line with Descarcator's 2026-11-06 source check; Section 5 gets the A2UI and Mistral lines. 2026-11-04: rewritten as the index of every rule file after the standard files were rewritten from the 2026-11-03 standards review; nine outdated file names replaced (see Section 6), the invented reasoning-trace standard removed, and `graphify_knowledge_graph.md` added. 2026-10-21: adopted for `copiator-mac-universal`.
 
 ---
 
@@ -125,3 +125,7 @@ Each item is recorded in the named file. The global `CLAUDE.md` may need a corre
 | `microsoft_agent_framework.md` | `multi_agent_orchestration.md` |
 | `openai_agents_sdk_safety.md` | `openai_tool_calling_safety.md` |
 | (removed) | an invented reasoning-trace standard with no primary source |
+
+## 7. Skill Files (2026-11-23)
+
+The global `CLAUDE.md` names three example skills: `sentinel_test_skill.md`, `model_trainer_skill.md`, and `snapshot_audit_skill.md`. Copiator trains no model, so this repository has no `model_trainer_skill.md`, and no commit ever contained one. Its third skill is [`engine_maintenance_skill.md`](../skills/engine_maintenance_skill.md), the procedure for the bundled rsync in `Vendor/rsync`. The absence is expected and is not a gap to fill.
