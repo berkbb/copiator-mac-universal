@@ -112,7 +112,7 @@ Before changing a hub, run `graphify affected "<node>"` to see what depends on i
 | `Views/JobOptionsSections.swift` | `VerifyAfterCopyPicker`, `SnapshotSection`, `CountField`, `AutomationSection`, `ExcludePresetsSection`, `PreviewSheet`, `JobHistoryList` |
 | `Views/AdvancedOptionsForm.swift` | `AdvancedOptionsSections`, `CommandPreview`, `PowerStatusBanner`, `SandboxLimitsSection` | Advanced rsync options form, the copyable `rsync …` command, the power banner and the sandbox limits note |
 | `Views/ContentView.swift` | `ContentView`, `OverlayTiming`, `ProgressOverlay`, `ToastView` |
-| `Views/JobListView.swift` | `SidebarView`, `JobListView` (list-wide menu state computed once per redraw), `JobRow`, `StatusBadge`, `JobCommandPreview` (`Equatable`: the rsync command is rebuilt only when the job's paths, options or run count change), `JobDetailView` |
+| `Views/JobListView.swift` | `SidebarView`, `JobListView` (list-wide menu state computed once per redraw), `JobContextMenu` (row menu as its own view; target read on click), `JobRow`, `StatusBadge`, `JobCommandPreview` (`Equatable`: the rsync command is rebuilt only when the job's paths, options or run count change), `JobDetailView` |
 | `Views/NewJobSheet.swift` | `NewJobSheet`, `VerifyResultSheet`, `WelcomeView`, `EngineStatusView` |
 | `Views/SettingsView.swift`, `AboutView.swift`, `LicenseViewerSheet.swift` | Settings tabs, About, `LicenseDocument` |
 
