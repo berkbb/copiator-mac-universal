@@ -45,6 +45,19 @@ struct DiagnosticMaskerTests {
         #expect(masker.text("https://github.com/x 23/24 \"12\"") == "https://github.com/x 23/24 \"12\"")
     }
 
+    /// Bir kez hazırlanan yol listesi (rapor her günlük satırında aynısını kullanır) her çağrıda verilen listeyle aynı
+    /// sonucu verir: yinelenen yollar tek sayılır, uzun yol kısa yoldan önce maskelenir.
+    @Test func preparedKnownPathsMaskLikeTheList() {
+        let paths = ["/Volumes/Dış Disk", "/Volumes/Dış Disk/Fotoğraf Arşivi", "/Volumes/Dış Disk", "/"]
+        let prepared = masker.prepare(paths)
+        #expect(prepared.count == 2)
+        for line in ["Kaynak /Volumes/Dış Disk/Fotoğraf Arşivi bulunamadı", "Hedef /Volumes/Dış Disk dolu", "yol yok"] {
+            let masked = masker.text(line, known: prepared)
+            #expect(masked == masker.text(line, knownPaths: paths))
+            #expect(!masked.contains("Dış") && !masked.contains("Arşivi"))
+        }
+    }
+
     @Test func commandArgumentsHidePathsAndPatterns() {
         #expect(masker.argument("-rltDh") == "-rltDh")
         #expect(masker.argument("--info=progress2") == "--info=progress2")

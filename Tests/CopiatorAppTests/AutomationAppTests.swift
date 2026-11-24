@@ -131,6 +131,8 @@ struct AutomationAppTests {
         let userPaused = try #require(fixture.addJob(options: CopyOptions(copyMode: .contents)))
         let waiting = try #require(fixture.addJob(options: CopyOptions(preservePermissions: true)))
         model.pause([userPaused])
+        // İşler arka planda kaydedilir: dosya okunmadan önce yazma beklenir.
+        model.flushSaves()
         let store = JobStore(url: fixture.url("Destek/jobs.json"))
         var jobs = try store.load()
         let index = try #require(jobs.firstIndex { $0.id == failed })
@@ -302,6 +304,8 @@ struct AutomationAppTests {
 
         fixture.model.toggleQueueHold()
         let id = try #require(fixture.addJob())
+        // İşler arka planda kaydedilir: dosya okunmadan önce yazma beklenir.
+        fixture.model.flushSaves()
         var jobs = try fixture.store.load()
         jobs[0].status = .copying
         try fixture.store.save(jobs)

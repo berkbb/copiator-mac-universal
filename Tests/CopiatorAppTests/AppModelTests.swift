@@ -102,12 +102,16 @@ final class Fixture {
 
     /// Aynı kayıt dosyası ve ayarlarla yeni bir model (uygulamanın yeniden açılması).
     func relaunch() -> AppModel {
+        // İşler arka planda kaydedilir: yeni model eskisinin son kaydını okumalı.
+        model.flushSaves()
         model = AppModel(settings: settings, store: store, sleepReason: "Copiator test \(suiteName)")
         attach(model)
         return model
     }
 
     func cleanUp() {
+        // Sıradaki kayıt silinen klasörü yeniden oluşturmasın.
+        model.flushSaves()
         try? FileManager.default.removeItem(at: workspace)
         testDefaults.remove()
     }
@@ -319,6 +323,8 @@ struct AppModelTests {
         await model.waitUntilIdle()
         model.remove([id])
         #expect(model.job(id) == nil)
+        // İşler arka planda kaydedilir: dosya okunmadan önce yazma beklenir.
+        model.flushSaves()
         #expect(try fixture.store.load().isEmpty)
     }
 
