@@ -316,11 +316,15 @@ struct AppModelTests {
         try fixture.writeLargeFile("Kaynak/buyuk.bin", megabytes: 512)
         let model = fixture.model
         await model.refreshEngine()
+        #expect(!model.hasRemovableJobs)
         let id = try #require(fixture.addJob())
         model.remove([id])
         #expect(model.job(id) != nil)
+        // Yalnızca çalışan iş varken kaldırılabilir iş yoktur (menüler buna göre kapanır).
+        #expect(!model.hasRemovableJobs && model.removableJobs.isEmpty)
         model.pause([id])
         await model.waitUntilIdle()
+        #expect(model.hasRemovableJobs && model.removableJobs.count == 1)
         model.remove([id])
         #expect(model.job(id) == nil)
         // İşler arka planda kaydedilir: dosya okunmadan önce yazma beklenir.
