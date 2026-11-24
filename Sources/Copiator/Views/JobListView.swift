@@ -99,7 +99,10 @@ struct JobListView: View {
                     ForEach(jobs) { job in
                         JobRow(job: job, model: model, settings: settings)
                             .tag(job.id)
-                            .contextMenu { contextMenu(for: job, hasFinished: listState.hasFinished, hasRemovable: listState.hasRemovable) }
+                            .contextMenu {
+                                JobContextMenu(job: job, hasFinished: listState.hasFinished, hasRemovable: listState.hasRemovable,
+                                               model: model, settings: settings)
+                            }
                     }
                     // Sıralama yalnızca tüm işler görünürken anlamlıdır (süzülmüş listede konumlar karışırdı).
                     .onMove(perform: model.filter == .all ? { model.move(from: $0, to: $1) } : nil)
@@ -170,18 +173,31 @@ struct JobListView: View {
         .background(.indigo.opacity(0.08))
         .accessibilityIdentifier("copiator.sleep.bar")
     }
+}
 
-    @ViewBuilder
-    private func contextMenu(for job: TransferJob, hasFinished: Bool, hasRemovable: Bool) -> some View {
-        let ids: Set<TransferJob.ID> = model.selection.contains(job.id) ? model.selection : [job.id]
+/// Bir iş satırının sağ tık menüsü. Ayrı bir görünümdür: liste yeniden çizilirken her satır için yalnızca bu değer
+/// oluşturulur, menünün içeriği (düğmeler, geri alma planı) yalnızca kurulan satırlar için hesaplanır. Liste satırı olduğu
+/// için model ve ayarlar ortamdan değil, açık özelliklerden okunur (bkz. .agents/rules/ui_rules.md).
+struct JobContextMenu: View {
+    let job: TransferJob
+    /// Listede biten ve kaldırılabilir iş var mı (bütün satırlar için aynıdır; liste bir kez hesaplar).
+    let hasFinished: Bool
+    let hasRemovable: Bool
+    let model: AppModel
+    let settings: AppSettings
+
+    var body: some View {
+        // Menünün hedefi düğmeye basılınca okunur: kurulurken okunsaydı her seçim değişikliği kurulu bütün menüleri
+        // yeniden hesaplatırdı.
+        let ids = { model.selection.contains(job.id) ? model.selection : [job.id] }
         if JobQueue.canResume(job) {
-            Button(settings.t(.menuResumeJob), systemImage: "play.fill") { model.resume(ids) }
+            Button(settings.t(.menuResumeJob), systemImage: "play.fill") { model.resume(ids()) }
         }
         if JobQueue.canRunAgain(job) {
-            Button(settings.t(.menuRunAgain), systemImage: "arrow.clockwise") { model.resume(ids) }
+            Button(settings.t(.menuRunAgain), systemImage: "arrow.clockwise") { model.resume(ids()) }
         }
         if JobQueue.canPause(job) {
-            Button(settings.t(.menuPauseJob), systemImage: "pause.fill") { model.pause(ids) }
+            Button(settings.t(.menuPauseJob), systemImage: "pause.fill") { model.pause(ids()) }
         }
         if job.isAwaitingDecision {
             Button(settings.t(.menuResolveConflicts), systemImage: "doc.on.doc") { model.conflictPrompt = ConflictPrompt(id: job.id) }
@@ -216,7 +232,7 @@ struct JobListView: View {
                                destination: job.destination)
         }
         Divider()
-        Button(settings.t(.menuRemoveJob), systemImage: "trash", role: .destructive) { model.remove(ids) }
+        Button(settings.t(.menuRemoveJob), systemImage: "trash", role: .destructive) { model.remove(ids()) }
             .disabled(!JobQueue.canRemove(job))
         Button(settings.t(.menuRemoveFinished), systemImage: "checkmark.circle") { model.removeFinished() }
             .disabled(!hasFinished)
