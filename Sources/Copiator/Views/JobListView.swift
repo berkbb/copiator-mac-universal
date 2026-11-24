@@ -88,6 +88,8 @@ struct JobListView: View {
     var body: some View {
         @Bindable var model = model
         let jobs = model.visibleJobs
+        // Bütün satırların menüsünde aynı olan durumlar bir kez hesaplanır (satır başına iş listesi taranmaz).
+        let listState = (hasFinished: model.jobs.contains { $0.status == .finished }, hasRemovable: model.hasRemovableJobs)
         Group {
             if jobs.isEmpty {
                 ContentUnavailableView(settings.t(model.filter.titleKey), systemImage: model.filter.systemImage,
@@ -97,7 +99,7 @@ struct JobListView: View {
                     ForEach(jobs) { job in
                         JobRow(job: job, model: model, settings: settings)
                             .tag(job.id)
-                            .contextMenu { contextMenu(for: job) }
+                            .contextMenu { contextMenu(for: job, hasFinished: listState.hasFinished, hasRemovable: listState.hasRemovable) }
                     }
                     // Sıralama yalnızca tüm işler görünürken anlamlıdır (süzülmüş listede konumlar karışırdı).
                     .onMove(perform: model.filter == .all ? { model.move(from: $0, to: $1) } : nil)
@@ -170,7 +172,7 @@ struct JobListView: View {
     }
 
     @ViewBuilder
-    private func contextMenu(for job: TransferJob) -> some View {
+    private func contextMenu(for job: TransferJob, hasFinished: Bool, hasRemovable: Bool) -> some View {
         let ids: Set<TransferJob.ID> = model.selection.contains(job.id) ? model.selection : [job.id]
         if JobQueue.canResume(job) {
             Button(settings.t(.menuResumeJob), systemImage: "play.fill") { model.resume(ids) }
@@ -217,9 +219,9 @@ struct JobListView: View {
         Button(settings.t(.menuRemoveJob), systemImage: "trash", role: .destructive) { model.remove(ids) }
             .disabled(!JobQueue.canRemove(job))
         Button(settings.t(.menuRemoveFinished), systemImage: "checkmark.circle") { model.removeFinished() }
-            .disabled(!model.jobs.contains { $0.status == .finished })
+            .disabled(!hasFinished)
         Button(settings.t(.menuRemoveAll), systemImage: "trash.slash", role: .destructive) { model.requestRemoveAll() }
-            .disabled(model.removableJobs.isEmpty)
+            .disabled(!hasRemovable)
     }
 }
 
@@ -384,6 +386,26 @@ struct StatusBadge: View {
     }
 }
 
+/// Ayrıntılar panelindeki rsync komutu. Komutu kurmak diske bakar (yolların çözülmesi, kum havuzu profili, anlık görüntü
+/// planı); bu yüzden yalnızca işin yolları, seçenekleri ya da çalıştırma sayısı değişince yeniden kurulur, çalışan işin
+/// her ilerleme güncellemesinde değil (`Equatable`).
+private struct JobCommandPreview: View, Equatable {
+    let job: TransferJob
+    @Environment(AppModel.self) private var model
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        MainActor.assumeIsolated {
+            lhs.job.id == rhs.job.id && lhs.job.kind == rhs.job.kind && lhs.job.source == rhs.job.source
+                && lhs.job.destination == rhs.job.destination && lhs.job.options == rhs.job.options
+                && lhs.job.history.count == rhs.job.history.count
+        }
+    }
+
+    var body: some View {
+        CommandPreview(command: model.commandPreview(for: job))
+    }
+}
+
 struct JobDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(AppSettings.self) private var settings
@@ -424,7 +446,7 @@ struct JobDetailView: View {
                             .buttonStyle(.glassProminent)
                     }
                     Divider()
-                    CommandPreview(command: model.commandPreview(for: job))
+                    JobCommandPreview(job: job)
                     Divider()
                     FillForecastView(job: job)
                     Divider()

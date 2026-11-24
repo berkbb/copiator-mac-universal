@@ -189,12 +189,12 @@ struct ContentView: View {
                 Button(settings.t(.menuRemoveFinished), systemImage: "checkmark.circle") { model.removeFinished() }
                     .disabled(!model.jobs.contains { $0.status == .finished })
                 Button(settings.t(.menuRemoveAll), systemImage: "trash", role: .destructive) { model.requestRemoveAll() }
-                    .disabled(model.removableJobs.isEmpty)
+                    .disabled(!model.hasRemovableJobs)
             } label: {
                 Label(settings.t(.toolbarClear), systemImage: "eraser")
             }
             .help(settings.t(.toolbarClear))
-            .disabled(model.removableJobs.isEmpty)
+            .disabled(!model.hasRemovableJobs)
             .accessibilityIdentifier("copiator.toolbar.clear")
         }
 

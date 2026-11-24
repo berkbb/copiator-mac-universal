@@ -269,7 +269,7 @@ struct AppCommands: Commands {
             Button(settings.t(.menuRemoveFinished)) { model.removeFinished() }
                 .disabled(!model.jobs.contains { $0.status == .finished })
             Button(settings.t(.menuRemoveAll)) { model.requestRemoveAll() }
-                .disabled(model.removableJobs.isEmpty)
+                .disabled(!model.hasRemovableJobs)
         }
 
         CommandGroup(before: .windowList) {

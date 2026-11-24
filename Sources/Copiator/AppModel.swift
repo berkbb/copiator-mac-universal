@@ -1763,6 +1763,9 @@ final class AppModel {
     /// Çalışmayan tüm işler (geçmişleriyle). Kopyalanmış dosyalara ve anlık görüntülere dokunulmaz.
     var removableJobs: [TransferJob] { jobs.filter(JobQueue.canRemove) }
 
+    /// Kaldırılabilir iş var mı (menü ve düğme durumları için): listeyi kopyalamadan, ilk uygun işte durur.
+    var hasRemovableJobs: Bool { jobs.contains(where: JobQueue.canRemove) }
+
     /// Tüm işleri kaldırmadan önce onay ister; çalışan iş kuyrukta kalır.
     func requestRemoveAll() {
         let count = removableJobs.count
