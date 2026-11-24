@@ -396,6 +396,32 @@ struct RoutineViewTests {
         render(AnyView(ContentView().environment(model).environment(settings)), NSSize(width: 1080, height: 680), "queue-routines")
     }
 
+    /// Uzun rutin hızlı açılsın: düzenleme sayfası yalnızca açık rotanın (açılışta ilk rota) koşul satırlarını kurar.
+    @Test func editorBuildsOnlyTheOpenRoute() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        await fixture.model.refreshEngine()
+        let routine = Routine(name: "Uzun", routes: (0..<3).map { _ in
+            RoutineRoute(source: fixture.url("Kaynak"), destination: fixture.url("Hedef"), rules: RuleGroup(
+                conditions: (0..<4).map { RuleCondition(attribute: .name, op: .contains, value: "ornek\($0)") }))
+        })
+        _ = NSApplication.shared
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 680, height: 900), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        let host = NSHostingView(rootView: RoutineEditorSheet(request: RoutineEditorRequest(routine: routine, isExisting: true))
+            .environment(fixture.model).environment(fixture.settings))
+        window.contentView = host
+        window.layoutIfNeeded()
+        spinRunLoop(0.3)
+        window.layoutIfNeeded()
+        func editableFields(_ view: NSView) -> Int {
+            ((view as? NSTextField)?.isEditable == true ? 1 : 0) + view.subviews.reduce(0) { $0 + editableFields($1) }
+        }
+        // Rutinin adı, "Dene" alanı ve ilk rotanın dört koşulu; öteki iki rotanın sekiz koşulu kurulmaz.
+        #expect(editableFields(host) == 6)
+    }
+
     /// Rutin seçiliyken rutinin işi başlar ve biter: pencere düzeni kararlı kalır.
     @Test func runningARoutineFromItsDetailKeepsLayoutStable() async throws {
         let fixture = try Fixture()
