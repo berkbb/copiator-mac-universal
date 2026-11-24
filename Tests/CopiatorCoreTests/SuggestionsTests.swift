@@ -152,11 +152,13 @@ func onDeviceModelGivesOnlyValidSuggestions() async {
         func respond(instructions: String, prompt: String) async throws -> String { throw LocalModelServer.Failure.unavailable }
     }
     struct Stubborn: SuggestionModel {
+        /// Yanıtın geldiği süre (saniye).
+        static let delay = 20.0
         var isAvailable = true
         func respond(instructions: String, prompt: String) async throws -> String {
-            // İptali dinlemez: 20 saniye sonra yanıt verir.
+            // İptali dinlemez: `delay` saniye sonra yanıt verir.
             await withCheckedContinuation { continuation in
-                DispatchQueue.global().asyncAfter(deadline: .now() + 20) { continuation.resume() }
+                DispatchQueue.global().asyncAfter(deadline: .now() + Self.delay) { continuation.resume() }
             }
             return "1"
         }
@@ -177,7 +179,9 @@ func onDeviceModelGivesOnlyValidSuggestions() async {
         await Suggestions.folderTemplate(examples: ["Faturalar/Su"], model: chain)
     }
     #expect(all == .unavailable && chain.lastSource == nil)
-    #expect(start.duration(to: clock.now) < .seconds(5))
+    // Takılan modelin tek bir yanıtı bile beklenmedi. Sınır o yanıtın süresidir: sabit ve kısa bir sınır (5 saniye)
+    // yük altında, motor beklemediği hâlde aşılmıştı (2026-11-24, 6,6 saniye).
+    #expect(start.duration(to: clock.now) < .seconds(Stubborn.delay))
 }
 
 /// Şablon önerisi örnekleri yeniden üretmelidir: yanlış sabit metin, yanlış ay biçimi, tarihsiz örnekler ya da bilinemeyen
