@@ -225,8 +225,13 @@ final class AppSettings {
         didSet {
             defaults.set(language.rawValue, forKey: Key.language)
             applySystemLanguage()
+            systemLanguageCode = nil
         }
     }
+    /// "Sistem" seçiliyken çözülmüş dil kodu. Her metin çevirisi dil kodunu sorar; sistem tercihleri her seferinde
+    /// yeniden okunmasın diye saklanır, dil seçimi ya da sistemin yerel ayarı değişince yeniden çözülür.
+    @ObservationIgnored private var systemLanguageCode: String?
+    @ObservationIgnored private var localeObserver: (any NSObjectProtocol)?
     var appearance: AppAppearance {
         didSet {
             defaults.set(appearance.rawValue, forKey: Key.appearance)
@@ -368,6 +373,15 @@ final class AppSettings {
         } else {
             customShortcuts = [:]
         }
+        // Sistem dili ya da bölgesi değişince saklanan kod bırakılır; sonraki metin yeni dili okur.
+        localeObserver = NotificationCenter.default.addObserver(forName: NSLocale.currentLocaleDidChangeNotification, object: nil,
+                                                                queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.systemLanguageCode = nil }
+        }
+    }
+
+    isolated deinit {
+        if let localeObserver { NotificationCenter.default.removeObserver(localeObserver) }
     }
 
     /// Yeni işin varsayılan seçenekleri. `--delete` hiçbir zaman varsayılan değildir: her işte ayrıca seçilip onaylanır.
@@ -467,7 +481,14 @@ final class AppSettings {
 
     // MARK: - Yerelleştirme ve biçimlendirme
 
-    var languageCode: String { language.resolvedCode() }
+    var languageCode: String {
+        // `language` her zaman okunur: görünümler dil değişimini bu erişimle izler.
+        guard language == .system else { return language.rawValue }
+        if let systemLanguageCode { return systemLanguageCode }
+        let code = language.resolvedCode()
+        systemLanguageCode = code
+        return code
+    }
     var locale: Locale { Locale(identifier: languageCode) }
 
     func t(_ key: LKey) -> String {

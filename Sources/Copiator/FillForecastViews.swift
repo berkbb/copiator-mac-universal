@@ -73,8 +73,10 @@ struct FillForecastView: View {
         .accessibilityIdentifier("copiator.fillForecast")
         .task(id: "\(job.id)-\(job.history.count)") {
             outcome = model.fillForecast(for: job)
-            free = model.freeSpace(job.destination)
             encrypted = model.volumeEncryption(job.destination)
+            let space = await model.freeSpaceOffMain(job.destination)
+            // Bu arada başka bir iş seçildiyse eski işin değeri yazılmaz.
+            if !Task.isCancelled { free = space }
         }
     }
 }

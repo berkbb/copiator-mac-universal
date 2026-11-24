@@ -303,21 +303,24 @@ struct JobHistoryList: View {
             if job.history.isEmpty {
                 Text(settings.t(.detailNoHistory)).foregroundStyle(.secondary).font(.callout)
             } else {
-                ForEach(job.history.reversed()) { run in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Image(systemName: symbol(run.result.kind))
-                            .foregroundStyle(color(run.result.kind))
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(settings.result(run.result))
-                                .font(.caption.weight(.medium))
-                            Text(detail(run))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
+                // En çok 100 çalıştırma tutulur; yalnızca görünen satırlar kurulur (iş seçmek hepsini çizmesin).
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(job.history.reversed()) { run in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Image(systemName: symbol(run.result.kind))
+                                .foregroundStyle(color(run.result.kind))
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(settings.result(run.result))
+                                    .font(.caption.weight(.medium))
+                                Text(detail(run))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
                         }
+                        .accessibilityElement(children: .combine)
                     }
-                    .accessibilityElement(children: .combine)
                 }
             }
         }

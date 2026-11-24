@@ -402,7 +402,7 @@ final class AppModel {
     /// Ev klasörü (testler sahte bir klasör verir).
     @ObservationIgnored var homeDirectory = FileManager.default.homeDirectoryForCurrentUser
     /// Bir klasörün bulunduğu diskteki boş alan (testler sahte bir değer verir).
-    @ObservationIgnored var freeSpace: (URL) -> Int64? = { DiskSpace.availableCapacity(at: $0) }
+    @ObservationIgnored var freeSpace: @Sendable (URL) -> Int64? = { DiskSpace.availableCapacity(at: $0) }
     /// Bir klasörün diski şifreli mi (testler sahte bir yanıt verir).
     @ObservationIgnored var volumeEncryption: (URL) -> Bool? = { DiskSecurity.isEncrypted($0) }
     /// Çalıştırmanın bitiş zamanı ve dolma uyarısı için saat (testler ilerleyen sahte bir saat verir).
@@ -2035,7 +2035,9 @@ final class AppModel {
             let result = await engine.run(job, context: context) { continuation.yield($0) }
             continuation.finish()
             await consumer.value
-            self?.finishRun(id, result: result)
+            // Dolma tahmini için hedefteki boş alan, sonuç işlenmeden hemen önce ve ana iş parçacığını bekletmeden okunur.
+            let free = result.kind.isSuccess ? await self?.freeSpaceOffMain(job.destination) : nil
+            self?.finishRun(id, result: result, destinationFreeBytes: free ?? nil)
         }
     }
 
@@ -2069,7 +2071,14 @@ final class AppModel {
         return "→ " + t(.progressSpeed, settings.bytes(Int64(rate)))
     }
 
-    private func finishRun(_ id: TransferJob.ID, result: JobResult) {
+    /// Diskteki boş alanı ana iş parçacığı dışında okur (sorgu on milisaniyeler sürebilir).
+    func freeSpaceOffMain(_ url: URL) async -> Int64? {
+        let lookup = freeSpace
+        return await Task.detached(priority: .userInitiated) { lookup(url) }.value
+    }
+
+    /// - Parameter destinationFreeBytes: Başarılı çalıştırmada hedef diskteki boş alan (`start` okur).
+    private func finishRun(_ id: TransferJob.ID, result: JobResult, destinationFreeBytes: Int64?) {
         // Çıkışta durdurulan iş "kesildi" olarak kalır (bkz. `prepareForTermination`); sıradaki iş başlatılmaz.
         if isTerminating {
             runningJobID = nil
@@ -2091,7 +2100,7 @@ final class AppModel {
         update(id) { job in
             JobQueue.finish(&job, with: result, at: finishedAt)
             // Dolma tahmini için hedef diskteki boş alan (yalnızca başarılı çalıştırmalarda).
-            if result.kind.isSuccess, !job.history.isEmpty { job.history[job.history.count - 1].destinationFreeBytes = freeSpace(job.destination) }
+            if result.kind.isSuccess, !job.history.isEmpty { job.history[job.history.count - 1].destinationFreeBytes = destinationFreeBytes }
             switch result.kind {
             case .cancelled where suspendedForDisk:
                 job.suspendedForDisk = true
