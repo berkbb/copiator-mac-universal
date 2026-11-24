@@ -63,10 +63,27 @@ public struct DiagnosticMasker: Sendable {
     /// Serbest metin (günlük satırı, hata iletisi): ev klasörü, kullanıcı adları, tırnak içindeki yollar ve adlar,
     /// tırnaksız yollar ve verilen bilinen yollar (boşluk içerseler de) maskelenir.
     public func text(_ text: String, knownPaths: [String] = []) -> String {
+        self.text(text, known: prepare(knownPaths))
+    }
+
+    /// Bilinen yollar ve maskeleri, uzundan kısaya. Çok satır maskeleyen (rapor) bunu bir kez hazırlar: yollar her satırda
+    /// yeniden sıralanmaz ve maskeleri (bileşen başına bir özet) yeniden hesaplanmaz.
+    public func prepare(_ knownPaths: [String]) -> [KnownPath] {
+        Set(knownPaths).filter { $0.count > 1 }.sorted { $0.count > $1.count }.map { KnownPath(path: $0, masked: path($0)) }
+    }
+
+    /// Bilinen bir yol ve maskelenmiş hâli (`prepare`).
+    public struct KnownPath: Sendable {
+        let path: String
+        let masked: String
+    }
+
+    /// `text(_:knownPaths:)` ile aynı sonuç, hazırlanmış yol listesiyle.
+    public func text(_ text: String, known: [KnownPath]) -> String {
         var result = text
         // Bilinen yollar (iş kaynakları ve hedefleri) önce, uzundan kısaya: boşluk içeren adlar da bütün olarak maskelenir.
-        for known in Set(knownPaths).sorted(by: { $0.count > $1.count }) where known.count > 1 {
-            result = result.replacingOccurrences(of: known, with: path(known))
+        for known in known {
+            result = result.replacingOccurrences(of: known.path, with: known.masked)
         }
         // Tırnak içleri: yol ise yol, değilse ad olarak. Düz kesme işareti eşlenmez: "Copiator'ı … rsync'in" gibi
         // metinlerde iki kesme işaretinin arası bir ad değildir.

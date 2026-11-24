@@ -57,7 +57,9 @@ extension AppModel {
             "Routines: \(routines.count) (\(routines.reduce(0) { $0 + $1.routes.count }) routes)",
             "Jobs: \(jobs.count)" + (jobs.count > Self.diagnosticJobLimit ? " (showing the last \(Self.diagnosticJobLimit))" : ""),
         ]
-        let known = jobs.flatMap { [$0.source.path, $0.destination.path] }
+        // Yollar ve tarih biçimleyici bir kez hazırlanır (her günlük satırında yeniden değil).
+        let known = masker.prepare(jobs.flatMap { [$0.source.path, $0.destination.path] })
+        let timestamp = ISO8601DateFormatter()
         for (index, job) in jobs.suffix(Self.diagnosticJobLimit).enumerated() {
             let options = job.options
             let snapshots = options.snapshots
@@ -76,14 +78,14 @@ extension AppModel {
             lines.append("    command: " + RsyncCommand.displayString(arguments: commandArguments(for: job).map(masker.argument)))
             if let detail = job.result?.detail, !detail.isEmpty {
                 lines.append("    detail:")
-                lines += detail.split(whereSeparator: \.isNewline).map { "      " + masker.text(String($0), knownPaths: known) }
+                lines += detail.split(whereSeparator: \.isNewline).map { "      " + masker.text(String($0), known: known) }
             }
             let log = job.log.suffix(Self.diagnosticLogLimit)
             if !log.isEmpty {
                 lines.append("    log (last \(log.count) of \(job.log.count)):")
                 for entry in log {
-                    let text = masker.text(settings.log(entry), knownPaths: known)
-                    lines.append("      " + ISO8601DateFormatter().string(from: entry.date) + " \(entry.level.rawValue) " + text)
+                    let text = masker.text(settings.log(entry), known: known)
+                    lines.append("      " + timestamp.string(from: entry.date) + " \(entry.level.rawValue) " + text)
                 }
             }
         }
