@@ -5,6 +5,8 @@ This file follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) f
 
 ## [Unreleased]
 
+## [1.2.5] — 2026-11-24
+
 ### Changed
 
 - **The window stays responsive while a job runs with a long job list.** Every status change and log line of the running job used to write all jobs to `jobs.json` on the main thread. Jobs are now written in the background by `JobSaveQueue`, which writes only the newest of several queued saves and keeps all writes in one order; the app waits for the last write before it quits (`AppModel.flushSaves`). Measured off-screen in a debug build during a 600 MB copy with 300 jobs in the list, each with a full log and history (a 49 MB `jobs.json`): the main thread was late by 654 ms on average before and by about 20 ms after, and the window refreshed 8 times before and about 120 times after. Tests: `JobSaveQueueTests`.
