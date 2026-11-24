@@ -3,18 +3,18 @@
 > **Memory Category:** TencentDB Code-Graph Memory Asset
 > **Scope:** Module boundaries, key types, call hierarchy, and cross-file modification impact map.
 > **Generated from:** `graphify-out/GRAPH_REPORT.md` and `graphify-out/graph.json` (graphifyy 0.9.101, local tree-sitter AST, `--code-only`, no LLM backend). Sections 3–4 are hand-maintained and checked against the graph.
-> **Built at commit:** `28654f7` plus the uncommitted 2026-11-07 changes (archive search, run report, folder tree, name per file, moving-run undo), refreshed with `graphify update .` and `cluster-only`; the git hooks rebuild the graph after each commit.
+> **Built at commit:** `dc31f1c` (2026-11-24), refreshed with `graphify update .` and `cluster-only --no-label`; the git hooks rebuild the graph after each commit.
 > **Regenerate:** `GRAPHIFY_NO_TIPS=1 GRAPHIFY_QUERY_LOG_DISABLE=1 GRAPHIFY_BACKEND=off graphify extract . --code-only`, then `GRAPHIFY_BACKEND=off graphify cluster-only . --no-label`, then update sections 1–2 from the new report. `graphify-out/` is git-ignored.
 
 ---
 
 ## 1. Graph Summary
 
-- **Corpus:** 4,953 nodes, 12,739 edges, 166 Leiden communities (26 thin ones omitted from the report) after the 2026-11-07 refresh. New types since the previous build: `ArchiveSearch`, `RunReport`, `FolderTree`, `PlacementNaming`, `RunUndo.MovedSource`, `ArchiveSearchSheet`, `RunReportPanel`.
-- **Edge provenance:** 84% `EXTRACTED`, 16% `INFERRED` (2,050 edges, average confidence 0.85), 0% `AMBIGUOUS`.
-- **Edge relations:** `calls` 3,473 · `references` 2,701 · `case_of` 1,430 · `method` 1,295 · `contains` 658 · `implements` 496 · `imports` 341 · `defines` 26 · `inherits` 23 · `dispatches_to` 13.
+- **Corpus:** 6,185 nodes, 16,508 edges, 208 Leiden communities (21 thin ones omitted from the report) after the 2026-11-24 refresh. By kind: 5,323 code nodes, plus 443 rationale, 338 concept, 73 document, 7 paper and 1 image node that an earlier full build of the Markdown files left in `graph.json`; `graphify update .` refreshes the code nodes only. New types since the 2026-11-07 refresh include `RoutineRouteSection`, `JobSaveQueue`, `JobCommandPreview`, `DiagnosticMasker.KnownPath`, `RoutineScan` and `SpotlightLookup`.
+- **Edge provenance:** 83% `EXTRACTED`, 17% `INFERRED` (2,817 edges, average confidence 0.86), 0% `AMBIGUOUS`.
+- **Edge relations:** `references` 5,610 · `calls` 4,764 · `method` 1,790 · `case_of` 1,765 · `contains` 849 · `implements` 657 · `imports` 532 · `conceptually_related_to` 299 · `semantically_similar_to` 74 · `rationale_for` 64 · `inherits` 34 · `defines` 27.
 - **Module dependencies:** `Copiator` → `CopiatorCore`; `CopiatorCoreTests` → `CopiatorCore`; `CopiatorAppTests` → `Copiator`, `CopiatorCore`. `CopiatorCore` imports no app target. Import cycles: none.
-- **Not indexed:** `Vendor/` (the bundled rsync), Markdown docs (`--code-only`), `.strings` tables, `Info.plist`, `.claude/` and build outputs (see `.graphifyignore`).
+- **Not indexed:** `Vendor/` (the bundled rsync), `.strings` tables, `Info.plist`, `.claude/` and build outputs (see `.graphifyignore`). Markdown files are not re-read by `graphify update .`; their nodes date from the earlier full build.
 - **Known gaps:**
   - `AIEvaluationTests` defines its own `enum Task`, so some `INFERRED` edges link Swift concurrency `Task { … }` calls in app views to that test enum. Treat any `Task` edge that crosses into `AIEvaluationTests.swift` as a name collision.
   - The `LKey` cases (about 1,600 nodes) look isolated because the `.strings` tables are not indexed; use `LocalizationTests` and the three tables for key usage.
@@ -23,16 +23,16 @@
 
 | Rank | Node | Edges | Why it is a hub |
 | :--- | :--- | ---: | :--- |
-| 1 | `LKey` | 1,002 | Every user-facing string; a new case needs all three `.strings` tables |
-| 2 | `TransferJob` | 212 | The job model: source, destination, options, status, result, history, pending decisions |
-| 3 | `AppModel` | 207 | App state machine: queue, engine, decisions, routines, archive health, notifications |
-| 4 | `CopyOptions` | 132 | Every per-job option; tolerant decoding keeps old `jobs.json` files readable |
-| 5 | `AppSettings.t()` / `AppSettings` | 115 / 111 | Localized text lookup and `UserDefaults`-backed preferences (`Key.all` for reset) |
-| 6 | `Routine` | 87 | Copy and sync routines with their routes, rules and placement |
-| 7 | `Workspace` | 87 | `CopiatorCoreTests` helper: a temporary folder with write, read and link helpers |
-| 8 | `Fixture` | 75 | `CopiatorAppTests` helper: an `AppModel` with its own folder, `UserDefaults` suite and the real rsync |
-| 9 | `CopiatorCore` | 73 | Module imported by the app and both test targets |
-| 10 | `RuleGroup` | 69 | Finder-style rules used by routines, the scanner and the preview |
+| 1 | `LKey` | 1,274 | Every user-facing string; a new case needs all three `.strings` tables |
+| 2 | `AppModel` | 355 | App state machine: queue, engine, decisions, routines, archive health, notifications, background saves |
+| 3 | `TransferJob` | 303 | The job model: source, destination, options, status, result, history, pending decisions |
+| 4 | `CopyOptions` | 194 | Every per-job option; tolerant decoding keeps old `jobs.json` files readable |
+| 5 | `AppSettings` | 141 | `UserDefaults`-backed preferences and the localized text lookup (`t()`) |
+| 6 | `Fixture` | 134 | `CopiatorAppTests` helper: an `AppModel` with its own folder, `UserDefaults` suite and the real rsync |
+| 7 | `Workspace` | 122 | `CopiatorCoreTests` helper: a temporary folder with write, read and link helpers |
+| 8 | `CopiatorCore` | 118 | Module imported by the app and both test targets |
+| 9 | `Routine` | 109 | Copy and sync routines with their routes, rules and placement |
+| 10 | `RsyncEngine` | 96 | Preflight, snapshots, sandbox, run, verify and compare |
 
 Before changing a hub, run `graphify affected "<node>"` to see what depends on it.
 
@@ -57,6 +57,7 @@ Before changing a hub, run `graphify affected "<node>"` to see what depends on i
 | `TransferEngine.swift` | `TransferEngine`, `TransferEvent`, `EngineContext` (`scratchDirectory`), `VerifyReport`, `TransferEngines` | Engine-independent contract and registry |
 | `RsyncEngine.swift` | `RsyncEngine` (`run`, `verify`, `compare`, `verifyAfterCopy`, `finishSnapshot`), `ProgressThrottle` | Preflight, snapshots, sandbox, disk guard, run, classify, quarantine, verify after copy |
 | `Job.swift` | `JobKind`, `CopyMode`, `VerifyAfterCopy`, `CopyOptions` (`snapshots`, `verifyAfterCopy`, `runWhenConnected`, `problems`), `JobStatus` (incl. `verifying`), `JobResultKind` (incl. `verificationFailed`), `JobResult` (`snapshot`, `differenceCount`), `JobRun`, `JobLogEntry`, `TransferJob` (`history`, `suspendedForDisk`, `uses(volume:)`), `JobValidation` | Codable job model with tolerant decoding |
+| `DiagnosticMasker.swift` | `DiagnosticMasker` (`path`, `name`, `text(_:knownPaths:)`, `prepare` → `KnownPath`, `text(_:known:)`, `argument`) | Salted masking of paths, names and user names for the diagnostic report |
 | `JobStore.swift` | `JobStore`, `JobSaveQueue` (`saveSoon`, `flush`), `JobQueue` (`next(pathsAvailable:)`, `isWaitingForDisk`, `canEdit`, `finish` → history) | Persistence, background save order and pure queue rules |
 | `DiskSpace.swift` | `DiskSpace`, `InsufficientSpaceError`, `DiskSpaceGuard`, `FileSystemKind`, `OwnerAccess`, `Int64.saturatingAdding` | Space checks, file-system detection |
 | `Quarantine.swift` | `Quarantine` | Quarantine propagation |
@@ -93,7 +94,8 @@ Before changing a hub, run `graphify affected "<node>"` to see what depends on i
 | File | Primary Symbols |
 | :--- | :--- |
 | `CopiatorApp.swift` | `CopiatorApp`, `AppDelegate`, `AppCommands` |
-| `AppModel.swift` | `AppModel`, `SidebarItem` (`home`, filter, routine), `EngineStatus`, `UpdateState`, `AppUpdateState`, `OperationState`, `JobFilter`, `NewJobRequest`, `VerifyPresentation`, `AppLinks`, `AppInfo`, `WindowID`, `SnapshotBrowserRequest`, `IntegrityRequest`, `IntegrityProgress`, `IntegrityOutcome`, `CancelFlag`, `DuplicatesRequest`, `RoutineImportRequest`, `handleNotice`, `backUpNow`, `repairCorrupted`, `ejectIdleDisks` |
+| `AppModel.swift` | `AppModel`, `SidebarItem` (`home`, filter, routine), `EngineStatus`, `UpdateState`, `AppUpdateState`, `OperationState`, `JobFilter`, `NewJobRequest`, `VerifyPresentation`, `AppLinks`, `AppInfo`, `WindowID`, `SnapshotBrowserRequest`, `IntegrityRequest`, `IntegrityProgress`, `IntegrityOutcome`, `CancelFlag`, `DuplicatesRequest`, `RoutineImportRequest`, `handleNotice`, `backUpNow`, `repairCorrupted`, `ejectIdleDisks`, `save` / `flushSaves` (background writes), `hasRemovableJobs` |
+| `Diagnostics.swift` | `DiagnosticPresentation`, `AppModel.diagnosticReport` (known paths and the date formatter prepared once), `DiagnosticSheet` | Masked plain-text report, previewed and saved only where the user chooses |
 | `AppSettings.swift` | `AppSettings`, `AppAppearance`, `KeyboardShortcutData`, `ShortcutAction` |
 | `FinderServices.swift` | `FinderServices.backUp` |
 | `Intents.swift` | `IntentTarget`, `JobEntity`, `JobEntityQuery`, `RunJobIntent`, `PauseAllJobsIntent`, `ResumeAllJobsIntent`, `CopiatorShortcuts`, `AppModel.runFromShortcut` |
@@ -110,7 +112,7 @@ Before changing a hub, run `graphify affected "<node>"` to see what depends on i
 | `Views/JobOptionsSections.swift` | `VerifyAfterCopyPicker`, `SnapshotSection`, `CountField`, `AutomationSection`, `ExcludePresetsSection`, `PreviewSheet`, `JobHistoryList` |
 | `Views/AdvancedOptionsForm.swift` | `AdvancedOptionsSections`, `CommandPreview`, `PowerStatusBanner`, `SandboxLimitsSection` | Advanced rsync options form, the copyable `rsync …` command, the power banner and the sandbox limits note |
 | `Views/ContentView.swift` | `ContentView`, `OverlayTiming`, `ProgressOverlay`, `ToastView` |
-| `Views/JobListView.swift` | `SidebarView`, `JobListView`, `JobRow`, `StatusBadge`, `JobDetailView` |
+| `Views/JobListView.swift` | `SidebarView`, `JobListView` (list-wide menu state computed once per redraw), `JobRow`, `StatusBadge`, `JobCommandPreview` (`Equatable`: the rsync command is rebuilt only when the job's paths, options or run count change), `JobDetailView` |
 | `Views/NewJobSheet.swift` | `NewJobSheet`, `VerifyResultSheet`, `WelcomeView`, `EngineStatusView` |
 | `Views/SettingsView.swift`, `AboutView.swift`, `LicenseViewerSheet.swift` | Settings tabs, About, `LicenseDocument` |
 
@@ -130,4 +132,8 @@ Before changing a hub, run `graphify affected "<node>"` to see what depends on i
 | New notification button | `NoticeAction` case + category + `userInfo` round trip, `NoticeAction.categories`, `AppModel.handleNotice` (validate the item), LKey in three tables, `NoticeAndEjectAppTests` |
 | New thing that keeps a disk in use | `DiskEject.isBusy` (jobs or `checking` paths) and a call to `AppModel.ejectIdleDisks` when it ends |
 | New routine field | `Routine` coding keys + tolerant decoding, `RoutineTransfer.read` (reset or keep on import), `RoutineTransferTests` round trip |
+| Code or a test that reads `jobs.json` right after an action | Call `AppModel.flushSaves()` first: `save()` writes in the background through `JobSaveQueue` (`waitUntilIdle` and `prepareForTermination` already flush) |
+| New state shown in every row of a list (menu item, badge) | Compute it once in the list's `body` and pass it to the rows; a per-row scan of `model.jobs` costs the square of the job count (`JobListView.contextMenu`) |
+| New input to the rsync command preview | Add it to `JobCommandPreview.==`, or the details panel keeps showing the old command |
+| New section in a long `Form` | Keep rows direct children of a `Section` and check the PNG (`COPIATOR_SNAPSHOT_DIR`): `.equatable()` or a `DisclosureGroup` around rows breaks the grouped layout (`RoutineRouteSection`) |
 | Directory walk with `FileManager.enumerator` | Call `skipDescendants()` only for directories: on a file it skips the rest of the enclosing folder |
