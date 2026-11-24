@@ -175,7 +175,6 @@ struct PlacementEditor: View {
             }
         }
         .onAppear { expanded = placement.isActive }
-        .task { await model.refreshLocalModels() }
         // Ay adları şablonun kurulduğu dilde kalır (arayüz dili sonra değişse de klasör adları değişmez).
         .onChange(of: placement.isActive) { _, active in
             if active, !keepLanguage { placement.language = settings.languageCode }

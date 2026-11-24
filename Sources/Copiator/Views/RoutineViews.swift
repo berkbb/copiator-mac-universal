@@ -315,15 +315,19 @@ struct FolderChooserRow: View {
     let systemImage: String
     let panelMessage: String
     @Environment(AppSettings.self) private var settings
+    /// Klasörün simgesi yol değişince bir kez okunur (her çizimde diske gidilmez).
+    @State private var icon: NSImage?
 
     var body: some View {
         LabeledContent(title) {
             HStack {
                 if let url {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                        .resizable()
-                        .frame(width: 18, height: 18)
-                        .accessibilityHidden(true)
+                    if let icon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: 18, height: 18)
+                            .accessibilityHidden(true)
+                    }
                     Text(OpenSafety.visibleName(url.path))
                         .lineLimit(1)
                         .truncationMode(.head)
@@ -336,6 +340,7 @@ struct FolderChooserRow: View {
                 Button(settings.t(.buttonChoose)) { choose() }
             }
         }
+        .onChange(of: url, initial: true) { icon = url.map { NSWorkspace.shared.icon(forFile: $0.path) } }
     }
 
     private func choose() {
@@ -366,8 +371,14 @@ struct RoutineEditorSheet: View {
     @State private var runAfterSave = false
     @State private var previewTask: Task<Void, Never>?
     @State private var previewPresentation: PreviewPresentation?
+    /// Düzenleyicisi açık rotalar; kapalı rotanın satırları kurulmaz.
+    @State private var expandedRoutes: Set<RoutineRoute.ID> = []
+    /// Diski bağlı olmayan yolların diskleri ve oluşturulabilir hedefler: yollar değişince okunur, her çizimde değil.
+    @State private var unmounted: [String] = []
+    @State private var creatable: [URL] = []
 
     var body: some View {
+        let problems = routine.problems(checkPaths: false)
         VStack(spacing: 0) {
             Form {
                 Section {
@@ -387,48 +398,23 @@ struct RoutineEditorSheet: View {
                 }
 
                 ForEach($routine.routes) { $route in
-                    let index = routine.routes.firstIndex { $0.id == route.id } ?? 0
-                    Section {
-                        let sync = routine.kind == .sync
-                        FolderChooserRow(title: settings.t(sync ? .syncFolderA : .newJobSource), url: $route.source, systemImage: "folder",
-                                         panelMessage: settings.t(.panelChooseSource))
-                        FolderChooserRow(title: settings.t(sync ? .syncFolderB : .newJobDestination), url: $route.destination,
-                                         systemImage: sync ? "folder" : "externaldrive", panelMessage: settings.t(.panelChooseDestination))
-                        if !sync {
-                            HStack {
-                                Spacer()
-                                FolderSuggestionButton(destination: $route.destination, sample: sample)
-                            }
-                        }
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(settings.t(.routineRules)).font(.headline)
-                            RuleGroupEditor(group: $route.rules)
-                        }
-                        if !sync {
-                            PlacementEditor(placement: $route.placement, sample: sample, destination: route.destination)
-                        }
-                        HStack {
-                            Button(settings.t(.newJobPreview), systemImage: "eye") { preview(route) }
-                                .disabled(route.source == nil || route.destination == nil || previewTask != nil
-                                          || !route.rules.problems().isEmpty || !route.placement.problems().isEmpty)
-                            if previewTask != nil { ProgressView().controlSize(.small) }
-                            Spacer()
-                            if routine.routes.count > 1 {
-                                Button(settings.t(.routineRemoveRoute), systemImage: "trash", role: .destructive) {
-                                    let id = route.id
-                                    routine.routes.removeAll { $0.id == id }
-                                }
-                            }
-                        }
-                        .buttonStyle(.borderless)
-                    } header: {
-                        Text(settings.t(.routineRoute, index + 1))
-                    }
+                    let id = route.id
+                    let expanded = expandedRoutes.contains(id)
+                    RoutineRouteSection(
+                        route: $route, index: routine.routes.firstIndex { $0.id == id } ?? 0, sync: routine.kind == .sync,
+                        sample: expanded ? sample : "", isExpanded: expanded, canRemove: routine.routes.count > 1,
+                        previewing: previewTask != nil,
+                        onExpand: { if $0 { expandedRoutes.insert(id) } else { expandedRoutes.remove(id) } },
+                        onPreview: { preview(id) },
+                        onRemove: { routine.routes.removeAll { $0.id == id } }
+                    )
                 }
 
                 Section {
                     Button(settings.t(.routineAddRoute), systemImage: "plus") {
-                        routine.routes.append(RoutineRoute(source: routine.routes.last?.source))
+                        let route = RoutineRoute(source: routine.routes.last?.source)
+                        routine.routes.append(route)
+                        expandedRoutes.insert(route.id)
                     }
                     .accessibilityIdentifier("copiator.routine.addRoute")
                 }
@@ -497,9 +483,6 @@ struct RoutineEditorSheet: View {
                                             snapshotsEnabled: routine.options.snapshots.enabled)
                 }
 
-                let problems = routine.problems(checkPaths: false)
-                let unmounted = Array(Set(routine.routes.flatMap { [$0.source, $0.destination] }.compactMap { $0.flatMap(VolumeState.unmountedVolume(of:)) })).sorted()
-                let creatable = routine.routes.compactMap(\.destination).filter(AppModel.isCreatableDestination)
                 if problem != nil || !problems.isEmpty || !unmounted.isEmpty {
                     Section {
                         ForEach(unmounted, id: \.self) { name in
@@ -513,6 +496,7 @@ struct RoutineEditorSheet: View {
                         if problem != nil, !creatable.isEmpty {
                             Button(settings.t(.createFoldersButton, creatable.count), systemImage: "folder.badge.plus") {
                                 problem = creatable.lazy.compactMap { model.createDestinationFolder($0) }.first
+                                refreshPathState()
                                 if problem == nil { save(run: false) }
                             }
                         }
@@ -532,12 +516,12 @@ struct RoutineEditorSheet: View {
                 Button(settings.t(.buttonCancel), role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button(settings.t(.routineSaveRun)) { requestSave(run: true) }
-                    .disabled(!routine.problems(checkPaths: false).isEmpty)
+                    .disabled(!problems.isEmpty)
                     .accessibilityIdentifier("copiator.routine.saveRun")
                 Button(settings.t(.routineSave)) { requestSave(run: false) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.glassProminent)
-                    .disabled(!routine.problems(checkPaths: false).isEmpty)
+                    .disabled(!problems.isEmpty)
                     .accessibilityIdentifier("copiator.routine.save")
             }
             .padding(14)
@@ -548,9 +532,16 @@ struct RoutineEditorSheet: View {
         .onAppear {
             routine = request.routine
             showAdvanced = !routine.options.advanced.isDefault
+            // Uzun rutin hızlı açılsın: yalnızca ilk rota açık gelir, ötekiler özetleriyle kapalı durur.
+            expandedRoutes = Set(routine.routes.first.map { [$0.id] } ?? [])
+            refreshPathState()
         }
         .onDisappear { previewTask?.cancel() }
         .onChange(of: routine) { problem = nil }
+        .onChange(of: routine.routes.map { [$0.source, $0.destination] }) { refreshPathState() }
+        .onChange(of: problem) { refreshPathState() }
+        // Yerel modeller sayfa başına bir kez yoklanır (rota başına değil).
+        .task { await model.refreshLocalModels() }
         .sheet(item: $previewPresentation) { PreviewSheet(presentation: $0) }
         .confirmationDialog(settings.t(.trashConfirmTitle), isPresented: $confirmTrash, titleVisibility: .visible) {
             Button(settings.t(.trashConfirmButton), role: .destructive) { save(run: runAfterSave) }
@@ -571,8 +562,13 @@ struct RoutineEditorSheet: View {
         }
     }
 
-    private func preview(_ route: RoutineRoute) {
-        guard previewTask == nil else { return }
+    private func refreshPathState() {
+        unmounted = Array(Set(routine.routes.flatMap { [$0.source, $0.destination] }.compactMap { $0.flatMap(VolumeState.unmountedVolume(of:)) })).sorted()
+        creatable = routine.routes.compactMap(\.destination).filter(AppModel.isCreatableDestination)
+    }
+
+    private func preview(_ id: RoutineRoute.ID) {
+        guard previewTask == nil, let route = routine.routes.first(where: { $0.id == id }) else { return }
         let routine = routine
         let name = routine.name.isEmpty ? (route.source?.lastPathComponent ?? "") : routine.name
         previewTask = Task {
@@ -596,6 +592,89 @@ struct RoutineEditorSheet: View {
         }
         if run { model.runRoutine(routine.id) }
         dismiss()
+    }
+}
+
+/// Rutin sayfasında tek rota: kapalıyken yalnızca özeti, açıkken düzenleyicisi. Rotası ve durumu değişmeyen bölüm yeniden
+/// çizilmez (`Equatable`; `.equatable()` sarmalayıcısı formun bölüm düzenini bozduğu için kullanılmaz), böylece bir alana
+/// yazmak öteki rotaları yeniden kurmaz.
+struct RoutineRouteSection: View, Equatable {
+    @Binding var route: RoutineRoute
+    let index: Int
+    let sync: Bool
+    /// Rutin sayfasının "Dene" alanındaki yol (kapalı rotaya boş verilir).
+    let sample: String
+    let isExpanded: Bool
+    let canRemove: Bool
+    let previewing: Bool
+    let onExpand: (Bool) -> Void
+    let onPreview: () -> Void
+    let onRemove: () -> Void
+    @Environment(AppSettings.self) private var settings
+
+    /// Bağlama sıraya göre çalışır; sıra da karşılaştırılır ki silinen rotadan sonrakiler yeni yerlerine bağlansın.
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        MainActor.assumeIsolated {
+            lhs.route == rhs.route && lhs.index == rhs.index && lhs.sync == rhs.sync && lhs.sample == rhs.sample
+                && lhs.isExpanded == rhs.isExpanded && lhs.canRemove == rhs.canRemove && lhs.previewing == rhs.previewing
+        }
+    }
+
+    var body: some View {
+        Section {
+            // Açma satırı; düzenleyici satırları bölümün kendi satırlarıdır (form düzeni korunur) ve yalnızca açıkken kurulur.
+            DisclosureGroup(isExpanded: Binding(get: { isExpanded }, set: { onExpand($0) })) {} label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(folderName(route.source, sync ? .syncFolderA : .newJobSource) + " → "
+                         + folderName(route.destination, sync ? .syncFolderB : .newJobDestination))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if !isExpanded {
+                        Text(settings.describe(route.rules))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            if isExpanded {
+                FolderChooserRow(title: settings.t(sync ? .syncFolderA : .newJobSource), url: $route.source, systemImage: "folder",
+                                 panelMessage: settings.t(.panelChooseSource))
+                FolderChooserRow(title: settings.t(sync ? .syncFolderB : .newJobDestination), url: $route.destination,
+                                 systemImage: sync ? "folder" : "externaldrive", panelMessage: settings.t(.panelChooseDestination))
+                if !sync {
+                    HStack {
+                        Spacer()
+                        FolderSuggestionButton(destination: $route.destination, sample: sample)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(settings.t(.routineRules)).font(.headline)
+                    RuleGroupEditor(group: $route.rules)
+                }
+                if !sync {
+                    PlacementEditor(placement: $route.placement, sample: sample, destination: route.destination)
+                }
+                HStack {
+                    Button(settings.t(.newJobPreview), systemImage: "eye", action: onPreview)
+                        .disabled(route.source == nil || route.destination == nil || previewing
+                                  || !route.rules.problems().isEmpty || !route.placement.problems().isEmpty)
+                    if previewing { ProgressView().controlSize(.small) }
+                    Spacer()
+                    if canRemove {
+                        Button(settings.t(.routineRemoveRoute), systemImage: "trash", role: .destructive, action: onRemove)
+                    }
+                }
+                .buttonStyle(.borderless)
+            }
+        } header: {
+            Text(settings.t(.routineRoute, index + 1))
+        }
+    }
+
+    /// Klasörün adı; seçilmemişse alanın başlığı ("Kaynak").
+    private func folderName(_ url: URL?, _ title: LKey) -> String {
+        url.map { OpenSafety.visibleName($0.lastPathComponent) } ?? settings.t(title)
     }
 }
 
