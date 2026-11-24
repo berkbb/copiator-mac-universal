@@ -106,7 +106,7 @@ Before changing a hub, run `graphify affected "<node>"` to see what depends on i
 | `Views/ArchiveViews.swift` | `RoutinePickerSheet`, `DestinationSummarySheet`, `AILanguageWarning`, `FolderSuggestionButton`, `CleanupSheet` |
 | `Views/SnapshotViews.swift` | `SnapshotBrowserSheet` | Snapshot list, folder browser, file versions, restore to the original place or elsewhere |
 | `Views/ArchiveHealthViews.swift` | `IntegritySheet`, `DuplicatesSheet` | Integrity check with progress, stop and check-on-connect; duplicate groups with the kept copy and confirmed move to the Trash |
-| `Views/RoutineViews.swift` | `RuleConditionRow`, `RuleGroupEditor`, `FolderChooserRow`, `RoutineEditorSheet`, `RoutineDetailView`, `AppSettings.describe(_:)` |
+| `Views/RoutineViews.swift` | `RuleConditionRow`, `RuleGroupEditor`, `FolderChooserRow`, `RoutineEditorSheet`, `RoutineRouteSection`, `RoutineDetailView`, `AppSettings.describe(_:)` |
 | `Views/JobOptionsSections.swift` | `VerifyAfterCopyPicker`, `SnapshotSection`, `CountField`, `AutomationSection`, `ExcludePresetsSection`, `PreviewSheet`, `JobHistoryList` |
 | `Views/AdvancedOptionsForm.swift` | `AdvancedOptionsSections`, `CommandPreview`, `PowerStatusBanner`, `SandboxLimitsSection` | Advanced rsync options form, the copyable `rsync …` command, the power banner and the sandbox limits note |
 | `Views/ContentView.swift` | `ContentView`, `OverlayTiming`, `ProgressOverlay`, `ToastView` |
