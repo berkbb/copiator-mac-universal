@@ -352,6 +352,8 @@ final class AppModel {
     private(set) var scanningRoutines: Set<Routine.ID> = []
 
     @ObservationIgnored private let store: JobStore
+    /// Kayıt sırası: işler arka planda yazılır (`save`); çıkışta ve `waitUntilIdle` sonunda yazma beklenir.
+    @ObservationIgnored private lazy var saveQueue = JobSaveQueue(write: store.save)
     /// Süren rutin taramaları (anahtar her tarama için ayrı); `waitUntilIdle` bunları da bekler.
     @ObservationIgnored private var routineScans: [UUID: (routine: Routine.ID, task: Task<Void, Never>)] = [:]
     @ObservationIgnored private let routineStore: RoutineStore
@@ -1534,12 +1536,17 @@ final class AppModel {
         }
     }
 
+    /// İşleri kaydeder. Yazma arka planda yapılır (bütün işler tek dosyaya yazıldığı için uzun listede ana iş parçacığını
+    /// bekletirdi) ve art arda gelen kayıtlardan yalnızca en yenisi diske gider. Uygulama kapanırken ve `waitUntilIdle`
+    /// sonunda `flushSaves()` yazmanın bitmesini bekler.
     func save() {
         refreshFullDiskAccessNeed()
-        do {
-            try store.save(jobs)
-        } catch {
-            alert = AlertItem(title: t(.errorTitle), message: t(.errorSaveFailed, error.localizedDescription))
+        saveQueue.saveSoon(jobs) { [weak self] error in
+            let message = error.localizedDescription
+            Task { @MainActor in
+                guard let self else { return }
+                self.alert = AlertItem(title: self.t(.errorTitle), message: self.t(.errorSaveFailed, message))
+            }
         }
     }
 
@@ -2416,6 +2423,8 @@ final class AppModel {
         operationTask?.cancel()
         if let runningJobID { endSleepGuard(for: runningJobID, announce: false) }
         save()
+        // Uygulama kapanmadan son durum diske yazılmış olmalı.
+        flushSaves()
     }
 
     // MARK: - Uyku engeli ve güç önerileri
@@ -2565,6 +2574,12 @@ final class AppModel {
             if let operationTask { await operationTask.value; continue }
             break
         }
+        flushSaves()
+    }
+
+    /// Sıradaki kayıt diske yazılana kadar bekler (çıkış, testler).
+    func flushSaves() {
+        saveQueue.flush()
     }
 
     // MARK: - Doğrulama

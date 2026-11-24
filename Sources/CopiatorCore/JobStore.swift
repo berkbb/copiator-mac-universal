@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import Foundation
+import os
 
 /// İş kuyruğunu diske kaydeder ve geri okur (`~/Library/Application Support/Copiator/jobs.json`).
 ///
@@ -190,5 +191,36 @@ public enum JobQueue {
         let insertion = min(max(0, destination), jobs.count) - valid.filter { $0 < destination }.count
         for index in valid.sorted(by: >) { jobs.remove(at: index) }
         jobs.insert(contentsOf: moving, at: min(max(0, insertion), jobs.count))
+    }
+}
+
+/// İş kaydının sırası. Kayıt bütün işleri tek dosyaya yazar ve iş listesi uzadıkça uzun sürer; bu yüzden arka planda
+/// yazılır ve art arda gelen kayıtlardan yalnızca en yenisi diske gider. Bütün yazmalar tek sırada yapılır: eski bir
+/// kayıt yenisinin üzerine yazamaz. Son kaydın diske ulaştığından emin olmak isteyen (çıkış) `flush()` çağırır.
+public final class JobSaveQueue: Sendable {
+    private let write: @Sendable ([TransferJob]) throws -> Void
+    private let queue = DispatchQueue(label: "com.babadogantech.copiator.job-save", qos: .userInitiated)
+    /// En son istenen kaydın numarası; sıradaki daha eski ertelenmiş kayıtlar yazılmaz.
+    private let latest = OSAllocatedUnfairLock(initialState: 0)
+
+    public init(write: @escaping @Sendable ([TransferJob]) throws -> Void) {
+        self.write = write
+    }
+
+    /// Arka planda yazar; yazma başlamadan daha yeni bir kayıt istenirse bu kayıt atlanır.
+    public func saveSoon(_ jobs: [TransferJob], onFailure: @escaping @Sendable (Error) -> Void) {
+        let ticket = latest.withLock { value -> Int in
+            value += 1
+            return value
+        }
+        queue.async { [self] in
+            guard latest.withLock({ $0 }) == ticket else { return }
+            do { try write(jobs) } catch { onFailure(error) }
+        }
+    }
+
+    /// Sıradaki yazmalar bitene kadar bekler.
+    public func flush() {
+        queue.sync {}
     }
 }
