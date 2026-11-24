@@ -12,7 +12,7 @@
 | `N_APP_MODEL` | `AppModel` | `Sources/Copiator/AppModel.swift` | Queue owner, engine probe, updates, verify, persistence |
 | `N_SETTINGS` | `AppSettings` | `Sources/Copiator/AppSettings.swift` | Preferences, shortcuts, localization |
 | `N_QUEUE` | `JobQueue` | `Sources/CopiatorCore/JobStore.swift` | Pure transitions and ordering |
-| `N_STORE` | `JobStore` | `Sources/CopiatorCore/JobStore.swift` | `jobs.json` |
+| `N_STORE` | `JobStore`, `JobSaveQueue` | `Sources/CopiatorCore/JobStore.swift` | `jobs.json`; `N_APP_MODEL.save` hands the jobs to the queue, which writes in the background and keeps only the newest queued save; `flushSaves` waits before quit |
 | `N_ENGINE` | `RsyncEngine` | `Sources/CopiatorCore/RsyncEngine.swift` | Transfer and verify pipelines |
 | `N_CMD` | `RsyncCommand` | `Sources/CopiatorCore/RsyncCommand.swift` | Arguments |
 | `N_RUNNER` | `CommandRunner` | `Sources/CopiatorCore/CommandRunner.swift` | Process execution |
