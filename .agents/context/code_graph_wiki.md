@@ -2,19 +2,19 @@
 
 > **Memory Category:** TencentDB Code-Graph Memory Asset
 > **Scope:** Module boundaries, key types, call hierarchy, and cross-file modification impact map.
-> **Generated from:** `graphify-out/GRAPH_REPORT.md` and `graphify-out/graph.json` (graphifyy 0.9.101, local tree-sitter AST, `--code-only`, no LLM backend). Sections 3–4 are hand-maintained and checked against the graph.
-> **Built at commit:** `dc31f1c` (2026-11-24), refreshed with `graphify update .` and `cluster-only --no-label`; the git hooks rebuild the graph after each commit.
+> **Generated from:** `graphify-out/GRAPH_REPORT.md` and `graphify-out/graph.json` (graphifyy 0.9.101). Code comes from the local tree-sitter AST with no LLM backend; the Markdown files and the screenshot come from the full `/graphify .` build of 2026-11-24, which the user asked for and which reads them with the host assistant's model. Sections 3–4 are hand-maintained and checked against the graph.
+> **Built at commit:** `3e6842e` (2026-11-24, full build); `graphify update .` and the git hooks keep the code part current after each commit.
 > **Regenerate:** `GRAPHIFY_NO_TIPS=1 GRAPHIFY_QUERY_LOG_DISABLE=1 GRAPHIFY_BACKEND=off graphify extract . --code-only`, then `GRAPHIFY_BACKEND=off graphify cluster-only . --no-label`, then update sections 1–2 from the new report. `graphify-out/` is git-ignored.
 
 ---
 
 ## 1. Graph Summary
 
-- **Corpus:** 6,185 nodes, 16,508 edges, 208 Leiden communities (21 thin ones omitted from the report) after the 2026-11-24 refresh. By kind: 5,323 code nodes, plus 443 rationale, 338 concept, 73 document, 7 paper and 1 image node that an earlier full build of the Markdown files left in `graph.json`; `graphify update .` refreshes the code nodes only. New types since the 2026-11-07 refresh include `RoutineRouteSection`, `JobSaveQueue`, `JobCommandPreview`, `DiagnosticMasker.KnownPath`, `RoutineScan` and `SpotlightLookup`.
-- **Edge provenance:** 83% `EXTRACTED`, 17% `INFERRED` (2,817 edges, average confidence 0.86), 0% `AMBIGUOUS`.
-- **Edge relations:** `references` 5,610 · `calls` 4,764 · `method` 1,790 · `case_of` 1,765 · `contains` 849 · `implements` 657 · `imports` 532 · `conceptually_related_to` 299 · `semantically_similar_to` 74 · `rationale_for` 64 · `inherits` 34 · `defines` 27.
+- **Corpus:** 6,300 nodes, 16,922 edges, 202 Leiden communities (20 thin ones omitted from the report) after the full build of 2026-11-24: 191 code files, 62 Markdown files and one screenshot. By kind: 5,328 code nodes, 490 concept, 398 rationale, 69 document, 5 paper and 10 image nodes. Of the 862 document nodes of the previous build, 861 kept their ids (`claude_graph_json_rewrite_rule` went away with the rule in `CLAUDE.md`) and 111 are new; edges between documents and code went from 874 to 1,164.
+- **Edge provenance:** 84% `EXTRACTED`, 16% `INFERRED` (2,672 edges, average confidence 0.86), 0% `AMBIGUOUS`.
+- **Edge relations:** `references` 6,075 · `calls` 4,766 · `method` 1,793 · `case_of` 1,765 · `contains` 850 · `implements` 676 · `imports` 533 · `conceptually_related_to` 284 · `rationale_for` 62 · `semantically_similar_to` 43 · `inherits` 34 · `defines` 27 · `cites` 1; 20 hyperedges.
 - **Module dependencies:** `Copiator` → `CopiatorCore`; `CopiatorCoreTests` → `CopiatorCore`; `CopiatorAppTests` → `Copiator`, `CopiatorCore`. `CopiatorCore` imports no app target. Import cycles: none.
-- **Not indexed:** `Vendor/` (the bundled rsync), `.strings` tables, `Info.plist`, `.claude/` and build outputs (see `.graphifyignore`). Markdown files are not re-read by `graphify update .`; their nodes date from the earlier full build.
+- **Not indexed:** `Vendor/` (the bundled rsync), `.strings` tables, `Info.plist`, `.claude/` and build outputs (see `.graphifyignore`). `graphify update .` re-reads code only; a changed Markdown file keeps its old nodes until the next full `/graphify .` build (an incremental semantic `--update` is refused by the lost-node guard, see Episode 72).
 - **Known gaps:**
   - `AIEvaluationTests` defines its own `enum Task`, so some `INFERRED` edges link Swift concurrency `Task { … }` calls in app views to that test enum. Treat any `Task` edge that crosses into `AIEvaluationTests.swift` as a name collision.
   - The `LKey` cases (about 1,600 nodes) look isolated because the `.strings` tables are not indexed; use `LocalizationTests` and the three tables for key usage.
@@ -23,16 +23,16 @@
 
 | Rank | Node | Edges | Why it is a hub |
 | :--- | :--- | ---: | :--- |
-| 1 | `LKey` | 1,274 | Every user-facing string; a new case needs all three `.strings` tables |
-| 2 | `AppModel` | 355 | App state machine: queue, engine, decisions, routines, archive health, notifications, background saves |
-| 3 | `TransferJob` | 303 | The job model: source, destination, options, status, result, history, pending decisions |
-| 4 | `CopyOptions` | 194 | Every per-job option; tolerant decoding keeps old `jobs.json` files readable |
+| 1 | `LKey` | 1,273 | Every user-facing string; a new case needs all three `.strings` tables |
+| 2 | `AppModel` | 317 | App state machine: queue, engine, decisions, routines, archive health, notifications, background saves |
+| 3 | `TransferJob` | 297 | The job model: source, destination, options, status, result, history, pending decisions |
+| 4 | `CopyOptions` | 188 | Every per-job option; tolerant decoding keeps old `jobs.json` files readable |
 | 5 | `AppSettings` | 141 | `UserDefaults`-backed preferences and the localized text lookup (`t()`) |
-| 6 | `Fixture` | 134 | `CopiatorAppTests` helper: an `AppModel` with its own folder, `UserDefaults` suite and the real rsync |
-| 7 | `Workspace` | 122 | `CopiatorCoreTests` helper: a temporary folder with write, read and link helpers |
-| 8 | `CopiatorCore` | 118 | Module imported by the app and both test targets |
-| 9 | `Routine` | 109 | Copy and sync routines with their routes, rules and placement |
-| 10 | `RsyncEngine` | 96 | Preflight, snapshots, sandbox, run, verify and compare |
+| 6 | Reflexion Memory Log | 140 | 72 episodes, each linked to the code and tests it names |
+| 7 | `Fixture` | 133 | `CopiatorAppTests` helper: an `AppModel` with its own folder, `UserDefaults` suite and the real rsync |
+| 8 | `Workspace` | 122 | `CopiatorCoreTests` helper: a temporary folder with write, read and link helpers |
+| 9 | `CopiatorCore` | 118 | Module imported by the app and both test targets |
+| 10 | `Routine` | 107 | Copy and sync routines with their routes, rules and placement |
 
 Before changing a hub, run `graphify affected "<node>"` to see what depends on it.
 
