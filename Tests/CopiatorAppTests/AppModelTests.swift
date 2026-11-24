@@ -385,6 +385,22 @@ struct AppModelTests {
 @Suite(.serialized)
 @MainActor
 struct SettingsTests {
+    /// "Sistem" dilinin kodu saklanır ama seçim değişince yeniden çözülür; açık bir seçim her zaman kendi kodudur.
+    @Test func languageCodeFollowsTheChoice() throws {
+        let store = try TestDefaults("CopiatorSettings")
+        defer { store.remove() }
+        let settings = AppSettings(defaults: store.defaults, bundle: .main)
+        let system = AppLanguage.system.resolvedCode()
+        settings.language = .system
+        #expect(settings.languageCode == system && settings.languageCode == system)
+        for language in [AppLanguage.ro, .en, .tr] {
+            settings.language = language
+            #expect(settings.languageCode == language.rawValue)
+            settings.language = .system
+            #expect(settings.languageCode == system)
+        }
+    }
+
     @Test func defaultsAreSafe() throws {
         let store = try TestDefaults("CopiatorSettings")
         defer { store.remove() }

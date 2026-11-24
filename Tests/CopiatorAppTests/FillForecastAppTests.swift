@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import Foundation
+import os
 import Testing
 @testable import Copiator
 @testable import CopiatorCore
@@ -14,10 +15,11 @@ struct FillForecastAppTests {
         defer { fixture.cleanUp() }
         let model = fixture.model
         let gb: Int64 = 1 << 30
-        var day = 0
+        // Boş alan ana iş parçacığı dışında sorulur: gün sayacı kilitli bir kutuda durur.
+        let day = OSAllocatedUnfairLock(initialState: 0)
         let start = Date(timeIntervalSince1970: 1_800_000_000)
-        model.clock = { start.addingTimeInterval(Double(day) * 86_400) }
-        model.freeSpace = { _ in (100 - Int64(day) * 10) * gb }
+        model.clock = { start.addingTimeInterval(Double(day.withLock { $0 }) * 86_400) }
+        model.freeSpace = { _ in (100 - Int64(day.withLock { $0 }) * 10) * gb }
         let title = fixture.settings.t(.notifyFillTitle)
         func warnings() -> Int { fixture.notifications.filter { $0.0 == title }.count }
         await model.refreshEngine()
@@ -26,7 +28,7 @@ struct FillForecastAppTests {
         let id = try #require(model.jobs.last?.id)
         await model.waitUntilIdle()
         for _ in 1...4 {
-            day += 1
+            day.withLock { $0 += 1 }
             model.resume([id])
             await model.waitUntilIdle()
         }
@@ -39,7 +41,7 @@ struct FillForecastAppTests {
         let body = try #require(fixture.notifications.first { $0.0 == title }?.1)
         #expect(body.contains(fixture.settings.fillRange(lower: 5, upper: 9)), "\(body)")
         // Bir hafta sonra yeniden uyarılır.
-        day = 12
+        day.withLock { $0 = 12 }
         model.freeSpace = { _ in 10 * gb }
         model.resume([id])
         await model.waitUntilIdle()
