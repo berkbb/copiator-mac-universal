@@ -94,7 +94,7 @@ Before changing a hub, run `graphify affected "<node>"` to see what depends on i
 | File | Primary Symbols |
 | :--- | :--- |
 | `CopiatorApp.swift` | `CopiatorApp`, `AppDelegate`, `AppCommands` |
-| `AppModel.swift` | `AppModel`, `SidebarItem` (`home`, filter, routine), `EngineStatus`, `UpdateState`, `AppUpdateState`, `OperationState`, `JobFilter`, `NewJobRequest`, `VerifyPresentation`, `AppLinks`, `AppInfo`, `WindowID`, `SnapshotBrowserRequest`, `IntegrityRequest`, `IntegrityProgress`, `IntegrityOutcome`, `CancelFlag`, `DuplicatesRequest`, `RoutineImportRequest`, `handleNotice`, `backUpNow`, `repairCorrupted`, `ejectIdleDisks`, `save` / `flushSaves` (background writes), `hasRemovableJobs` |
+| `AppModel.swift` | `AppModel`, `SidebarItem` (`home`, filter, routine), `EngineStatus`, `UpdateState`, `AppUpdateState`, `OperationState`, `JobFilter`, `NewJobRequest`, `VerifyPresentation`, `AppLinks`, `AppInfo`, `WindowID`, `SnapshotBrowserRequest`, `IntegrityRequest`, `IntegrityProgress`, `IntegrityOutcome`, `CancelFlag`, `DuplicatesRequest`, `RoutineImportRequest`, `handleNotice`, `backUpNow`, `repairCorrupted`, `ejectIdleDisks`, `save` / `flushSaves` (background writes), `hasRemovableJobs`, `freeSpaceOffMain` |
 | `Diagnostics.swift` | `DiagnosticPresentation`, `AppModel.diagnosticReport` (known paths and the date formatter prepared once), `DiagnosticSheet` | Masked plain-text report, previewed and saved only where the user chooses |
 | `AppSettings.swift` | `AppSettings`, `AppAppearance`, `KeyboardShortcutData`, `ShortcutAction` |
 | `FinderServices.swift` | `FinderServices.backUp` |
